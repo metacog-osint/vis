@@ -1,0 +1,69 @@
+{
+  "program": "vis",
+  "indicator_rule": "Indicators meet Gentry's test. Probabilities come directly from the 82-member multi-model ensemble (31 NOAA GEFS + 51 ECMWF IFS 0.25 deg) and map to ICD 203 likelihood terms via tic-doctrine. Transient hourly hazards require at least 3 hours in a UTC day (2 hours for freezing rain) so a brief shower does not colour a 24-hour operational window.",
+  "emerging_concerns": "Additional operational stations (alternates in config/points.json) can be promoted to primary zone points if operations shift.",
+  "indicators": [
+    {
+      "id": "VS-IND-1",
+      "text": "Operational weather hazard reaches Amber on the likelihood-by-impact matrix within 72 hours",
+      "series": "zones[].days[0..2].colour == 'amber'",
+      "rule": "Ensemble probability >= 0.45 for a moderate-impact threshold or >= 0.20 for a severe-impact threshold on at least one UTC day in the next 72 hours",
+      "baseline": "fixed operational thresholds per hazard",
+      "gentry": {"predictive": true, "diagnostic": true, "unambiguous": true, "collectable": true}
+    },
+    {
+      "id": "VS-IND-2",
+      "text": "Operational weather hazard reaches Red on the likelihood-by-impact matrix within 72 hours",
+      "series": "zones[].days[0..2].colour == 'red'",
+      "rule": "Ensemble probability >= 0.45 for a severe-impact threshold on at least one UTC day in the next 72 hours",
+      "baseline": "fixed operational thresholds per hazard",
+      "gentry": {"predictive": true, "diagnostic": true, "unambiguous": true, "collectable": true}
+    },
+    {
+      "id": "VS-IND-3",
+      "text": "Extended low-light night window (>= 6 hours of nautical darkness with moon down or under 25% lit)",
+      "series": "zones[].days[].night.dark_low_light_min >= 360",
+      "rule": "dark_low_light_min >= 360 minutes between local solar noon and next solar noon",
+      "baseline": "astronomical computation (Meeus)",
+      "gentry": {"predictive": true, "diagnostic": false, "unambiguous": true, "collectable": true}
+    },
+    {
+      "id": "VS-IND-4",
+      "text": "One of the two ensemble models is missing or failed to return members",
+      "series": "models[].name and member counts",
+      "rule": "fewer than 2 independent ensemble models returned hourly members for the station",
+      "baseline": "2 models (NOAA GEFS 31 + ECMWF IFS 51 = 82 members)",
+      "gentry": {"predictive": false, "diagnostic": true, "unambiguous": true, "collectable": true}
+    }
+  ],
+  "warning_problems": [
+    {
+      "id": "VS-WP-1",
+      "title": "Operational weather degradation in a watched conflict zone",
+      "frozen": "2026-11-01",
+      "watch_condition": {"current": "set per zone from 72-hour stoplight", "levels": ["green", "yellow", "amber", "red"]},
+      "issue_on_change": "Issue a warning item on the contract v2 feed when a zone's 72-hour stoplight reaches Amber or Red.",
+      "deactivation": "Returns to routine when all 3 upcoming UTC days fall to Yellow or Green.",
+      "hypotheses": [
+        {
+          "id": "VS-WP-1-H1",
+          "statement": "Sustained weather conditions will degrade aviation, UAS/ISR, maritime or ground mobility in the zone",
+          "emerging": ["VS-IND-1", "VS-IND-2"],
+          "not_emerging": ["VS-IND-4"]
+        },
+        {
+          "id": "VS-WP-1-H2",
+          "statement": "Weather remains within normal operating limits or passes in brief (< 3 h) local showers",
+          "emerging": [],
+          "not_emerging": ["VS-IND-1", "VS-IND-2"]
+        },
+        {
+          "id": "VS-WP-1-H3",
+          "statement": "Model outage or single-model bias (one ensemble system missing)",
+          "emerging": ["VS-IND-4"],
+          "not_emerging": []
+        }
+      ]
+    }
+  ]
+}
