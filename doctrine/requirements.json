@@ -1,0 +1,29 @@
+{
+  "program": "vis",
+  "review_by": "2027-04-30",
+  "requirements": [
+    {
+      "id": "VS-S-1",
+      "type": "standing",
+      "question": "Where will weather or night illumination constrain air, ISR, maritime or ground operations across the watched conflict zones over the next 7 days?"
+    },
+    {
+      "id": "VS-PIR-1",
+      "type": "pir",
+      "question": "Which conflict zones face a Likely (>= 55%) or higher chance of an amber or red operational weather hazard within 72 hours?",
+      "series": ["site/data/forecast.json zones[].days", "site/data/feed.geojson"]
+    },
+    {
+      "id": "VS-PIR-2",
+      "type": "pir",
+      "question": "How many hours of true low-light darkness (sun below -12 deg and moon down or under 25% lit) does each conflict zone have tonight and over the next 7 nights?",
+      "series": ["site/data/forecast.json zones[].days[].night"]
+    },
+    {
+      "id": "VS-EEI-1",
+      "type": "eei",
+      "question": "Which specific meteorological hazard (wind, low ceiling, visibility, rain, snow, icing, extreme heat or cold) and ICAO reference airfield drives each zone's stoplight?",
+      "series": ["site/data/forecast.json zones[].days[].hazards"]
+    }
+  ]
+}

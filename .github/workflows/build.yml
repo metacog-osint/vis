@@ -1,0 +1,46 @@
+name: build
+# Twice a day after the 00Z and 12Z ensembles reach Open-Meteo, and on every push to main: tests, the forecast, the
+# feed and site, a kit lint of the feed, then a deploy of site/ to Cloudflare Pages (project vis). Needs repo secrets
+# CLOUDFLARE_PAGES_TOKEN and CLOUDFLARE_ACCOUNT_ID; without them everything runs except the deploy.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 8,20 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: build
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - name: Tests
+        run: python tests/test_vis.py
+      - name: Kit copy is intact
+        run: python doctrine/kit/tic.py kitcheck
+      - name: Forecast (Open-Meteo ensembles)
+        run: python tools/forecast.py --days 7
+      - name: Feed and site
+        run: python tools/build_site.py
+      - name: Lint the feed
+        run: python doctrine/kit/tic.py lint site/data/feed.geojson
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Deploy site/ to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Cloudflare secrets not set; skipping deploy"; exit 0
+          fi
+          npx --yes wrangler@4.151.3 pages deploy site --project-name vis --branch main \
+            --commit-hash "$GITHUB_SHA" --commit-message "build $GITHUB_SHA" --commit-dirty=true

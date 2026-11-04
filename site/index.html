@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vis: operational weather and illumination · The Intelligence Company</title>
+  <meta name="description" content="7-day multi-model ensemble weather hazard likelihood and night illumination for each conflict zone.">
+  <link rel="canonical" href="https://vis.theintelligence.company/">
+  <link rel="preload" href="fonts/ibm-plex-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="tic-nav.css">
+  <link rel="stylesheet" href="tic-time.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-head">
+    <div class="wrap head-inner">
+      <div>
+        <p class="eyebrow">The Intelligence Company · Physical Environment</p>
+        <h1>Vis <span class="sub">Operational weather &amp; illumination</span></h1>
+        <p class="lede">Seven-day ensemble hazard likelihood (82 members: NOAA GEFS 31 + ECMWF IFS 51) and computed night illumination at each conflict zone’s reference airfield or port.</p>
+      </div>
+      <div class="meta-box">
+        <div id="vis-stamp" class="stamp">Loading forecast…</div>
+        <div><span id="time-settings"></span></div>
+        <div class="links">
+          <a href="data/feed.geojson">Contract v2 feed (GeoJSON)</a> ·
+          <a href="data/forecast.json">Raw ensemble JSON</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="legend-bar" aria-label="Stoplight matrix and tradecraft key">
+      <div class="matrix-pills">
+        <span class="pill col-green"><b>Green</b> · No significant impact</span>
+        <span class="pill col-yellow"><b>Yellow</b> · Be aware</span>
+        <span class="pill col-amber"><b>Amber</b> · Be prepared</span>
+        <span class="pill col-red"><b>Red</b> · Take action</span>
+      </div>
+      <div class="chips-note">
+        <span class="chip chip-conf" title="Two independent NWP centres (NOAA GEFS + ECMWF IFS) agree; capped at Moderate until Verdict scores 90 days of resolutions.">Confidence: Moderate (Rule-based, not statistical)</span>
+      </div>
+    </section>
+
+    <section class="table-wrap" aria-label="Seven-day operational weather and illumination by zone">
+      <table id="vis-table" class="vis-table">
+        <thead id="vis-thead"></thead>
+        <tbody id="vis-tbody"></tbody>
+      </table>
+    </section>
+
+    <section class="method-grid" aria-label="Operational thresholds and method">
+      <div class="card">
+        <h2>Operational hazard thresholds</h2>
+        <p class="small">Each day column is a UTC day. Times show in your own time zone (the Time button changes it).</p>
+        <p class="small">Transient hourly hazards require at least 3 hours in a UTC day (2 hours for freezing rain) so a brief shower does not colour a 24-hour operational window.</p>
+        <ul id="vis-thresholds" class="thresh-list"></ul>
+      </div>
+      <div class="card">
+        <h2>How to read this table</h2>
+        <ul class="thresh-list">
+          <li><b>Reference stations:</b> Each conflict zone is anchored at a named ICAO airfield or port so forecasts reflect an operational hub and resolve objectively against archived METAR / SYNOP observations in <b>Verdict</b>.</li>
+          <li><b>Likelihood &amp; impact matrix:</b> Percentages are the share of 82 ensemble members reaching the threshold, paired with their ICD 203 verbal probability term. Stoplight colours follow the UK Met Office likelihood-by-impact matrix.</li>
+          <li><b>Tonight’s illumination:</b> Civil and nautical twilight, lunar disc illumination at local midnight, and hours of low-light darkness (sun below −12° with the moon down or under 25% lit).</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap site-foot">
+    <p>Vis · <a href="https://theintelligence.company">The Intelligence Company</a>. Ensemble weather data from <a href="https://open-meteo.com/en/docs/ensemble-api" rel="noopener">Open-Meteo</a> (CC BY 4.0; NOAA NCEP GEFS &amp; ECMWF IFS open data). Ephemeris computed by Meeus low-precision formulas.</p>
+  </footer>
+
+  <script src="tic-time.js"></script>
+  <script src="tic-nav.js" data-current="vis" defer></script>
+  <script type="module" src="vis.js"></script>
+</body>
+</html>

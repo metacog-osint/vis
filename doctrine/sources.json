@@ -1,0 +1,38 @@
+{
+  "program": "vis",
+  "sources": [
+    {
+      "id": "open-meteo-gefs",
+      "name": "Open-Meteo Ensemble API — NOAA GEFS 0.25 deg (31 members)",
+      "publisher": "Open-Meteo / NOAA NCEP",
+      "url": "https://open-meteo.com/en/docs/ensemble-api",
+      "licence": "CC BY 4.0 (Open-Meteo); NOAA NCEP GEFS public domain",
+      "use": "ingest",
+      "grade": "A2",
+      "independence_group": "noaa-ncep",
+      "descriptor": "31-member global ensemble forecast (ncep_gefs025) at 0.25 deg, hourly out to 7 days."
+    },
+    {
+      "id": "open-meteo-ecmwf",
+      "name": "Open-Meteo Ensemble API — ECMWF IFS 0.25 deg (51 members)",
+      "publisher": "Open-Meteo / ECMWF",
+      "url": "https://open-meteo.com/en/docs/ensemble-api",
+      "licence": "CC BY 4.0 (Open-Meteo and ECMWF open data)",
+      "use": "ingest",
+      "grade": "A2",
+      "independence_group": "ecmwf",
+      "descriptor": "51-member global ensemble forecast (ecmwf_ifs025) at 0.25 deg, hourly out to 7 days."
+    },
+    {
+      "id": "astro-meeus",
+      "name": "Computed sun and moon ephemeris (Meeus / Astronomical Almanac low-precision terms)",
+      "publisher": "Vis, The Intelligence Company",
+      "url": "https://vis.theintelligence.company",
+      "licence": "MIT",
+      "use": "ingest",
+      "grade": "A1",
+      "independence_group": "ephemeris",
+      "descriptor": "Deterministic solar twilight, moonrise/moonset, lunar disc illumination and low-light dark minutes."
+    }
+  ]
+}

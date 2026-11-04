@@ -1,0 +1,23 @@
+{
+  "program": "vis",
+  "assumptions": [
+    {
+      "id": "VS-ASM-1",
+      "statement": "A named operational airfield or port (ICAO station) in each conflict zone represents the weather regime facing operations in that theatre better than a geographic polygon centroid.",
+      "status": "holds",
+      "test": "Compare primary ICAO station stoplights against alternate theatre stations in config/points.json; split a zone if coastal and inland hubs diverge systematically."
+    },
+    {
+      "id": "VS-ASM-2",
+      "statement": "Raw multi-model ensemble member fractions across 82 members (31 NOAA GEFS + 51 ECMWF IFS) provide usable probability estimates for ICD 203 bands prior to post-processing calibration.",
+      "status": "untested",
+      "test": "Resolve 90 days of Vis forecasts in Verdict against ICAO METAR/SYNOP observations and check Murphy reliability per probability bin."
+    },
+    {
+      "id": "VS-ASM-3",
+      "statement": "Requiring at least 3 hours in a UTC day for wind, ceiling, visibility, heat and cold (and 2 hours for freezing rain) filters out brief convective gusts that do not close an operational window.",
+      "status": "holds",
+      "test": "Check false-alarm rate of 1-hour vs 3-hour duration rules against aviation METAR flight-category reductions."
+    }
+  ]
+}

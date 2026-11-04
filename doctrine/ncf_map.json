@@ -1,0 +1,37 @@
+{
+  "program": "vis",
+  "rules": [
+    {
+      "match": {"hazard": "wind"},
+      "ncf": ["transport_by_air", "transport_by_vessel"]
+    },
+    {
+      "match": {"hazard": "ceiling"},
+      "ncf": ["transport_by_air"]
+    },
+    {
+      "match": {"hazard": "vis"},
+      "ncf": ["transport_by_air", "transport_by_vessel"]
+    },
+    {
+      "match": {"hazard": "icing"},
+      "ncf": ["transport_by_air"]
+    },
+    {
+      "match": {"hazard": "rain"},
+      "ncf": ["transport_by_road", "maintain_supply_chains"]
+    },
+    {
+      "match": {"hazard": "dust"},
+      "ncf": ["transport_by_air", "transport_by_road"]
+    },
+    {
+      "match": {"hazard": "heat"},
+      "ncf": ["distribute_electricity"]
+    },
+    {
+      "match": {"hazard": "cold"},
+      "ncf": ["distribute_electricity", "transport_by_road"]
+    }
+  ]
+}

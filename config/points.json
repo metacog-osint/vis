@@ -1,0 +1,212 @@
+{
+  "version": "1.0",
+  "note": "Operational weather reference points for each Watchfloor conflict zone: named ICAO airfields and ports so every 7-day forecast has a concrete ground/air/maritime hub and can be resolved against ICAO METAR / SYNOP observations.",
+  "zones": [
+    {
+      "id": "01_Ukraine_Conflict",
+      "name": "Ukraine Conflict",
+      "warning_problem_id": "WF-WP-Z01",
+      "countries": ["UA"],
+      "station": "Kyiv Boryspil",
+      "icao": "UKBB",
+      "lat": 50.345,
+      "lon": 30.895,
+      "alternates": [
+        {"station": "Odesa", "icao": "UKOO", "lat": 46.427, "lon": 30.676, "country": "UA"}
+      ]
+    },
+    {
+      "id": "07_Russia_NATO",
+      "name": "Russia-NATO Border",
+      "warning_problem_id": "WF-WP-Z07",
+      "countries": ["RU", "PL", "LT", "LV", "EE", "FI", "SE", "NO"],
+      "station": "Kaliningrad Khrabrovo",
+      "icao": "UMKK",
+      "lat": 54.890,
+      "lon": 20.593,
+      "alternates": [
+        {"station": "Vilnius", "icao": "EYVI", "lat": 54.634, "lon": 25.286, "country": "LT"}
+      ]
+    },
+    {
+      "id": "02_Taiwan_Strait",
+      "name": "Taiwan Strait",
+      "warning_problem_id": "WF-WP-Z02",
+      "countries": ["TW"],
+      "station": "Taipei Taoyuan",
+      "icao": "RCTP",
+      "lat": 25.078,
+      "lon": 121.233,
+      "alternates": [
+        {"station": "Kaohsiung", "icao": "RCKH", "lat": 22.577, "lon": 120.350, "country": "TW"}
+      ]
+    },
+    {
+      "id": "08_South_China_Sea",
+      "name": "South China Sea",
+      "warning_problem_id": "WF-WP-Z08",
+      "countries": ["PH", "VN"],
+      "station": "Puerto Princesa (Palawan)",
+      "icao": "RPVP",
+      "lat": 9.742,
+      "lon": 118.759,
+      "alternates": [
+        {"station": "Subic Bay", "icao": "RPLB", "lat": 14.794, "lon": 120.271, "country": "PH"}
+      ]
+    },
+    {
+      "id": "03_Korea_Peninsula",
+      "name": "Korea Peninsula",
+      "warning_problem_id": "WF-WP-Z03",
+      "countries": ["KR", "KP"],
+      "station": "Seoul Incheon",
+      "icao": "RKSI",
+      "lat": 37.460,
+      "lon": 126.441,
+      "alternates": [
+        {"station": "Pyongyang Sunan", "icao": "ZKPY", "lat": 39.224, "lon": 125.670, "country": "KP"}
+      ]
+    },
+    {
+      "id": "10_Israel_Gaza_Lebanon",
+      "name": "Israel, Gaza & Lebanon",
+      "warning_problem_id": "WF-WP-Z10",
+      "countries": ["IL", "PS", "LB"],
+      "station": "Tel Aviv Ben Gurion",
+      "icao": "LLBG",
+      "lat": 32.011,
+      "lon": 34.887,
+      "alternates": [
+        {"station": "Beirut Rafic Hariri", "icao": "OLBA", "lat": 33.821, "lon": 35.488, "country": "LB"}
+      ]
+    },
+    {
+      "id": "11_Iran_Red_Sea",
+      "name": "Iran & Red Sea",
+      "warning_problem_id": "WF-WP-Z11",
+      "countries": ["IR", "YE"],
+      "station": "Bandar Abbas (Strait of Hormuz)",
+      "icao": "OIKB",
+      "lat": 27.218,
+      "lon": 56.378,
+      "alternates": [
+        {"station": "Hodeidah (Red Sea)", "icao": "OYHD", "lat": 14.753, "lon": 42.976, "country": "YE"}
+      ]
+    },
+    {
+      "id": "06_India_Pakistan",
+      "name": "India-Pakistan",
+      "warning_problem_id": "WF-WP-Z06",
+      "countries": ["IN", "PK"],
+      "station": "Srinagar",
+      "icao": "VISR",
+      "lat": 33.987,
+      "lon": 74.774,
+      "alternates": [
+        {"station": "Islamabad", "icao": "OPIS", "lat": 33.549, "lon": 72.826, "country": "PK"}
+      ]
+    },
+    {
+      "id": "13_Sudan",
+      "name": "Sudan",
+      "warning_problem_id": "WF-WP-Z13",
+      "countries": ["SD"],
+      "station": "Port Sudan",
+      "icao": "HSPN",
+      "lat": 19.434,
+      "lon": 37.234,
+      "alternates": [
+        {"station": "Khartoum", "icao": "HSSS", "lat": 15.590, "lon": 32.553, "country": "SD"}
+      ]
+    },
+    {
+      "id": "18_Ethiopia_Eritrea",
+      "name": "Ethiopia & Eritrea",
+      "warning_problem_id": "WF-WP-Z18",
+      "countries": ["ET", "ER"],
+      "station": "Addis Ababa Bole",
+      "icao": "HAAB",
+      "lat": 8.978,
+      "lon": 38.799,
+      "alternates": [
+        {"station": "Asmara", "icao": "HHAS", "lat": 15.292, "lon": 38.911, "country": "ER"}
+      ]
+    },
+    {
+      "id": "19_Somalia",
+      "name": "Somalia",
+      "warning_problem_id": "WF-WP-Z19",
+      "countries": ["SO", "DJ"],
+      "station": "Mogadishu Aden Adde",
+      "icao": "HCMM",
+      "lat": 2.014,
+      "lon": 45.305,
+      "alternates": [
+        {"station": "Djibouti Ambouli", "icao": "HDAM", "lat": 11.547, "lon": 43.159, "country": "DJ"}
+      ]
+    },
+    {
+      "id": "12_Sahel_West_Africa",
+      "name": "Sahel & West Africa",
+      "warning_problem_id": "WF-WP-Z12",
+      "countries": ["ML", "BF", "NE"],
+      "station": "Niamey Diori Hamani",
+      "icao": "DRRN",
+      "lat": 13.482,
+      "lon": 2.184,
+      "alternates": [
+        {"station": "Bamako Modibo Keita", "icao": "GABS", "lat": 12.534, "lon": -7.950, "country": "ML"}
+      ]
+    },
+    {
+      "id": "14_DRC_Rwanda",
+      "name": "DRC-Rwanda (M23)",
+      "warning_problem_id": "WF-WP-Z14",
+      "countries": ["CD", "RW"],
+      "station": "Goma",
+      "icao": "FZNA",
+      "lat": -1.671,
+      "lon": 29.238,
+      "alternates": [
+        {"station": "Kigali", "icao": "HRYR", "lat": -1.969, "lon": 30.139, "country": "RW"}
+      ]
+    },
+    {
+      "id": "16_Myanmar",
+      "name": "Myanmar",
+      "warning_problem_id": "WF-WP-Z16",
+      "countries": ["MM"],
+      "station": "Yangon",
+      "icao": "VYYY",
+      "lat": 16.907,
+      "lon": 96.133,
+      "alternates": [
+        {"station": "Mandalay", "icao": "VYMD", "lat": 21.702, "lon": 95.978, "country": "MM"}
+      ]
+    },
+    {
+      "id": "05_Venezuela",
+      "name": "Venezuela",
+      "warning_problem_id": "WF-WP-Z05",
+      "countries": ["VE"],
+      "station": "Caracas Maiquetía",
+      "icao": "SVMI",
+      "lat": 10.601,
+      "lon": -66.991,
+      "alternates": [
+        {"station": "Maracaibo", "icao": "SVMC", "lat": 10.558, "lon": -71.728, "country": "VE"}
+      ]
+    },
+    {
+      "id": "15_Cuba",
+      "name": "Cuba",
+      "warning_problem_id": "WF-WP-Z15",
+      "countries": ["CU"],
+      "station": "Havana José Martí",
+      "icao": "MUHA",
+      "lat": 22.989,
+      "lon": -82.409,
+      "alternates": []
+    }
+  ]
+}
