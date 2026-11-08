@@ -87,6 +87,80 @@ class VisTests(unittest.TestCase):
         self.assertIn("index.html", files)
         self.assertIn("Vis", files["index.html"])
 
+    def test_low_cloud_cover_shows_at_most_yellow(self):
+        m = _synthetic_model(hours=24, members=4, cloud=100.0)
+        d = forecast.score_zone_days([m, m], days=1)[0]
+        self.assertEqual(d["hazards"]["lowcloud"]["p_red"], 1.0)
+        self.assertEqual(d["hazards"]["lowcloud"]["colour"], "yellow")
+        self.assertEqual(d["colour"], "yellow")
+        # Another hazard can still make the day Red
+        m["hourly"] = {k: ([95.0] * 24 if k.startswith("wind_gusts_10m") else v) for k, v in m["hourly"].items()}
+        self.assertEqual(forecast.score_zone_days([m, m], days=1)[0]["colour"], "red")
+
+    def test_alternates_are_forecast_as_their_own_rows(self):
+        zones = forecast.load_zones()
+        rows = forecast.expand_points(zones)
+        self.assertEqual(len(rows), len(zones) + sum(len(z.get("alternates", [])) for z in zones))
+        self.assertEqual(len(rows), 31)
+        self.assertEqual(len({r["id"] for r in rows}), len(rows))
+        zone_ids = {z["id"] for z in zones}
+        for r in rows:
+            self.assertIn(r["zone_id"], zone_ids)
+            self.assertIn(r["role"], ("reference", "alternate"))
+            self.assertRegex(r["icao"], r"^[A-Z]{4}$")
+            self.assertTrue(r["countries"] and all(len(c) == 2 for c in r["countries"]))
+            self.assertNotIn("alternates", r)
+        odesa = next(r for r in rows if r["icao"] == "UKOO")
+        self.assertEqual((odesa["id"], odesa["role"], odesa["countries"]), ("01_Ukraine_Conflict-UKOO", "alternate", ["UA"]))
+
+    def test_feed_counts_zones_not_points(self):
+        rows = forecast.expand_points(forecast.load_zones()[:1])  # Kyiv Boryspil and Odesa
+        m_amber = _synthetic_model(hours=72, members=4, gust=70.0)
+        by_model = {"ncep_gefs025": [m_amber, m_amber], "ecmwf_ifs025": [m_amber, m_amber]}
+        doc = forecast.build_forecast_doc(rows, by_model, days=3, generated_at="2026-11-08T18:00:00Z")
+        fc = feed_v2.build_feed(doc)
+        self.assertEqual(fc["dropped"], [])
+        head = fc["features"][0]["properties"]
+        self.assertIn("1 of 1 conflict zones", head["title"])
+        self.assertIn("2 forecast points", head["title"])
+        ids = [f["properties"]["id"] for f in fc["features"]]
+        self.assertEqual(len(set(ids)), len(ids))
+        alt = fc["features"][2]["properties"]
+        self.assertIn("alternate point", alt["title"])
+        self.assertEqual(alt["measures"]["watchfloor_zone"], "01_Ukraine_Conflict")
+        self.assertIn("AGPL-3.0", fc["licence"])
+
+    def test_low_cloud_resolution_rule_uses_metar_cloud_layers(self):
+        h = next(h for h in forecast.HAZARDS if h["id"] == "lowcloud")
+        self.assertIn("BKN or OVC", feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", h, "amber", "2026-11-09"))
+        self.assertIn("(OVC)", feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", h, "red", "2026-11-09"))
+
+    def test_fetch_waits_and_retries_when_open_meteo_refuses(self):
+        import io
+        import urllib.error
+        calls, waits = [], []
+
+        def fake_urlopen(req, timeout=60):
+            calls.append(req.full_url)
+            if len(calls) == 1:
+                raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", {}, io.BytesIO(b"{}"))
+            return io.BytesIO(b'[{"hourly": {"time": []}}]')
+
+        real = forecast.urllib.request.urlopen
+        forecast.urllib.request.urlopen = fake_urlopen
+        try:
+            out = forecast.fetch_model([{"lat": 1.0, "lon": 2.0}], "ecmwf_ifs025", 7, wait=waits.append)
+        finally:
+            forecast.urllib.request.urlopen = real
+        self.assertEqual((len(calls), waits, out), (2, [65], [{"hourly": {"time": []}}]))
+
+    def test_page_carries_the_house_layer(self):
+        html = build_site.INDEX_HTML
+        for needle in ('id="about"', 'id="sources"', "https://github.com/metacog-osint/vis", "GNU AGPL-3.0",
+                       "Not an official forecast", 'id="vis-stale"', 'id="vis-asof"', 'data-current="vis"'):
+            self.assertIn(needle, html)
+        self.assertNotIn("in <b>Verdict</b>", html)  # scoring against METARs is not built yet
+
     def test_astro_night_returns_twilight_and_dark_minutes(self):
         n = astro.night(50.345, 30.895, datetime(2026, 11, 1, tzinfo=timezone.utc))
         self.assertIn("civil_dusk", n)

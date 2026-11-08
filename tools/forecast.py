@@ -11,6 +11,8 @@ import argparse
 import json
 import os
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -34,9 +36,12 @@ HAZARDS = [
     {"id": "wind", "name": "Strong wind", "var": "wind_gusts_10m", "agg": "max", "dir": "above", "min_hours": 3,
      "amber": 65.0, "red": 90.0, "unit": "km/h",
      "why": "10 m gusts sustained >= 3 h; small UAS and rotary-wing limits ~65 km/h, severe air/port disruption >= 90 km/h"},
-    {"id": "ceiling", "name": "Low cloud ceiling", "var": "cloud_cover_low", "agg": "max", "dir": "above", "min_hours": 3,
-     "amber": 80.0, "red": 95.0, "unit": "%",
-     "why": "Low cloud cover (0-3 km) >= 3 h; degrades optical ISR, laser designation and VFR air operations"},
+    # Cover, not ceiling height: neither ensemble on Open-Meteo carries cloud base (checked 8 Nov 2026), so low cloud
+    # can only raise awareness (Tom, 8 Nov 2026: "Cover, max Yellow").
+    {"id": "lowcloud", "name": "Low cloud cover", "var": "cloud_cover_low", "agg": "max", "dir": "above", "min_hours": 3,
+     "amber": 80.0, "red": 95.0, "unit": "%", "max_colour": "yellow",
+     "why": "Cloud cover in the lowest 3 km for >= 3 h (ECMWF members only); it degrades optical ISR, laser designation "
+            "and VFR flying, but it is cover, not ceiling height, so it shows at most Yellow"},
     {"id": "vis", "name": "Poor visibility", "var": "visibility", "agg": "min", "dir": "below", "min_hours": 3,
      "amber": 3000.0, "red": 1000.0, "unit": "m",
      "why": "Surface visibility < 3 km (amber) or < 1 km (red) for >= 3 h (fog, mist, dust, smoke); GEFS members"},
@@ -72,16 +77,42 @@ def matrix_colour(p_amber, p_red):
     return "green"
 
 
-def fetch_model(zones, model, days):
+def fetch_model(zones, model, days, wait=time.sleep):
+    """One call for all points. Open-Meteo weights ensemble calls heavily (one 16-point run used most of the free
+    600-a-minute allowance on 8 Nov 2026), so a refused call (HTTP 429) waits a minute and tries again, twice."""
     q = urllib.parse.urlencode({
         "latitude": ",".join(f"{z['lat']:.4f}" for z in zones),
         "longitude": ",".join(f"{z['lon']:.4f}" for z in zones),
         "hourly": VARS, "models": model, "forecast_days": days, "timezone": "UTC",
     })
     req = urllib.request.Request(f"{ENSEMBLE_URL}?{q}", headers={"User-Agent": "Vis/1.0 (+https://vis.theintelligence.company)"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        data = json.loads(r.read().decode("utf-8"))
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or attempt == 2:
+                raise
+            print(f"  {model}: Open-Meteo refused the call (429); waiting 65 s", flush=True)
+            wait(65)
     return data if isinstance(data, list) else [data]
+
+
+def expand_points(zones):
+    """One row per forecast point: each zone's reference point, then its alternates (Tom, 8 Nov 2026: forecast the
+    alternates too). A reference row keeps the zone's id; an alternate's id is <zone id>-<ICAO>."""
+    rows = []
+    for z in zones:
+        rows.append({**{k: v for k, v in z.items() if k != "alternates"}, "zone_id": z["id"], "role": "reference"})
+        for a in z.get("alternates", []):
+            rows.append({
+                "id": f"{z['id']}-{a['icao']}", "zone_id": z["id"], "role": "alternate", "name": z["name"],
+                "warning_problem_id": z.get("warning_problem_id"), "station": a["station"], "icao": a["icao"],
+                "lat": a["lat"], "lon": a["lon"],
+                "countries": [a["country"]] if a.get("country") else list(z.get("countries", [])),
+            })
+    return rows
 
 
 def member_series(hourly, var):
@@ -159,6 +190,9 @@ def score_zone_days(zone_models, days):
                 continue
             pa, pr = amber_hits / total, red_hits / total
             col = matrix_colour(pa, pr)
+            cap = h.get("max_colour")
+            if cap and COLOUR_RANK[col] > COLOUR_RANK[cap]:
+                col = cap
             if COLOUR_RANK[col] > COLOUR_RANK[worst]:
                 worst = col
             stat_vals.sort()
@@ -198,13 +232,13 @@ def build_forecast_doc(zones, by_model, days=7, generated_at=None):
         for d in z_days:
             day_dt = datetime.strptime(d["day"], "%Y-%m-%d").replace(tzinfo=timezone.utc)
             d["night"] = astro.night(z["lat"], z["lon"], day_dt)
+        zone_id = z.get("zone_id", z["id"])
         out_zones.append({
-            "id": z["id"], "name": z["name"],
-            "warning_problem_id": z.get("warning_problem_id") or f"WF-WP-Z{z['id'][:2]}",
+            "id": z["id"], "zone_id": zone_id, "role": z.get("role", "reference"), "name": z["name"],
+            "warning_problem_id": z.get("warning_problem_id") or f"WF-WP-Z{zone_id[:2]}",
             "station": z.get("station", z["name"]), "icao": z.get("icao", "ZZZZ"),
             "countries": z.get("countries", []),
             "lat": z["lat"], "lon": z["lon"],
-            "alternates": z.get("alternates", []),
             "days": z_days,
         })
     return {
@@ -226,10 +260,10 @@ def main():
     ap.add_argument("--out", default=os.path.join(ROOT, "out"))
     a = ap.parse_args()
 
-    zones = load_zones(a.points if not a.zones else None, a.zones)
+    zones = expand_points(load_zones(a.points if not a.zones else None, a.zones))
     by_model = {}
     for model, label in MODELS:
-        print(f"fetching {model} ({label}) for {len(zones)} stations...", flush=True)
+        print(f"fetching {model} ({label}) for {len(zones)} points...", flush=True)
         by_model[model] = fetch_model(zones, model, a.days)
 
     result = build_forecast_doc(zones, by_model, days=a.days)

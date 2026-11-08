@@ -40,18 +40,25 @@ platform limits, so every threshold is labelled indicative.
 Named ICAO airfields and ports per zone (`config/points.json`), a 3-hour persistence rule (2 for icing), doctrine
 files, a contract-v2 feed (`tools/feed_v2.py`, 17 items, kit lint PASS on 4 Nov), a site builder
 (`tools/build_site.py` → `site/`) and `tests/test_vis.py` (passes). Checked 4 Nov 2026: the whole chain runs in about
-25 seconds. **For Tom:** the "Low cloud ceiling" hazard is low-cloud *cover* (80/95% of the 0–3 km layer), not
-cloud-base height, so it reads red at Kyiv all week in November; a true ceiling would need cloud by pressure level or
+25 seconds. **Settled 8 Nov 2026 (Decisions, 6):** the "Low cloud ceiling" hazard was low-cloud *cover* (80/95% of the 0–3 km layer), not
+cloud-base height, so it read red at Kyiv all week in November; a true ceiling would need cloud by pressure level or
 another source.
 
-## Decisions for Tom
-1. **Name:** Vis (decided 4 Nov 2026).
-2. **Repo and site:** a new repo (public, AGPL like Noisefloor and Vigil, or private like COP), a Cloudflare Pages
-   project and a `<name>.theintelligence.company` CNAME. Each needs Tom's OK.
-3. **Forecast points:** pick or approve 2–4 airfields or ports per zone.
-4. **Thresholds and profiles:** keep one generic set, or add profiles (rotary-wing, small UAS, ground manoeuvre,
-   maritime with sea state from Open-Meteo's marine API, airdrop).
-5. **Heat:** WBGT, climatology departure, or the fixed thresholds.
+## Decisions (all made; launch prepared 8 Nov 2026)
+1. **Name:** Vis (4 Nov 2026).
+2. **Repo and site:** public repo `metacog-osint/vis` (AGPL-3.0), Cloudflare Pages project `vis` and
+   `vis.theintelligence.company` (Tom approved all three, 4 Nov 2026). The project's own address is
+   `vis-2pq.pages.dev`, because `vis.pages.dev` belongs to someone else; the CNAME points there.
+3. **Forecast points:** the 16 reference points in `config/points.json`, with their 15 alternates forecast as rows
+   of their own, 31 in all (Tom, 8 Nov 2026).
+4. **Thresholds and profiles:** one generic, indicative set for launch; profiles (rotary-wing, small UAS, ground
+   manoeuvre, maritime with sea state, airdrop) later (Tom, 8 Nov 2026).
+5. **Heat:** the fixed 40/45 °C thresholds for launch; WBGT or a climatology departure later (Tom, 8 Nov 2026).
+6. **Low cloud:** renamed "Low cloud cover" and shown at most Yellow (Tom, 8 Nov 2026). Neither ensemble on
+   Open-Meteo has a cloud-base field (checked 8 Nov 2026), and before the cap low cloud drove every Amber and Red
+   zone-day in the 8 Nov 17Z run.
+7. **Thunderstorms:** both ensembles carry CAPE; the hazard comes back after launch, once tested on a week of runs
+   (Tom, 8 Nov 2026).
 
 ## Build steps after the decisions
 - W1 repo, kit vendored, points config, daily GitHub Actions run, site with the house design and tic-time, COP layer.

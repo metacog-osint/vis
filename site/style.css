@@ -182,3 +182,30 @@ h1 .sub {
   color: var(--muted);
 }
 .site-foot a { color: var(--accent); }
+.card a { color: var(--accent); }
+.stale {
+  margin: 14px 0 0;
+  padding: 9px 12px;
+  border: 1px solid #E0A867;
+  border-radius: 6px;
+  background: #FFE6C7;
+  color: #5A2C00;
+  font-size: 13px;
+}
+.stale[hidden] { display: none; }
+.vis-table tbody th.alt-head {
+  font-weight: 400;
+  color: var(--muted);
+  padding-left: 20px;
+}
+.vis-table tbody tr.ref-row th { border-top: 2px solid var(--rule); }
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
