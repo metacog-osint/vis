@@ -2,11 +2,16 @@ name: build
 # Twice a day after the 00Z and 12Z ensembles reach Open-Meteo, and on every push to main: tests, the forecast, the
 # feed and site, a kit lint of the feed, then a deploy of site/ to Cloudflare Pages (project vis). Needs repo secrets
 # CLOUDFLARE_PAGES_TOKEN and CLOUDFLARE_ACCOUNT_ID; without them everything runs except the deploy.
+#
+# GitHub starts this account's scheduled runs hours late (gaps up to about 16 hours, 6-8 Nov 2026), so the hub's
+# tic-dispatch Worker starts this workflow at 08:25 and 20:25 UTC (hub dispatch/dispatch.js, 8 Nov 2026). The cron
+# below is a fallback: the gate job skips a scheduled run when a build succeeded in the last 6 hours, since the
+# ensembles only change twice a day and a repeat run would spend Open-Meteo's allowance for nothing.
 on:
   push:
     branches: [main]
   schedule:
-    - cron: "23 8,20 * * *"
+    - cron: "53 8,20 * * *"
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,7 +19,29 @@ concurrency:
   group: build
   cancel-in-progress: false
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - id: check
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs?status=success&per_page=1" --jq '.workflow_runs[0].updated_at // empty' || true)
+          if [ -n "$last" ] && [ $(( $(date -u +%s) - $(date -u -d "$last" +%s) )) -lt 21600 ]; then
+            echo "skip=yes" >> "$GITHUB_OUTPUT"
+            echo "A build finished at $last, under 6 hours ago: skipping this run."
+          else
+            echo "Last successful build: ${last:-none found}. Running."
+          fi
   build:
+    needs: gate
+    if: needs.gate.outputs.skip != 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

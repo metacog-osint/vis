@@ -1,6 +1,6 @@
 {
   "kit": "tic-doctrine",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "files": {
     "tic.py": "b4e995ff25c566a87fea0f808111a31244c72b4aec287d41378f26da7560c961",
     "vocab/actors.json": "edfb7317b5313e9a3f329c7dc2a39ec20cc631e459cf588f3218fa21fd3e80ea",
@@ -11,10 +11,10 @@
     "vocab/icd203.json": "9f85ffe9632e8f413e8c937af15d870c6882a4b87b94604296e80e3d2f063af7",
     "vocab/infrastructure.json": "da63be252f65e21e5041f33e97913f3fd93935d44a9610f13256c35b123fd193",
     "vocab/likelihood.json": "4d47a87701a20adbee0ee910eae6581f74ac46f9bd6bf3f26671660b2cabfd9b",
-    "vocab/programs.json": "c74b521873108edc4d0776f64ab6ff86306920e8d920236b783e8256abdea7d4",
+    "vocab/programs.json": "3d765a943b8ea6ca7db9d4bd99dda04dc9f2695164ba073ede8358b6716f7e96",
     "geo/countries.json": "0d1f348855871ac26c98f64d01c0fc342f8b917cb16ece80fb7d9e3add236396",
     "geo/points.json": "369b66ee628c6753d43b114770875cb27a2008da200b58bf76932a50b3cff994",
-    "python/tic_doctrine/__init__.py": "3d1b421000d97a98712bd16782cfe3a0bbca4621c1a123b1d4d1e4310f5e6a99",
+    "python/tic_doctrine/__init__.py": "0ce3eaf0500860d315114095c7068d0ca4ae87e84b060223cd04b4944538f797",
     "python/tic_doctrine/confidence.py": "a15beea576a41944bcd996cf5124005fbecba0b6f38a549e9f8121467e0c9bd8",
     "python/tic_doctrine/contract.py": "ea5b8bb83e55ed5d2ce900f31513c513563707243474dab823c72e97b04888be",
     "python/tic_doctrine/geo.py": "32a121d9703fb12aae5ddf47c59a24be404557d9b699bbfad08d38f48ae5dcc5",
@@ -32,6 +32,6 @@
     "docs/language-key.md": "8dafebd7a7bfc0013fc5025fb071e1317afa0ebdeff4385a1d88d83cbf7979ac",
     "docs/sources-and-withholding.md": "a496c66b68700450facf9d65008b35d5b5a3e72f495b8c9fa886c325fdb767cf",
     "LICENSE": "e2fcdaa349fa37ea67fca3787f04878a0579a8fcdcc7f5db615fe15d3f5cf6d7",
-    "README.md": "9280a058e381c0b09a1d7bef448cf7cf1e88444d0253ad490270633f51e09706"
+    "README.md": "2971d25e028c47519863e74061f80c53a15555f5cde227fd6d9670f4b782d53b"
   }
 }

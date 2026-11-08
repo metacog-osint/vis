@@ -164,7 +164,7 @@ def build_feed(forecast_doc: dict) -> dict:
 
         where = f"{station} {icao}, alternate point" if alternate else f"{station} {icao}"
         title = (f"{z['name']} ({where}): {col_72h.upper()} 72h weather window — "
-                 f"{hdef['name'].lower()} {term['term'].lower()} ({round(raw_p * 100)}%) on {peak_day}; "
+                 f"{hdef['name'].lower()} {term['term'].lower()} ({round(prob * 100)}%) on {peak_day}; "
                  f"tonight {dark_h:.1f} h low-light dark")
         summary = (f"Across {best_hval['members']} ensemble members, {hdef['name'].lower()} at {station} ({icao}) is "
                    f"{term['term'].lower()} ({term['band_label']}) to reach the {level} threshold "

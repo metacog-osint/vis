@@ -34,6 +34,12 @@ feed, or against one feed; `cite()` turns a tip into a source entry that carries
 two-source rule and convergence count each original source once; `diff()` finds new, changed and ended tips between
 runs. A stale producer gives stale tips, drawn grey.
 
+**Geometry (0.4.1).** Items placed only by shape, such as navigational warnings at sea, match an area through the
+countries their points fall in, or through `boxes` in `interests.json` (`[west, south, east, north]` per area, one box
+or a list). Matching uses bounding boxes, so a very large warning area can land in two neighbouring areas, and boxes do
+not cross the 180° meridian. A registry entry stays `planned` (with a `status_note`) until its program publishes real
+data at its address. Vis went live on 8 Nov 2026 (0.4.2).
+
 ```
 python doctrine/kit/tic.py tips doctrine                  # against the bus
 python doctrine/kit/tic.py tips doctrine --feed <url>     # against one program's feed
