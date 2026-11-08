@@ -6,7 +6,7 @@
       "ncf": ["transport_by_air", "transport_by_vessel"]
     },
     {
-      "match": {"hazard": "ceiling"},
+      "match": {"hazard": "lowcloud"},
       "ncf": ["transport_by_air"]
     },
     {

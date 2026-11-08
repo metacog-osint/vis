@@ -53,7 +53,7 @@ SRC_ASTRO = {
     "publisher": "Vis, The Intelligence Company",
     "title": "Computed solar and lunar ephemeris (Meeus)",
     "url": SITE,
-    "licence": "MIT",
+    "licence": "Computed by Vis (code GNU AGPL-3.0)",
     "grade": "A1",
     "independence_group": "ephemeris",
     "source_type": "derived",
@@ -79,6 +79,12 @@ def _resolution_rule(station: str, icao: str, hdef: dict, level: str, day_str: s
     thr = hdef[level]
     unit = hdef["unit"]
     min_h = hdef.get("min_hours", 1)
+    if hdef["id"] == "lowcloud":
+        # METARs give cloud in oktas, not percent: 80% is about broken (5-7 oktas), 95% about overcast; 3 km is about
+        # 10,000 ft.
+        layers = "overcast (OVC)" if level == "red" else "broken or overcast (BKN or OVC)"
+        return (f"Yes if METARs from {icao} ({station}) report {layers} cloud below 10,000 ft for >= {min_h} hours "
+                f"on {day_str} UTC.")
     if hdef["agg"] == "sum":
         return f"Yes if ICAO station {icao} ({station}) records {hdef['name'].lower()} >= {thr} {unit} on {day_str} UTC."
     if hdef["agg"] == "joint":
@@ -97,9 +103,13 @@ def build_feed(forecast_doc: dict) -> dict:
     sources_all = [{**s, "accessed_at": generated} for s in (SRC_GEFS, SRC_ECMWF, SRC_ASTRO)]
 
     feats = []
-    amber_or_red_72h = 0
+    zones_amber_or_red = set()
+    all_zones = set()
 
     for z in forecast_doc.get("zones", []):
+        zone_id = z.get("zone_id", z["id"])
+        alternate = z.get("role") == "alternate"
+        all_zones.add(zone_id)
         days_72h = z.get("days", [])[:3]
         if not days_72h:
             continue
@@ -121,7 +131,7 @@ def build_feed(forecast_doc: dict) -> dict:
 
         col_72h = max((d["colour"] for d in days_72h), key=lambda c: COLOUR_RANK.get(c, 0))
         if col_72h in ("amber", "red"):
-            amber_or_red_72h += 1
+            zones_amber_or_red.add(zone_id)
 
         level = "red" if best_hval["colour"] == "red" else "amber"
         raw_p = best_hval["p_red"] if level == "red" else best_hval["p_amber"]
@@ -152,7 +162,8 @@ def build_feed(forecast_doc: dict) -> dict:
         station = z.get("station", z["name"])
         icao = z.get("icao", "ZZZZ")
 
-        title = (f"{z['name']} ({station} {icao}): {col_72h.upper()} 72h weather window — "
+        where = f"{station} {icao}, alternate point" if alternate else f"{station} {icao}"
+        title = (f"{z['name']} ({where}): {col_72h.upper()} 72h weather window — "
                  f"{hdef['name'].lower()} {term['term'].lower()} ({round(raw_p * 100)}%) on {peak_day}; "
                  f"tonight {dark_h:.1f} h low-light dark")
         summary = (f"Across {best_hval['members']} ensemble members, {hdef['name'].lower()} at {station} ({icao}) is "
@@ -212,7 +223,8 @@ def build_feed(forecast_doc: dict) -> dict:
             "measures": {
                 "icao": icao,
                 "station": station,
-                "watchfloor_zone": z["id"],
+                "point_role": z.get("role", "reference"),
+                "watchfloor_zone": zone_id,
                 "stoplight_72h": col_72h,
                 "driver_hazard": best_hid,
                 "driver_day": peak_day,
@@ -244,8 +256,9 @@ def build_feed(forecast_doc: dict) -> dict:
         "contract": CONTRACT,
         "id": f"vis:{day0}:summary",
         "program": "vis",
-        "title": (f"Vis, {day0}: {amber_or_red_72h} of {len(feats)} conflict zones with Amber or Red "
-                  f"operational weather windows in the next 72 hours (82-member GEFS + ECMWF ensemble)"),
+        "title": (f"Vis, {day0}: {len(zones_amber_or_red)} of {len(all_zones)} conflict zones with Amber or Red "
+                  f"operational weather in the next 72 hours at one or more of their {len(feats)} forecast points "
+                  f"(82-member GEFS + ECMWF ensemble)"),
         "kind": "observation",
         "tier": "routine",
         "status": "actual",
@@ -284,7 +297,8 @@ def build_feed(forecast_doc: dict) -> dict:
         "contract": CONTRACT,
         "program": "vis",
         "generated_at": generated,
-        "licence": "Vis (MIT); ensemble data from Open-Meteo (CC BY 4.0), NOAA NCEP GEFS and ECMWF open data",
+        "licence": ("Vis code GNU AGPL-3.0; ensemble data from Open-Meteo (CC BY 4.0), carrying NOAA NCEP GEFS "
+                    "(US public domain) and ECMWF open data (CC BY 4.0)"),
         "attribution": "Vis, The Intelligence Company. Ensemble weather: Open-Meteo (NOAA GEFS + ECMWF IFS).",
         "language_key": LANGUAGE_KEY,
         "dropped": dropped,

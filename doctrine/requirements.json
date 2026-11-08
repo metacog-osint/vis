@@ -22,7 +22,7 @@
     {
       "id": "VS-EEI-1",
       "type": "eei",
-      "question": "Which specific meteorological hazard (wind, low ceiling, visibility, rain, snow, icing, extreme heat or cold) and ICAO reference airfield drives each zone's stoplight?",
+      "question": "Which specific meteorological hazard (wind, low cloud cover, visibility, rain, snow, icing, extreme heat or cold) and ICAO reference airfield drives each zone's stoplight?",
       "series": ["site/data/forecast.json zones[].days[].hazards"]
     }
   ]

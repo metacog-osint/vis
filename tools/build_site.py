@@ -32,21 +32,22 @@ INDEX_HTML = """<!doctype html>
       <div>
         <p class="eyebrow">The Intelligence Company · Physical Environment</p>
         <h1>Vis <span class="sub">Operational weather &amp; illumination</span></h1>
-        <p class="lede">Seven-day ensemble hazard likelihood (82 members: NOAA GEFS 31 + ECMWF IFS 51) and computed night illumination at each conflict zone’s reference airfield or port.</p>
+        <p class="lede">How likely the next seven days’ weather is to degrade operations at a reference airfield or port in each conflict zone, from 82 ensemble members (NOAA GEFS 31, ECMWF IFS 51), and tonight’s light.</p>
       </div>
       <div class="meta-box">
         <div id="vis-stamp" class="stamp">Loading forecast…</div>
         <div><span id="time-settings"></span></div>
         <div class="links">
-          <a href="data/feed.geojson">Contract v2 feed (GeoJSON)</a> ·
-          <a href="data/forecast.json">Raw ensemble JSON</a>
+          <a href="data/feed.geojson">Feed (GeoJSON)</a> ·
+          <a href="data/forecast.json">Forecast data (JSON)</a>
         </div>
       </div>
     </div>
   </header>
 
   <main class="wrap">
-    <section class="legend-bar" aria-label="Stoplight matrix and tradecraft key">
+    <p id="vis-stale" class="stale" role="status" hidden></p>
+    <section class="legend-bar" aria-label="Colour key">
       <div class="matrix-pills">
         <span class="pill col-green"><b>Green</b> · No significant impact</span>
         <span class="pill col-yellow"><b>Yellow</b> · Be aware</span>
@@ -54,7 +55,7 @@ INDEX_HTML = """<!doctype html>
         <span class="pill col-red"><b>Red</b> · Take action</span>
       </div>
       <div class="chips-note">
-        <span class="chip chip-conf" title="Two independent NWP centres (NOAA GEFS + ECMWF IFS) agree; capped at Moderate until Verdict scores 90 days of resolutions.">Confidence: Moderate (Rule-based, not statistical)</span>
+        <span class="chip chip-conf" title="Set by rule: two independent forecast centres (NOAA and ECMWF). It stays at moderate until Vis's forecasts have been scored against observations.">Confidence: moderate (by rule; not yet scored)</span>
       </div>
     </section>
 
@@ -67,24 +68,52 @@ INDEX_HTML = """<!doctype html>
 
     <section class="method-grid" aria-label="Operational thresholds and method">
       <div class="card">
-        <h2>Operational hazard thresholds</h2>
+        <h2>Hazard thresholds</h2>
         <p class="small">Each day column is a UTC day. Times show in your own time zone (the Time button changes it).</p>
-        <p class="small">Transient hourly hazards require at least 3 hours in a UTC day (2 hours for freezing rain) so a brief shower does not colour a 24-hour operational window.</p>
+        <p class="small">Hourly hazards must last at least 3 hours in a UTC day (2 for freezing rain), so a brief shower or gust does not colour the whole day.</p>
         <ul id="vis-thresholds" class="thresh-list"></ul>
       </div>
       <div class="card">
-        <h2>How to read this table</h2>
+        <h2>How to read the table</h2>
         <ul class="thresh-list">
-          <li><b>Reference stations:</b> Each conflict zone is anchored at a named ICAO airfield or port so forecasts reflect an operational hub and resolve objectively against archived METAR / SYNOP observations in <b>Verdict</b>.</li>
-          <li><b>Likelihood &amp; impact matrix:</b> Percentages are the share of 82 ensemble members reaching the threshold, paired with their ICD 203 verbal probability term. Stoplight colours follow the UK Met Office likelihood-by-impact matrix.</li>
-          <li><b>Tonight’s illumination:</b> Civil and nautical twilight, lunar disc illumination at local midnight, and hours of low-light darkness (sun below −12° with the moon down or under 25% lit).</li>
+          <li><b>Reference points:</b> each zone is forecast at one named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. The codes also let the forecasts be checked against the station’s METAR reports later; that scoring is not built yet.</li>
+          <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, given with its ICD 203 term. Most hazards use all 82 members; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
+          <li><b>Tonight’s light:</b> civil dusk and dawn, the moon’s lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="method-grid" aria-label="About Vis and its sources">
+      <div class="card" id="about">
+        <h2>About Vis</h2>
+        <p class="small"><b>What it is.</b> A program of The Intelligence Company. For each of <a href="https://watchfloor.theintelligence.company">Watchfloor</a>’s conflict zones, Vis estimates how likely the coming week’s weather is to degrade air, ISR, maritime or ground operations, names the hazard behind it, and gives tonight’s light.</p>
+        <p class="small"><b>Method.</b> Twice a day, after the 00Z and 12Z ensemble runs reach Open-Meteo, Vis reads every member’s hourly forecast at each point and counts the members that reach each hazard’s amber and red thresholds. Sun and moon are computed with Meeus’s formulas; checked against the US Naval Observatory at four points on 31 Oct 2026, sun times agreed within 1 minute and moon times within 2.</p>
+        <p class="small"><b>Limits.</b></p>
+        <ul class="thresh-list" id="vis-limits">
+          <li>Not an official forecast, and not for flight planning or go/no-go decisions. Use your weather unit or the national meteorological service.</li>
+          <li>Thresholds are indicative. Joint doctrine (JP 3-59) names the parameters that matter but publishes no numeric limits, and real limits depend on the platform.</li>
+          <li>One point per zone on a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
+          <li>Visibility comes from GEFS alone, where it is a diagnosed field that often runs too low in fog and rain.</li>
+          <li>Forecasts are not yet scored against observations, so their calibration is unmeasured.</li>
+        </ul>
+        <p class="small"><b>Terms.</b> Provided as is, without warranty. Code under the GNU AGPL-3.0; data under its sources’ licences, below.</p>
+      </div>
+      <div class="card" id="sources">
+        <h2>Sources</h2>
+        <ul class="thresh-list">
+          <li><b>Ensemble forecasts:</b> <a href="https://open-meteo.com/en/docs/ensemble-api" rel="noopener">Open-Meteo Ensemble API</a>, CC BY 4.0, free for non-commercial use.</li>
+          <li><b>NOAA NCEP GEFS</b> 0.25°, 31 members: US public domain.</li>
+          <li><b>ECMWF IFS ensemble</b> 0.25°, 51 members: ECMWF open data, CC BY 4.0.</li>
+          <li><b>Sun and moon:</b> computed by Vis from Jean Meeus, <i>Astronomical Algorithms</i>.</li>
+          <li><b>Zones:</b> Watchfloor’s conflict zones. <b>Reference points:</b> chosen by Vis (<a href="https://github.com/metacog-osint/vis/blob/main/config/points.json" rel="noopener">list</a>).</li>
+          <li><b>Fonts:</b> IBM Plex, SIL Open Font License.</li>
         </ul>
       </div>
     </section>
   </main>
 
   <footer class="wrap site-foot">
-    <p>Vis · <a href="https://theintelligence.company">The Intelligence Company</a>. Ensemble weather data from <a href="https://open-meteo.com/en/docs/ensemble-api" rel="noopener">Open-Meteo</a> (CC BY 4.0; NOAA NCEP GEFS &amp; ECMWF IFS open data). Ephemeris computed by Meeus low-precision formulas.</p>
+    <p>A project of <a href="https://theintelligence.company">The Intelligence Company</a>. Forecast generated <span id="vis-asof">…</span>. <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a> (GNU AGPL-3.0). Weather data: <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> (CC BY 4.0), from NOAA GEFS and ECMWF IFS. <a href="#about">About and limits</a> · <a href="#sources">Sources</a>.</p>
   </footer>
 
   <script src="tic-time.js"></script>
@@ -278,6 +307,33 @@ h1 .sub {
   color: var(--muted);
 }
 .site-foot a { color: var(--accent); }
+.card a { color: var(--accent); }
+.stale {
+  margin: 14px 0 0;
+  padding: 9px 12px;
+  border: 1px solid #E0A867;
+  border-radius: 6px;
+  background: #FFE6C7;
+  color: #5A2C00;
+  font-size: 13px;
+}
+.stale[hidden] { display: none; }
+.vis-table tbody th.alt-head {
+  font-weight: 400;
+  color: var(--muted);
+  padding-left: 20px;
+}
+.vis-table tbody tr.ref-row th { border-top: 2px solid var(--rule); }
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 """
 
 VIS_JS = """import { likelihoodLabel } from "./vendor/tic-doctrine.js";
@@ -295,68 +351,107 @@ function fmtDay(iso) {
 }
 
 const T = window.TicTime;
+// Two runs a day, but GitHub starts scheduled runs late on this account (gaps of up to about 16 hours measured,
+// 6-8 Nov 2026), so 20 hours means a run was missed.
+const STALE_HOURS = 20;
+
 function hm(iso) {                                // the viewer's zone, named; UTC in the tooltip
   if (!iso) return { text: "–", utc: "" };
   const utc = iso.slice(11, 16) + " UTC";
   return { text: T ? T.format(iso.replace("Z", ":00Z"), { date: false }) : utc, utc };
 }
 const timeSpan = (iso) => { const t = hm(iso); return `<span class="mono" title="${esc(t.utc)}">${esc(t.text)}</span>`; };
+const when = (g) => (T ? T.format(g, { year: true }) : g.replace("T", " ").slice(0, 16) + " UTC");
+
+const RANK = { green: 0, yellow: 1, amber: 2, red: 3 };
+
+// The threshold that explains a hazard's colour under the matrix, and its probability: Amber can come from a 20%
+// chance of the red threshold, Yellow from a 5% chance of it.
+function shown(v) {
+  if (v.colour === "red") return ["red", v.p_red];
+  if (v.colour === "amber") return v.p_amber >= 0.45 ? ["amber", v.p_amber] : ["red", v.p_red];
+  return v.p_amber >= 0.2 ? ["amber", v.p_amber] : ["red", v.p_red];
+}
+
+function dayCell(d, hz) {
+  const drivers = Object.entries(d.hazards || {})
+    .filter(([, v]) => v.colour !== "green")
+    .sort((a, b) => RANK[b[1].colour] - RANK[a[1].colour] || Math.max(b[1].p_amber, b[1].p_red) - Math.max(a[1].p_amber, a[1].p_red));
+  const lines = drivers.slice(0, 2).map(([k, v]) => {
+    const [level, p] = shown(v);
+    const lim = hz[k] ? ` ${limit(hz[k])(level)}` : "";
+    const term = likelihoodLabel(Math.max(0.01, Math.min(0.99, p || 0.01)));
+    return `<div class="driver-line"><b>${esc(hz[k]?.name || k)}${esc(lim)}</b>: ${esc(term)} · <span class="mono">${Math.round(p * 100)}%</span></div>`;
+  });
+  return `<td class="day-cell col-${esc(d.colour)}"><div class="day-head">${esc(d.colour.toUpperCase())}</div>${
+    lines.join("") || '<div class="driver-line">All hazards below Yellow</div>'
+  }</td>`;
+}
+
+function nightCell(n) {
+  const lowH = Math.floor((n.dark_low_light_min || 0) / 60);
+  const lowM = (n.dark_low_light_min || 0) % 60;
+  return `<td class="night-cell"><div><b>Moon ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
+    <div>Civil dusk ${timeSpan(n.civil_dusk)} · dawn ${timeSpan(n.civil_dawn)}</div></td>`;
+}
+
+function rowHead(z) {
+  const meta = `${esc(z.station)} · ${esc(z.icao)} (${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})`;
+  if (z.role === "alternate") {
+    return `<th scope="row" class="alt-head"><span class="sr">${esc(z.name)}, </span>Alternate point<span class="station-meta">${meta}</span></th>`;
+  }
+  return `<th scope="row">${esc(z.name)}<span class="station-meta">${meta}</span></th>`;
+}
+
+function limit(h) {                               // "≥ 65 km/h", "≤ 3000 m", "≤ 0 C with ≥ 1 mm/h"
+  const op = (dir) => (dir === "above" ? "≥ " : "≤ ");
+  return (level) => (h.with
+    ? `${op(h.dir)}${+h[level]} C with ${op(h.with.dir)}${+h.with[level]} mm/h`
+    : `${op(h.dir)}${+h[level]} ${h.unit}`);
+}
 
 async function init() {
   const res = await fetch("data/forecast.json");
   const doc = await res.json();
+  const g = doc.generated_at;
   const stamp = document.getElementById("vis-stamp");
   if (stamp) {
-    const g = doc.generated_at;
-    stamp.textContent = `Generated ${T ? T.format(g, { year: true }) : g.replace("T", " ").slice(0, 16) + " UTC"} · 82 ensemble members`;
+    stamp.textContent = `Generated ${when(g)} · 82 ensemble members`;
     stamp.title = g.replace("T", " ").slice(0, 16) + " UTC";
+  }
+  const asof = document.getElementById("vis-asof");
+  if (asof) asof.textContent = when(g);
+  const stale = document.getElementById("vis-stale");
+  const ageH = (Date.now() - Date.parse(g)) / 3600000;
+  if (stale) {
+    stale.hidden = !(ageH > STALE_HOURS);
+    stale.textContent = stale.hidden ? "" : `This forecast is ${Math.round(ageH)} hours old. Vis normally updates twice a day, so at least one update has failed; columns for days already past still show.`;
   }
 
   const hz = Object.fromEntries((doc.hazards || []).map((h) => [h.id, h]));
   const days = (doc.zones[0]?.days || []).map((d) => d.day);
   const thead = document.getElementById("vis-thead");
-  thead.innerHTML = `<tr><th scope="col">Zone &amp; reference station</th>${days
+  thead.innerHTML = `<tr><th scope="col">Zone and forecast point</th>${days
     .map((d) => `<th scope="col">${esc(fmtDay(d))}</th>`)
-    .join("")}<th scope="col">Tonight’s illumination</th></tr>`;
+    .join("")}<th scope="col">Tonight’s light</th></tr>`;
 
   const tbody = document.getElementById("vis-tbody");
   tbody.innerHTML = (doc.zones || [])
-    .map((z) => {
-      const cells = (z.days || [])
-        .map((d) => {
-          const drivers = Object.entries(d.hazards || {})
-            .filter(([, v]) => v.colour !== "green")
-            .sort((a, b) => Math.max(b[1].p_amber, b[1].p_red) - Math.max(a[1].p_amber, a[1].p_red));
-          const lines = drivers.slice(0, 2).map(([k, v]) => {
-            const p = v.colour === "red" ? v.p_red : v.p_amber;
-            const term = likelihoodLabel(Math.max(0.01, Math.min(0.99, p || 0.01)));
-            return `<div class="driver-line"><b>${esc(hz[k]?.name || k)}</b>: ${esc(term)} · <span class="mono">${Math.round(p * 100)}%</span></div>`;
-          });
-          return `<td class="day-cell col-${esc(d.colour)}"><div class="day-head">${esc(d.colour.toUpperCase())}</div>${
-            lines.join("") || '<div class="driver-line">All hazards below Yellow</div>'
-          }</td>`;
-        })
-        .join("");
-      const n = z.days?.[0]?.night || {};
-      const lowH = Math.floor((n.dark_low_light_min || 0) / 60);
-      const lowM = (n.dark_low_light_min || 0) % 60;
-      const nightHtml = `<div><b>Moon ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
-        <div>Civil dusk ${timeSpan(n.civil_dusk)} · dawn ${timeSpan(n.civil_dawn)}</div>`;
-      const alt = (z.alternates || []).map((a) => `${a.station} (${a.icao})`).join(", ");
-      return `<tr id="zone-${esc(z.id)}">
-        <th scope="row">${esc(z.name)}<span class="station-meta">${esc(z.station)} · ${esc(z.icao)} (${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})${alt ? ` · alt: ${esc(alt)}` : ""}</span></th>
-        ${cells}
-        <td class="night-cell">${nightHtml}</td>
-      </tr>`;
-    })
+    .map((z) => `<tr id="zone-${esc(z.id)}" class="${z.role === "alternate" ? "alt-row" : "ref-row"}">
+        ${rowHead(z)}
+        ${(z.days || []).map((d) => dayCell(d, hz)).join("")}
+        ${nightCell(z.days?.[0]?.night || {})}
+      </tr>`)
     .join("");
 
+  const first = doc.zones[0]?.days?.[0]?.hazards || {};
   const ul = document.getElementById("vis-thresholds");
   ul.innerHTML = (doc.hazards || [])
-    .map(
-      (h) =>
-        `<li><b>${esc(h.name)}</b>: Amber <span class="mono">${esc(h.amber)} ${esc(h.unit)}</span>, Red <span class="mono">${esc(h.red)} ${esc(h.unit)}</span>. ${esc(h.why)}.</li>`
-    )
+    .map((h) => {
+      const lim = limit(h);
+      const n = first[h.id]?.members;
+      return `<li><b>${esc(h.name)}</b>: Amber <span class="mono">${esc(lim("amber"))}</span>, Red <span class="mono">${esc(lim("red"))}</span>${n ? ` (${n} members)` : ""}. ${esc(h.why)}.</li>`;
+    })
     .join("");
 }
 

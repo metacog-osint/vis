@@ -17,21 +17,22 @@
       <div>
         <p class="eyebrow">The Intelligence Company · Physical Environment</p>
         <h1>Vis <span class="sub">Operational weather &amp; illumination</span></h1>
-        <p class="lede">Seven-day ensemble hazard likelihood (82 members: NOAA GEFS 31 + ECMWF IFS 51) and computed night illumination at each conflict zone’s reference airfield or port.</p>
+        <p class="lede">How likely the next seven days’ weather is to degrade operations at a reference airfield or port in each conflict zone, from 82 ensemble members (NOAA GEFS 31, ECMWF IFS 51), and tonight’s light.</p>
       </div>
       <div class="meta-box">
         <div id="vis-stamp" class="stamp">Loading forecast…</div>
         <div><span id="time-settings"></span></div>
         <div class="links">
-          <a href="data/feed.geojson">Contract v2 feed (GeoJSON)</a> ·
-          <a href="data/forecast.json">Raw ensemble JSON</a>
+          <a href="data/feed.geojson">Feed (GeoJSON)</a> ·
+          <a href="data/forecast.json">Forecast data (JSON)</a>
         </div>
       </div>
     </div>
   </header>
 
   <main class="wrap">
-    <section class="legend-bar" aria-label="Stoplight matrix and tradecraft key">
+    <p id="vis-stale" class="stale" role="status" hidden></p>
+    <section class="legend-bar" aria-label="Colour key">
       <div class="matrix-pills">
         <span class="pill col-green"><b>Green</b> · No significant impact</span>
         <span class="pill col-yellow"><b>Yellow</b> · Be aware</span>
@@ -39,7 +40,7 @@
         <span class="pill col-red"><b>Red</b> · Take action</span>
       </div>
       <div class="chips-note">
-        <span class="chip chip-conf" title="Two independent NWP centres (NOAA GEFS + ECMWF IFS) agree; capped at Moderate until Verdict scores 90 days of resolutions.">Confidence: Moderate (Rule-based, not statistical)</span>
+        <span class="chip chip-conf" title="Set by rule: two independent forecast centres (NOAA and ECMWF). It stays at moderate until Vis's forecasts have been scored against observations.">Confidence: moderate (by rule; not yet scored)</span>
       </div>
     </section>
 
@@ -52,24 +53,52 @@
 
     <section class="method-grid" aria-label="Operational thresholds and method">
       <div class="card">
-        <h2>Operational hazard thresholds</h2>
+        <h2>Hazard thresholds</h2>
         <p class="small">Each day column is a UTC day. Times show in your own time zone (the Time button changes it).</p>
-        <p class="small">Transient hourly hazards require at least 3 hours in a UTC day (2 hours for freezing rain) so a brief shower does not colour a 24-hour operational window.</p>
+        <p class="small">Hourly hazards must last at least 3 hours in a UTC day (2 for freezing rain), so a brief shower or gust does not colour the whole day.</p>
         <ul id="vis-thresholds" class="thresh-list"></ul>
       </div>
       <div class="card">
-        <h2>How to read this table</h2>
+        <h2>How to read the table</h2>
         <ul class="thresh-list">
-          <li><b>Reference stations:</b> Each conflict zone is anchored at a named ICAO airfield or port so forecasts reflect an operational hub and resolve objectively against archived METAR / SYNOP observations in <b>Verdict</b>.</li>
-          <li><b>Likelihood &amp; impact matrix:</b> Percentages are the share of 82 ensemble members reaching the threshold, paired with their ICD 203 verbal probability term. Stoplight colours follow the UK Met Office likelihood-by-impact matrix.</li>
-          <li><b>Tonight’s illumination:</b> Civil and nautical twilight, lunar disc illumination at local midnight, and hours of low-light darkness (sun below −12° with the moon down or under 25% lit).</li>
+          <li><b>Reference points:</b> each zone is forecast at one named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. The codes also let the forecasts be checked against the station’s METAR reports later; that scoring is not built yet.</li>
+          <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, given with its ICD 203 term. Most hazards use all 82 members; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
+          <li><b>Tonight’s light:</b> civil dusk and dawn, the moon’s lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="method-grid" aria-label="About Vis and its sources">
+      <div class="card" id="about">
+        <h2>About Vis</h2>
+        <p class="small"><b>What it is.</b> A program of The Intelligence Company. For each of <a href="https://watchfloor.theintelligence.company">Watchfloor</a>’s conflict zones, Vis estimates how likely the coming week’s weather is to degrade air, ISR, maritime or ground operations, names the hazard behind it, and gives tonight’s light.</p>
+        <p class="small"><b>Method.</b> Twice a day, after the 00Z and 12Z ensemble runs reach Open-Meteo, Vis reads every member’s hourly forecast at each point and counts the members that reach each hazard’s amber and red thresholds. Sun and moon are computed with Meeus’s formulas; checked against the US Naval Observatory at four points on 31 Oct 2026, sun times agreed within 1 minute and moon times within 2.</p>
+        <p class="small"><b>Limits.</b></p>
+        <ul class="thresh-list" id="vis-limits">
+          <li>Not an official forecast, and not for flight planning or go/no-go decisions. Use your weather unit or the national meteorological service.</li>
+          <li>Thresholds are indicative. Joint doctrine (JP 3-59) names the parameters that matter but publishes no numeric limits, and real limits depend on the platform.</li>
+          <li>One point per zone on a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
+          <li>Visibility comes from GEFS alone, where it is a diagnosed field that often runs too low in fog and rain.</li>
+          <li>Forecasts are not yet scored against observations, so their calibration is unmeasured.</li>
+        </ul>
+        <p class="small"><b>Terms.</b> Provided as is, without warranty. Code under the GNU AGPL-3.0; data under its sources’ licences, below.</p>
+      </div>
+      <div class="card" id="sources">
+        <h2>Sources</h2>
+        <ul class="thresh-list">
+          <li><b>Ensemble forecasts:</b> <a href="https://open-meteo.com/en/docs/ensemble-api" rel="noopener">Open-Meteo Ensemble API</a>, CC BY 4.0, free for non-commercial use.</li>
+          <li><b>NOAA NCEP GEFS</b> 0.25°, 31 members: US public domain.</li>
+          <li><b>ECMWF IFS ensemble</b> 0.25°, 51 members: ECMWF open data, CC BY 4.0.</li>
+          <li><b>Sun and moon:</b> computed by Vis from Jean Meeus, <i>Astronomical Algorithms</i>.</li>
+          <li><b>Zones:</b> Watchfloor’s conflict zones. <b>Reference points:</b> chosen by Vis (<a href="https://github.com/metacog-osint/vis/blob/main/config/points.json" rel="noopener">list</a>).</li>
+          <li><b>Fonts:</b> IBM Plex, SIL Open Font License.</li>
         </ul>
       </div>
     </section>
   </main>
 
   <footer class="wrap site-foot">
-    <p>Vis · <a href="https://theintelligence.company">The Intelligence Company</a>. Ensemble weather data from <a href="https://open-meteo.com/en/docs/ensemble-api" rel="noopener">Open-Meteo</a> (CC BY 4.0; NOAA NCEP GEFS &amp; ECMWF IFS open data). Ephemeris computed by Meeus low-precision formulas.</p>
+    <p>A project of <a href="https://theintelligence.company">The Intelligence Company</a>. Forecast generated <span id="vis-asof">…</span>. <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a> (GNU AGPL-3.0). Weather data: <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> (CC BY 4.0), from NOAA GEFS and ECMWF IFS. <a href="#about">About and limits</a> · <a href="#sources">Sources</a>.</p>
   </footer>
 
   <script src="tic-time.js"></script>

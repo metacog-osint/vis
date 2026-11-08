@@ -15,7 +15,7 @@
     },
     {
       "id": "VS-ASM-3",
-      "statement": "Requiring at least 3 hours in a UTC day for wind, ceiling, visibility, heat and cold (and 2 hours for freezing rain) filters out brief convective gusts that do not close an operational window.",
+      "statement": "Requiring at least 3 hours in a UTC day for wind, low cloud cover, visibility, heat and cold (and 2 hours for freezing rain) filters out brief convective gusts that do not close an operational window.",
       "status": "holds",
       "test": "Check false-alarm rate of 1-hour vs 3-hour duration rules against aviation METAR flight-category reductions."
     }
