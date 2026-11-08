@@ -61,7 +61,7 @@
       <div class="card">
         <h2>How to read the table</h2>
         <ul class="thresh-list">
-          <li><b>Reference points:</b> each zone is forecast at one named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. The codes also let the forecasts be checked against the station’s METAR reports later; that scoring is not built yet.</li>
+          <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let the forecasts be checked against the station’s METAR reports later; that scoring is not built yet.</li>
           <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, given with its ICD 203 term. Most hazards use all 82 members; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
           <li><b>Tonight’s light:</b> civil dusk and dawn, the moon’s lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit.</li>
         </ul>
@@ -77,7 +77,7 @@
         <ul class="thresh-list" id="vis-limits">
           <li>Not an official forecast, and not for flight planning or go/no-go decisions. Use your weather unit or the national meteorological service.</li>
           <li>Thresholds are indicative. Joint doctrine (JP 3-59) names the parameters that matter but publishes no numeric limits, and real limits depend on the platform.</li>
-          <li>One point per zone on a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
+          <li>Each point is read from a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
           <li>Visibility comes from GEFS alone, where it is a diagnosed field that often runs too low in fog and rain.</li>
           <li>Forecasts are not yet scored against observations, so their calibration is unmeasured.</li>
         </ul>

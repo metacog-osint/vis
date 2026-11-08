@@ -9,22 +9,24 @@ Times: store UTC; the page shows the viewer's zone through the shared `tic-time.
   Cloudflare Pages project `vis`, since `vis.pages.dev` belongs to someone else), from `9ad677c`. The custom domain
   was added to the Pages project on 4 Nov; Squarespace `CNAME vis → vis-2pq.pages.dev` (4 h TTL) went in on 8 Nov
   with Tom's yes. Certificate: Google Trust Services, renews automatically; HTTP redirects to HTTPS; HSTS one year.
-- **Not yet listed as live** anywhere: the hub's `PROGRAMS` (`oe.js`, product list, `404.html`, tests), the house bar's
-  `PROGRAMS` in `tic-nav.js` (a v1.5 rollout to all ten sites), and COP / the doctrine kit's `vocab/programs.json`
-  (COP still calls the weather program "Weather impact (working label)"). Each needs Tom's yes.
+- **Listed as live (beta) across the suite since 8 Nov 2026** (Tom's yes, including the wording): the hub (drawing,
+  product list, 404 page, footer Sources link to `/#sources`, "Updated … ago" from the feed's `generated_at`), the
+  house bar v1.5 on every site, the doctrine kit 0.4.2 registry (live; fresh 20 h, stale 48 h) and COP, where Vis's
+  Amber and Red forecasts show in every view and the rest under its "Weather" preset.
 - Decisions Tom made on 8 Nov 2026 (details in `PLAN.md`, "Decisions"): forecast the 15 alternates as their own rows
   (31 points); "Low cloud cover" shows at most Yellow (no ensemble on Open-Meteo has cloud base); one generic,
   indicative threshold set; thunderstorms (CAPE with rain) only after a week of test runs.
 
 ## How it runs
-- `.github/workflows/build.yml`: on push to `main`, at 08:23 and 20:23 UTC, or by hand. Tests, kit check, forecast
+- `.github/workflows/build.yml`: on push to `main`, when the hub's `tic-dispatch` Worker starts it (08:25 and 20:25
+  UTC, since 8 Nov 2026), on its fallback cron (08:53 and 20:53 UTC; a gate job skips a scheduled run within 6 hours
+  of a successful build), or by hand. Tom adds `vis` to the hub's `DISPATCH_TOKEN` token for the dispatch to work. Tests, kit check, forecast
   (`tools/forecast.py`, two Open-Meteo calls for 31 points), site and feed (`tools/build_site.py`), feed lint, then
   `wrangler pages deploy site --project-name vis`. Repo secrets set by Tom on 8 Nov 2026: `CLOUDFLARE_PAGES_TOKEN`
   (token "vis GitHub deploy", Account › Cloudflare Pages › Edit only) and `CLOUDFLARE_ACCOUNT_ID`. The repo is public,
   so Actions minutes are free.
-- GitHub starts this account's scheduled runs late (gaps up to about 16 hours, 6–8 Nov). The page warns when the
-  forecast is over 20 hours old (`STALE_HOURS` in the page script). Joining the hub's `tic-dispatch` clock would fix
-  it: a `JOBS` line, and Tom adds `vis` to the `DISPATCH_TOKEN` token's repositories.
+- GitHub starts this account's scheduled runs late (gaps up to about 16 hours, 6–8 Nov), hence the dispatch clock.
+  The page warns when the forecast is over 20 hours old (`STALE_HOURS` in the page script).
 - `site/index.html`, `style.css`, `vis.js` and `_headers` are **generated** from strings in `tools/build_site.py`:
   edit there, then run `python tools/build_site.py`. `site/data/` and `out/` are git-ignored.
 - Local preview: `python tools/forecast.py` (live data), `python tools/build_site.py`, then serve `site/` (launch
