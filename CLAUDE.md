@@ -20,7 +20,7 @@ Times: store UTC; the page shows the viewer's zone through the shared `tic-time.
 ## How it runs
 - `.github/workflows/build.yml`: on push to `main`, when the hub's `tic-dispatch` Worker starts it (08:25 and 20:25
   UTC, since 8 Nov 2026), on its fallback cron (08:53 and 20:53 UTC; a gate job skips a scheduled run within 6 hours
-  of a successful build), or by hand. Tom adds `vis` to the hub's `DISPATCH_TOKEN` token for the dispatch to work. Tests, kit check, forecast
+  of a run whose build job succeeded; since 14 Nov 2026 a run whose build it skipped no longer counts), or by hand. Tom adds `vis` to the hub's `DISPATCH_TOKEN` token for the dispatch to work. Tests, kit check, forecast
   (`tools/forecast.py`, two Open-Meteo calls for 31 points), site and feed (`tools/build_site.py`), feed lint, then
   `wrangler pages deploy site --project-name vis`. Repo secrets set by Tom on 8 Nov 2026: `CLOUDFLARE_PAGES_TOKEN`
   (token "vis GitHub deploy", Account › Cloudflare Pages › Edit only) and `CLOUDFLARE_ACCOUNT_ID`. The repo is public,
