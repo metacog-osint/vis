@@ -7,6 +7,8 @@ name: build
 # tic-dispatch Worker starts this workflow at 08:25 and 20:25 UTC (hub dispatch/dispatch.js, 8 Nov 2026). The cron
 # below is a fallback: the gate job skips a scheduled run when a build succeeded in the last 6 hours, since the
 # ensembles only change twice a day and a repeat run would spend Open-Meteo's allowance for nothing.
+# A run whose build the gate skipped still ends as "success", so the gate looks for the last run whose build job
+# itself succeeded (14 Nov 2026); counting skipped runs let each skip restart the 6-hour window.
 on:
   push:
     branches: [main]
@@ -32,7 +34,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          last=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs?status=success&per_page=1" --jq '.workflow_runs[0].updated_at // empty' || true)
+          last=""
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs?status=success&per_page=20" --jq '.workflow_runs[].id' || true); do
+            last=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" --jq '[.jobs[] | select(.name == "build" and .conclusion == "success")][0].completed_at // empty' || true)
+            [ -n "$last" ] && break
+          done
           if [ -n "$last" ] && [ $(( $(date -u +%s) - $(date -u -d "$last" +%s) )) -lt 21600 ]; then
             echo "skip=yes" >> "$GITHUB_OUTPUT"
             echo "A build finished at $last, under 6 hours ago: skipping this run."
