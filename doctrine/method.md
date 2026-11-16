@@ -19,7 +19,7 @@ Vis queries two independent global ensemble systems through the Open-Meteo Ensem
 - **NOAA NCEP GEFS (`ncep_gefs025`)**: 31 members at 0.25° resolution.
 - **ECMWF IFS (`ecmwf_ifs025`)**: 51 members at 0.25° resolution.
 
-Across all 82 members, each UTC day and hazard is scored by the fraction of available members that reach the **Amber** (moderate operational degradation) or **Red** (severe operational degradation) threshold. Transient hourly hazards (`wind`, `lowcloud`, `vis`, `heat`, `cold`) require **at least 3 hours** in the UTC day (`2 hours` for `icing`) so a single passing shower or gust does not turn a 24-hour operational window red.
+Across the members of every model whose run is current (all 82 when both are; a model whose newest run on Open-Meteo is more than 24 hours old, read from Open-Meteo's `static/meta.json`, is left out and named in the feed and on the page), each UTC day and hazard is scored by the fraction of available members that reach the **Amber** (moderate operational degradation) or **Red** (severe operational degradation) threshold. Transient hourly hazards (`wind`, `lowcloud`, `vis`, `heat`, `cold`) require **at least 3 hours** in the UTC day (`2 hours` for `icing`) so a single passing shower or gust does not turn a 24-hour operational window red. The first day counts only the hours from the current UTC hour on, so hours already past never raise a forecast. Confidence counts as independent lines only the models that supply the driving hazard (visibility comes from GEFS alone, low cloud from ECMWF alone).
 
 Two hazards use one model only, because each is published by only one ensemble on Open-Meteo: visibility (GEFS, 31 members) and low cloud cover (ECMWF, 51 members).
 

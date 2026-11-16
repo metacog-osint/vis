@@ -34,6 +34,13 @@ Times: store UTC; the page shows the viewer's zone through the shared `tic-time.
 - Open-Meteo weights ensemble calls heavily: one 31-point run uses most of the free 600-a-minute allowance. Leave a
   minute between runs; `fetch_model` waits 65 s and retries on HTTP 429.
 
+- **Run age and today's hours (branch `fix/run-age-and-past-hours`, 16 Nov 2026, not merged):** `forecast.py` reads each
+  model's newest run from `https://ensemble-api.open-meteo.com/data/<set>/static/meta.json` (`ecmwf_ifs025` reads the
+  `ecmwf_ifs025_ensemble` set) and leaves out a model over 24 h old (`MAX_RUN_AGE_HOURS`); if every model is stale it
+  writes nothing and the build fails, so the page keeps the last forecast and its stale banner. Day 0 is scored from
+  the current UTC hour. Confidence counts the models that supply the driving hazard. On 16 Nov 06:49 UTC Open-Meteo's
+  newest ECMWF ensemble run was 13 Nov 12Z (66.9 h old), so the fix publishes GEFS only until ECMWF recovers.
+
 ## Rules
 - `doctrine/kit/` is vendored from `[local path]`; never edit it here.
 - Every threshold is indicative (JP 3-59 gives no numeric limits); say so wherever thresholds appear.

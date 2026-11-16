@@ -98,9 +98,22 @@ def _resolution_rule(station: str, icao: str, hdef: dict, level: str, day_str: s
 
 def build_feed(forecast_doc: dict) -> dict:
     generated = forecast_doc["generated_at"]
-    day0 = forecast_doc["zones"][0]["days"][0]["day"] if forecast_doc.get("zones") else generated[:10]
+    first_days = forecast_doc["zones"][0].get("days") if forecast_doc.get("zones") else None
+    day0 = first_days[0]["day"] if first_days else generated[:10]
     hz_by_id = {h["id"]: h for h in forecast_doc.get("hazards", [])}
-    sources_all = [{**s, "accessed_at": generated} for s in (SRC_GEFS, SRC_ECMWF, SRC_ASTRO)]
+    models = {m["id"]: m for m in forecast_doc.get("models", [])}
+    used = [mid for mid in ("ncep_gefs025", "ecmwf_ifs025") if models.get(mid, {"used": True}).get("used", True)]
+    src_by_model = {"ncep_gefs025": SRC_GEFS, "ecmwf_ifs025": SRC_ECMWF}
+    sources_all = []
+    for mid in used:
+        src = {**src_by_model[mid], "accessed_at": generated}
+        run = models.get(mid, {}).get("run_time")
+        if run:
+            src["descriptor"] = src["descriptor"] + f" Run used: {run}."
+        sources_all.append(src)
+    sources_all.append({**SRC_ASTRO, "accessed_at": generated})
+    members_used = forecast_doc.get("members_used") or 82
+    left_out = [m for m in forecast_doc.get("models", []) if not m.get("used", True)]
 
     feats = []
     zones_amber_or_red = set()
@@ -137,7 +150,9 @@ def build_feed(forecast_doc: dict) -> dict:
         raw_p = best_hval["p_red"] if level == "red" else best_hval["p_amber"]
         prob = _clamp_prob(raw_p)
         term = likelihood.term_for(prob)
-        models_n = best_day.get("models_present", 2)
+        # Independent lines are the models that supply the driving hazard, not every model in the run (review
+        # 15 Nov 2026: visibility comes from GEFS alone and low cloud from ECMWF alone, yet both counted two).
+        models_n = best_hval.get("models", best_day.get("models_present", 2))
         cov = round(min(1.0, models_n / 2.0), 3)
         conf_fields = confidence.fields(confidence.Evidence(
             independent_lines=max(1, models_n),
@@ -228,6 +243,9 @@ def build_feed(forecast_doc: dict) -> dict:
                 "stoplight_72h": col_72h,
                 "driver_hazard": best_hid,
                 "driver_day": peak_day,
+                "driver_day_from": best_day.get("from"),
+                "driver_day_hours": best_day.get("hours", 24),
+                "models_for_hazard": models_n,
                 "ensemble_members": best_hval["members"],
                 "p_amber": best_hval["p_amber"],
                 "p_red": best_hval["p_red"],
@@ -258,7 +276,11 @@ def build_feed(forecast_doc: dict) -> dict:
         "program": "vis",
         "title": (f"Vis, {day0}: {len(zones_amber_or_red)} of {len(all_zones)} conflict zones with Amber or Red "
                   f"operational weather in the next 72 hours at one or more of their {len(feats)} forecast points "
-                  f"(82-member GEFS + ECMWF ensemble)"),
+                  f"({members_used}-member {' + '.join('GEFS' if m == 'ncep_gefs025' else 'ECMWF' for m in used)} "
+                  f"ensemble"
+                  + "".join(f"; {m['id']} left out, its newest run {m.get('run_time') or 'unknown'} was "
+                            f"{m.get('age_hours')} h old" for m in left_out)
+                  + ")"),
         "kind": "observation",
         "tier": "routine",
         "status": "actual",
@@ -278,6 +300,11 @@ def build_feed(forecast_doc: dict) -> dict:
         "pmesii_pt": ["military", "physical_environment"],
         "ascope": ["areas"],
         "sources": sources_all,
+        "measures": {
+            "members_used": members_used,
+            "model_runs": [{k: m.get(k) for k in ("id", "run_time", "age_hours", "state", "used")}
+                           for m in forecast_doc.get("models", [])],
+        },
         "visual": {"type": "table", "url": SITE},
         "link": SITE,
     }

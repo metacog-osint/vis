@@ -117,7 +117,7 @@ class VisTests(unittest.TestCase):
         rows = forecast.expand_points(forecast.load_zones()[:1])  # Kyiv Boryspil and Odesa
         m_amber = _synthetic_model(hours=72, members=4, gust=70.0)
         by_model = {"ncep_gefs025": [m_amber, m_amber], "ecmwf_ifs025": [m_amber, m_amber]}
-        doc = forecast.build_forecast_doc(rows, by_model, days=3, generated_at="2026-11-08T18:00:00Z")
+        doc = forecast.build_forecast_doc(rows, by_model, days=3, generated_at="2026-10-31T18:00:00Z")
         fc = feed_v2.build_feed(doc)
         self.assertEqual(fc["dropped"], [])
         head = fc["features"][0]["properties"]
@@ -153,6 +153,69 @@ class VisTests(unittest.TestCase):
         finally:
             forecast.urllib.request.urlopen = real
         self.assertEqual((len(calls), waits, out), (2, [65], [{"hourly": {"time": []}}]))
+
+    def test_stale_model_run_is_judged_from_open_meteo_metadata(self):
+        import io
+        now = datetime(2026, 11, 16, 6, 0, tzinfo=timezone.utc)
+
+        def opener_for(init_ts):
+            def fake(req, timeout=30):
+                self.assertIn("ecmwf_ifs025_ensemble/static/meta.json", req.full_url)
+                return io.BytesIO(json.dumps({"last_run_initialisation_time": init_ts,
+                                              "last_run_availability_time": init_ts + 9 * 3600}).encode())
+            return fake
+
+        old = int(datetime(2026, 11, 13, 12, tzinfo=timezone.utc).timestamp())  # 66 h before `now`
+        r = forecast.model_run("ecmwf_ifs025", now, opener_for(old))
+        self.assertEqual((r["state"], r["age_hours"], r["run_time"]), ("stale", 66.0, "2026-11-13T12:00:00Z"))
+        fresh = int(datetime(2026, 11, 15, 18, tzinfo=timezone.utc).timestamp())
+        self.assertEqual(forecast.model_run("ecmwf_ifs025", now, opener_for(fresh))["state"], "used")
+
+        def broken(req, timeout=30):
+            raise OSError("down")
+        self.assertEqual(forecast.model_run("ecmwf_ifs025", now, broken)["state"], "unknown")
+
+    def test_left_out_model_is_named_and_not_cited(self):
+        zones = forecast.load_zones()[:1]
+        m = _synthetic_model(hours=72, members=4, gust=70.0)
+        runs = {"ncep_gefs025": {"run_time": "2026-10-31T12:00:00Z", "age_hours": 6.0, "state": "used"},
+                "ecmwf_ifs025": {"run_time": "2026-10-29T12:00:00Z", "age_hours": 54.0, "state": "stale"}}
+        doc = forecast.build_forecast_doc(zones, {"ncep_gefs025": [m]}, days=3,
+                                          generated_at="2026-10-31T18:00:00Z", runs=runs)
+        self.assertEqual(doc["members_used"], 31)
+        self.assertEqual([x["used"] for x in doc["models"]], [True, False])
+        fc = feed_v2.build_feed(doc)
+        self.assertEqual(fc["dropped"], [])
+        head = fc["features"][0]["properties"]
+        self.assertIn("31-member GEFS ensemble; ecmwf_ifs025 left out", head["title"])
+        self.assertNotIn("open-meteo-ecmwf", [s["id"] for s in head["sources"]])
+        self.assertIn("ecmwf_ifs025", [r["id"] for r in head["measures"]["model_runs"]])
+
+    def test_first_day_counts_only_hours_still_ahead(self):
+        # Gusts of 70 km/h for the first 12 hours of 1 Nov only. Issued at 18:00 UTC that day, those hours are past.
+        m = _synthetic_model(hours=72, members=4, gust=25.0)
+        for k in m["hourly"]:
+            if k.startswith("wind_gusts_10m"):
+                m["hourly"][k] = [70.0] * 12 + [25.0] * 60
+        before = forecast.score_zone_days([m, m], days=3)[0]
+        self.assertEqual(before["colour"], "amber")
+        now = datetime(2026, 11, 1, 18, 20, tzinfo=timezone.utc)
+        after = forecast.score_zone_days([m, m], days=3, now=now)
+        self.assertEqual((after[0]["day"], after[0]["from"], after[0]["hours"]), ("2026-11-01", "2026-11-01T18:00Z", 6))
+        self.assertEqual(after[0]["colour"], "green")
+        self.assertEqual((after[1]["hours"], len(after)), (24, 3))
+
+    def test_confidence_counts_only_models_that_supply_the_hazard(self):
+        # Visibility below 1 km in every member of one model, while the other model has no visibility series.
+        zones = forecast.load_zones()[:1]
+        gefs = _synthetic_model(hours=72, members=4, vis=500.0)
+        ecmwf = _synthetic_model(hours=72, members=4)
+        ecmwf["hourly"] = {k: v for k, v in ecmwf["hourly"].items() if not k.startswith("visibility")}
+        doc = forecast.build_forecast_doc(zones, {"ncep_gefs025": [gefs], "ecmwf_ifs025": [ecmwf]}, days=3,
+                                          generated_at="2026-10-31T18:00:00Z")
+        self.assertEqual(doc["zones"][0]["days"][0]["hazards"]["vis"]["models"], 1)
+        z0 = feed_v2.build_feed(doc)["features"][1]["properties"]
+        self.assertEqual((z0["measures"]["driver_hazard"], z0["measures"]["models_for_hazard"]), ("vis", 1))
 
     def test_page_carries_the_house_layer(self):
         html = build_site.INDEX_HTML

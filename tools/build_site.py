@@ -32,7 +32,7 @@ INDEX_HTML = """<!doctype html>
       <div>
         <p class="eyebrow">The Intelligence Company · Physical Environment</p>
         <h1>Vis <span class="sub">Operational weather &amp; illumination</span></h1>
-        <p class="lede">How likely the next seven days’ weather is to degrade operations at a reference airfield or port in each conflict zone, from 82 ensemble members (NOAA GEFS 31, ECMWF IFS 51), and tonight’s light.</p>
+        <p class="lede">How likely the next seven days’ weather is to degrade operations at a reference airfield or port in each conflict zone, from up to 82 ensemble members (NOAA GEFS 31, ECMWF IFS 51), and tonight’s light.</p>
       </div>
       <div class="meta-box">
         <div id="vis-stamp" class="stamp">Loading forecast…</div>
@@ -55,7 +55,7 @@ INDEX_HTML = """<!doctype html>
         <span class="pill col-red"><b>Red</b> · Take action</span>
       </div>
       <div class="chips-note">
-        <span class="chip chip-conf" title="Set by rule: two independent forecast centres (NOAA and ECMWF). It stays at moderate until Vis's forecasts have been scored against observations.">Confidence: moderate (by rule; not yet scored)</span>
+        <span class="chip chip-conf" title="Set by rule from the forecast centres that supply the hazard: moderate when both NOAA and ECMWF do, low when only one does (visibility comes from NOAA alone, low cloud from ECMWF alone, and a centre whose run is over 24 hours old is left out). It goes no higher until Vis's forecasts have been scored against observations.">Confidence: moderate with two centres, low with one (by rule; not yet scored)</span>
       </div>
     </section>
 
@@ -87,7 +87,7 @@ INDEX_HTML = """<!doctype html>
       <div class="card" id="about">
         <h2>About Vis</h2>
         <p class="small"><b>What it is.</b> A program of The Intelligence Company. For each of <a href="https://watchfloor.theintelligence.company">Watchfloor</a>’s conflict zones, Vis estimates how likely the coming week’s weather is to degrade air, ISR, maritime or ground operations, names the hazard behind it, and gives tonight’s light.</p>
-        <p class="small"><b>Method.</b> Twice a day, after the 00Z and 12Z ensemble runs reach Open-Meteo, Vis reads every member’s hourly forecast at each point and counts the members that reach each hazard’s amber and red thresholds. Sun and moon are computed with Meeus’s formulas; checked against the US Naval Observatory at four points on 31 Oct 2026, sun times agreed within 1 minute and moon times within 2.</p>
+        <p class="small"><b>Method.</b> Twice a day, after the 00Z and 12Z ensemble runs reach Open-Meteo, Vis reads every member’s hourly forecast at each point and counts the members that reach each hazard’s amber and red thresholds. A model whose newest run on Open-Meteo is more than 24 hours old is left out, and the page says so. Today’s column counts only the hours still ahead. Sun and moon are computed with Meeus’s formulas; checked against the US Naval Observatory at four points on 31 Oct 2026, sun times agreed within 1 minute and moon times within 2.</p>
         <p class="small"><b>Limits.</b></p>
         <ul class="thresh-list" id="vis-limits">
           <li>Not an official forecast, and not for flight planning or go/no-go decisions. Use your weather unit or the national meteorological service.</li>
@@ -416,8 +416,16 @@ async function init() {
   const g = doc.generated_at;
   const stamp = document.getElementById("vis-stamp");
   if (stamp) {
-    stamp.textContent = `Generated ${when(g)} · 82 ensemble members`;
+    const ms = doc.models || [];
+    const used = ms.filter((m) => m.used !== false);
+    const n = doc.members_used || 82;
+    const short = (m) => (m.id === "ncep_gefs025" ? "GEFS" : m.id === "ecmwf_ifs025" ? "ECMWF" : m.id);
+    const runs = ms.map((m) => (m.used === false
+      ? `${short(m)} left out: newest run ${m.run_time ? when(m.run_time) : "unknown"}, ${m.age_hours} h old`
+      : `${short(m)} run ${m.run_time ? when(m.run_time) : "time unknown"}`)).join("; ");
+    stamp.textContent = `Generated ${when(g)} · ${n} ensemble members${runs ? ` (${runs})` : ""}`;
     stamp.title = g.replace("T", " ").slice(0, 16) + " UTC";
+    if (used.length < ms.length) stamp.classList.add("partial");
   }
   const asof = document.getElementById("vis-asof");
   if (asof) asof.textContent = when(g);
@@ -430,9 +438,11 @@ async function init() {
 
   const hz = Object.fromEntries((doc.hazards || []).map((h) => [h.id, h]));
   const days = (doc.zones[0]?.days || []).map((d) => d.day);
+  const dayHours = doc.zones[0]?.days?.[0]?.hours ?? 24;   // today's column counts only the hours still ahead
+  const dayFrom = doc.zones[0]?.days?.[0]?.from;
   const thead = document.getElementById("vis-thead");
   thead.innerHTML = `<tr><th scope="col">Zone and forecast point</th>${days
-    .map((d) => `<th scope="col">${esc(fmtDay(d))}</th>`)
+    .map((d, i) => `<th scope="col">${esc(fmtDay(d))}${i === 0 && dayHours < 24 ? `<span class="station-meta">${esc(`from ${T ? T.format(dayFrom) : dayFrom.replace("T", " ") + " UTC"}`)}</span>` : ""}</th>`)
     .join("")}<th scope="col">Tonight’s light</th></tr>`;
 
   const tbody = document.getElementById("vis-tbody");
