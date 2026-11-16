@@ -78,8 +78,16 @@ async function init() {
   const g = doc.generated_at;
   const stamp = document.getElementById("vis-stamp");
   if (stamp) {
-    stamp.textContent = `Generated ${when(g)} · 82 ensemble members`;
+    const ms = doc.models || [];
+    const used = ms.filter((m) => m.used !== false);
+    const n = doc.members_used || 82;
+    const short = (m) => (m.id === "ncep_gefs025" ? "GEFS" : m.id === "ecmwf_ifs025" ? "ECMWF" : m.id);
+    const runs = ms.map((m) => (m.used === false
+      ? `${short(m)} left out: newest run ${m.run_time ? when(m.run_time) : "unknown"}, ${m.age_hours} h old`
+      : `${short(m)} run ${m.run_time ? when(m.run_time) : "time unknown"}`)).join("; ");
+    stamp.textContent = `Generated ${when(g)} · ${n} ensemble members${runs ? ` (${runs})` : ""}`;
     stamp.title = g.replace("T", " ").slice(0, 16) + " UTC";
+    if (used.length < ms.length) stamp.classList.add("partial");
   }
   const asof = document.getElementById("vis-asof");
   if (asof) asof.textContent = when(g);
@@ -92,9 +100,11 @@ async function init() {
 
   const hz = Object.fromEntries((doc.hazards || []).map((h) => [h.id, h]));
   const days = (doc.zones[0]?.days || []).map((d) => d.day);
+  const dayHours = doc.zones[0]?.days?.[0]?.hours ?? 24;   // today's column counts only the hours still ahead
+  const dayFrom = doc.zones[0]?.days?.[0]?.from;
   const thead = document.getElementById("vis-thead");
   thead.innerHTML = `<tr><th scope="col">Zone and forecast point</th>${days
-    .map((d) => `<th scope="col">${esc(fmtDay(d))}</th>`)
+    .map((d, i) => `<th scope="col">${esc(fmtDay(d))}${i === 0 && dayHours < 24 ? `<span class="station-meta">${esc(`from ${T ? T.format(dayFrom) : dayFrom.replace("T", " ") + " UTC"}`)}</span>` : ""}</th>`)
     .join("")}<th scope="col">Tonight’s light</th></tr>`;
 
   const tbody = document.getElementById("vis-tbody");

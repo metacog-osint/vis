@@ -17,7 +17,7 @@
       <div>
         <p class="eyebrow">The Intelligence Company · Physical Environment</p>
         <h1>Vis <span class="sub">Operational weather &amp; illumination</span></h1>
-        <p class="lede">How likely the next seven days’ weather is to degrade operations at a reference airfield or port in each conflict zone, from 82 ensemble members (NOAA GEFS 31, ECMWF IFS 51), and tonight’s light.</p>
+        <p class="lede">How likely the next seven days’ weather is to degrade operations at a reference airfield or port in each conflict zone, from up to 82 ensemble members (NOAA GEFS 31, ECMWF IFS 51), and tonight’s light.</p>
       </div>
       <div class="meta-box">
         <div id="vis-stamp" class="stamp">Loading forecast…</div>
@@ -40,7 +40,7 @@
         <span class="pill col-red"><b>Red</b> · Take action</span>
       </div>
       <div class="chips-note">
-        <span class="chip chip-conf" title="Set by rule: two independent forecast centres (NOAA and ECMWF). It stays at moderate until Vis's forecasts have been scored against observations.">Confidence: moderate (by rule; not yet scored)</span>
+        <span class="chip chip-conf" title="Set by rule from the forecast centres that supply the hazard: moderate when both NOAA and ECMWF do, low when only one does (visibility comes from NOAA alone, low cloud from ECMWF alone, and a centre whose run is over 24 hours old is left out). It goes no higher until Vis's forecasts have been scored against observations.">Confidence: moderate with two centres, low with one (by rule; not yet scored)</span>
       </div>
     </section>
 
@@ -72,7 +72,7 @@
       <div class="card" id="about">
         <h2>About Vis</h2>
         <p class="small"><b>What it is.</b> A program of The Intelligence Company. For each of <a href="https://watchfloor.theintelligence.company">Watchfloor</a>’s conflict zones, Vis estimates how likely the coming week’s weather is to degrade air, ISR, maritime or ground operations, names the hazard behind it, and gives tonight’s light.</p>
-        <p class="small"><b>Method.</b> Twice a day, after the 00Z and 12Z ensemble runs reach Open-Meteo, Vis reads every member’s hourly forecast at each point and counts the members that reach each hazard’s amber and red thresholds. Sun and moon are computed with Meeus’s formulas; checked against the US Naval Observatory at four points on 31 Oct 2026, sun times agreed within 1 minute and moon times within 2.</p>
+        <p class="small"><b>Method.</b> Twice a day, after the 00Z and 12Z ensemble runs reach Open-Meteo, Vis reads every member’s hourly forecast at each point and counts the members that reach each hazard’s amber and red thresholds. A model whose newest run on Open-Meteo is more than 24 hours old is left out, and the page says so. Today’s column counts only the hours still ahead. Sun and moon are computed with Meeus’s formulas; checked against the US Naval Observatory at four points on 31 Oct 2026, sun times agreed within 1 minute and moon times within 2.</p>
         <p class="small"><b>Limits.</b></p>
         <ul class="thresh-list" id="vis-limits">
           <li>Not an official forecast, and not for flight planning or go/no-go decisions. Use your weather unit or the national meteorological service.</li>
