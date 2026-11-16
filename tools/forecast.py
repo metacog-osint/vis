@@ -28,6 +28,16 @@ MODELS = [
     ("ncep_gefs025", "NOAA NCEP GEFS 0.25 deg (31 members)"),
     ("ecmwf_ifs025", "ECMWF IFS 0.25 deg (51 members)"),
 ]
+MODEL_MEMBERS = {"ncep_gefs025": 31, "ecmwf_ifs025": 51}
+# Open-Meteo publishes each model's latest run in a metadata file. The ensemble API's `ecmwf_ifs025` reads the
+# `ecmwf_ifs025_ensemble` data set (checked 16 Nov 2026: its member data ended 28 Nov 14:00 UTC, the end of the
+# 13 Nov 12Z run that metadata file named, while the plain `ecmwf_ifs025` file named 15 Nov 18Z).
+META_URL = "https://ensemble-api.open-meteo.com/data/{}/static/meta.json"
+META_DATASET = {"ncep_gefs025": "ncep_gefs025", "ecmwf_ifs025": "ecmwf_ifs025_ensemble"}
+# Both models run every 6 h and reach Open-Meteo about 6-11 h after their run time, so a healthy run is under about
+# 17 h old. A run older than this is left out of the pool rather than mixed in unseen (review 15 Nov 2026: a 38-hour-old
+# ECMWF run was pooled while the page said 82 members; on 16 Nov the newest ECMWF run on Open-Meteo was 66 h old).
+MAX_RUN_AGE_HOURS = 24.0
 VARS = "wind_gusts_10m,precipitation,temperature_2m,snowfall,visibility,cloud_cover_low"
 
 # Operational thresholds for theatre weather (air/UAS/ISR, maritime, ground mobility).
@@ -99,6 +109,47 @@ def fetch_model(zones, model, days, wait=time.sleep):
     return data if isinstance(data, list) else [data]
 
 
+def _utc(ts):
+    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def model_run(model, now=None, opener=None):
+    """Read a model's latest run from Open-Meteo's metadata and judge its age.
+
+    Returns {"id", "run_time", "available_at", "age_hours", "state"}; state is "used" (run under MAX_RUN_AGE_HOURS),
+    "stale" (older: left out of the pool) or "unknown" (metadata unreadable: used, and the page says the run time is
+    unknown)."""
+    now = now or datetime.now(timezone.utc)
+    opener = opener or urllib.request.urlopen
+    out = {"id": model, "run_time": None, "available_at": None, "age_hours": None, "state": "unknown"}
+    req = urllib.request.Request(META_URL.format(META_DATASET.get(model, model)),
+                                 headers={"User-Agent": "Vis/1.0 (+https://vis.theintelligence.company)"})
+    try:
+        with opener(req, timeout=30) as r:
+            meta = json.loads(r.read().decode("utf-8"))
+        init = int(meta["last_run_initialisation_time"])
+    except Exception as e:  # noqa: BLE001 - any failure leaves the run time unknown, never stops the forecast
+        print(f"  {model}: run time unreadable ({e.__class__.__name__}); using it, marked unknown", flush=True)
+        return out
+    out["run_time"] = _utc(init)
+    if meta.get("last_run_availability_time"):
+        out["available_at"] = _utc(int(meta["last_run_availability_time"]))
+    out["age_hours"] = round((now.timestamp() - init) / 3600.0, 1)
+    out["state"] = "stale" if out["age_hours"] > MAX_RUN_AGE_HOURS else "used"
+    return out
+
+
+def first_hour_index(times, now):
+    """Index of the first hourly time at or after the start of the current UTC hour (0 if all are later)."""
+    if now is None:
+        return 0
+    cut = now.replace(minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M")
+    for i, t in enumerate(times):
+        if t[:16] >= cut:
+            return i
+    return len(times)
+
+
 def expand_points(zones):
     """One row per forecast point: each zone's reference point, then its alternates (Tom, 8 Nov 2026: forecast the
     alternates too). A reference row keeps the zone's id; an alternate's id is <zone id>-<ICAO>."""
@@ -150,14 +201,21 @@ def member_hits_day(h, m_slice, m2_slice=None):
     return ah >= min_h, rh >= min_h, stat
 
 
-def score_zone_days(zone_models, days):
+def score_zone_days(zone_models, days, now=None):
+    """Score each UTC day. With `now`, hours already past are left out: the first day is scored from the current
+    UTC hour (review 15 Nov 2026: 11 of 18 warnings were issued 17 to 23 hours into the day they forecast, so they
+    counted hours that had already happened)."""
     times = zone_models[0]["hourly"]["time"]
+    start = first_hour_index(times, now)
     day_Warning = []
     for d in range(days):
         i0, i1 = d * 24, (d + 1) * 24
         if i1 > len(times):
             break
-        day_Warning.append((times[i0][:10], i0, i1))
+        i0 = max(i0, start)
+        if i0 >= i1:
+            continue
+        day_Warning.append((times[d * 24][:10], i0, i1))
 
     out = []
     for day_str, i0, i1 in day_Warning:
@@ -167,10 +225,12 @@ def score_zone_days(zone_models, days):
         for h in HAZARDS:
             amber_hits = red_hits = total = 0
             stat_vals = []
+            hazard_models = set()
             for m_idx, zm in enumerate(zone_models):
                 members = member_series(zm["hourly"], h["var"])
                 if members:
                     models_contributing.add(m_idx)
+                    hazard_models.add(m_idx)
                 with_members = member_series(zm["hourly"], h["with"]["var"]) if h["agg"] == "joint" else None
                 for k, m in enumerate(members):
                     m2 = with_members[k][i0:i1] if (with_members and k < len(with_members)) else None
@@ -206,8 +266,10 @@ def score_zone_days(zone_models, days):
                 "p_amber": round(pa, 3), "term_amber": ta["term"], "band_amber": ta["band_label"],
                 "p_red": round(pr, 3), "term_red": tr["term"], "band_red": tr["band_label"],
                 "median": med, "p90": p90, "colour": col,
+                "models": len(hazard_models),
             }
-        out.append({"day": day_str, "colour": worst, "models_present": len(models_contributing), "hazards": hazards_out})
+        out.append({"day": day_str, "from": times[i0][:13] + ":00Z", "hours": i1 - i0, "colour": worst,
+                    "models_present": len(models_contributing), "hazards": hazards_out})
     return out
 
 
@@ -225,10 +287,14 @@ def load_zones(points_path=None, entities_path=None):
              "station": z["name"], "icao": "ZZZZ", "countries": []} for z in ent["zones"]]
 
 
-def build_forecast_doc(zones, by_model, days=7, generated_at=None):
+def build_forecast_doc(zones, by_model, days=7, generated_at=None, runs=None):
+    """`runs` is {model id: model_run() result}; a model missing from `by_model` was left out (stale run)."""
+    generated_at = generated_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.strptime(generated_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    runs = runs or {}
     out_zones = []
     for i, z in enumerate(zones):
-        z_days = score_zone_days([by_model[m][i] for m, _ in MODELS if m in by_model], days)
+        z_days = score_zone_days([by_model[m][i] for m, _ in MODELS if m in by_model], days, now=now)
         for d in z_days:
             day_dt = datetime.strptime(d["day"], "%Y-%m-%d").replace(tzinfo=timezone.utc)
             d["night"] = astro.night(z["lat"], z["lon"], day_dt)
@@ -244,8 +310,17 @@ def build_forecast_doc(zones, by_model, days=7, generated_at=None):
     return {
         "program": "vis",
         "title": "Vis — Operational weather & illumination",
-        "generated_at": generated_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "models": [{"id": m, "label": label} for m, label in MODELS],
+        "generated_at": generated_at,
+        "models": [{
+            "id": m, "label": label, "members": MODEL_MEMBERS.get(m),
+            "used": m in by_model,
+            "run_time": runs.get(m, {}).get("run_time"),
+            "available_at": runs.get(m, {}).get("available_at"),
+            "age_hours": runs.get(m, {}).get("age_hours"),
+            "state": runs.get(m, {}).get("state", "used" if m in by_model else "stale"),
+        } for m, label in MODELS],
+        "members_used": sum(MODEL_MEMBERS.get(m, 0) for m, _ in MODELS if m in by_model),
+        "max_run_age_hours": MAX_RUN_AGE_HOURS,
         "source": "Open-Meteo Ensemble API (open-meteo.com, CC BY 4.0); sun and moon computed (Meeus)",
         "hazards": [{k: v for k, v in h.items()} for h in HAZARDS],
         "zones": out_zones,
@@ -261,12 +336,24 @@ def main():
     a = ap.parse_args()
 
     zones = expand_points(load_zones(a.points if not a.zones else None, a.zones))
-    by_model = {}
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.strptime(generated_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    by_model, runs = {}, {}
     for model, label in MODELS:
-        print(f"fetching {model} ({label}) for {len(zones)} points...", flush=True)
+        runs[model] = model_run(model, now)
+        r = runs[model]
+        if r["state"] == "stale":
+            print(f"leaving out {model}: its newest run on Open-Meteo is {r['run_time']}, {r['age_hours']} h old "
+                  f"(limit {MAX_RUN_AGE_HOURS:g} h)", flush=True)
+            continue
+        print(f"fetching {model} ({label}, run {r['run_time'] or 'unknown'}) for {len(zones)} points...", flush=True)
         by_model[model] = fetch_model(zones, model, a.days)
+    if not by_model:
+        print("every model's newest run is stale; no forecast written (the page keeps the last one and says how old "
+              "it is)", flush=True)
+        return 1
 
-    result = build_forecast_doc(zones, by_model, days=a.days)
+    result = build_forecast_doc(zones, by_model, days=a.days, generated_at=generated_at, runs=runs)
     os.makedirs(a.out, exist_ok=True)
     p = os.path.join(a.out, "forecast.json")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
