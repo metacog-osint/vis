@@ -117,7 +117,7 @@ INDEX_HTML = """<!doctype html>
   </footer>
 
   <script src="tic-time.js"></script>
-  <script src="tic-nav.js" data-current="vis" defer></script>
+  <script src="tic-nav.js" data-current="vis" defer data-health="on"></script>
   <script type="module" src="vis.js"></script>
 </body>
 </html>
@@ -460,7 +460,7 @@ if (T) { T.mountSettings(document.getElementById("time-settings")); T.onChange((
 """
 
 HEADERS = """/*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cop.theintelligence.company; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), camera=(), microphone=()
