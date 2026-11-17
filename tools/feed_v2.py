@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT / "doctrine" / "kit" / "python"))
 from tic_doctrine import CONTRACT, confidence, contract, likelihood, registers, vocab  # noqa: E402
 
 SITE = "https://vis.theintelligence.company"
-METHOD = "vis-ensemble-1.0"
+METHOD = "vis-ensemble-1.1"
 LANGUAGE_KEY = "https://github.com/metacog-osint/tic-doctrine/blob/main/docs/language-key.md"
 DOCTRINE = ROOT / "doctrine"
 
@@ -35,7 +35,7 @@ SRC_GEFS = {
     "grade": "A2",
     "independence_group": "noaa-ncep",
     "source_type": "model",
-    "descriptor": "31-member global ensemble forecast (ncep_gefs025) at 0.25 deg, hourly out to 7 days.",
+    "descriptor": "31-member global ensemble forecast (ncep_gefs025) at 0.25 deg, 3-hourly steps (served hourly, interpolated) out to 7 days.",
 }
 SRC_ECMWF = {
     "id": "open-meteo-ecmwf",
@@ -46,7 +46,7 @@ SRC_ECMWF = {
     "grade": "A2",
     "independence_group": "ecmwf",
     "source_type": "model",
-    "descriptor": "51-member global ensemble forecast (ecmwf_ifs025) at 0.25 deg, hourly out to 7 days.",
+    "descriptor": "51-member global ensemble forecast (ecmwf_ifs025) at 0.25 deg, 3-hourly steps (served hourly, interpolated) out to 7 days.",
 }
 SRC_ASTRO = {
     "id": "astro-meeus",
@@ -172,7 +172,20 @@ def build_feed(forecast_doc: dict) -> dict:
         tonight = days_72h[0].get("night") or {}
         dark_h = (tonight.get("dark_low_light_min") or 0) / 60.0
 
-        tier = "warning" if col_72h in ("amber", "red") else "routine"
+        # Amber or Red goes to COP as a warning only when two models supply the hazard and the point's grid cell was
+        # checked against the station (Tom's yes 16 Nov 2026, from the 15 Nov review: 9 of 18 archived warnings were
+        # GEFS-only visibility, and Caracas's came from a cell 936 m up in the coastal range).
+        grid = z.get("grid") or {}
+        held = []
+        if col_72h in ("amber", "red"):
+            if models_n < 2:
+                held.append("only one model supplies this hazard")
+            if grid.get("ok") is False:
+                held.append(f"the model's grid cell sits {abs(grid['diff_m']):.0f} m "
+                            f"{'above' if grid['diff_m'] > 0 else 'below'} the station")
+            elif grid.get("ok") is not True:
+                held.append("the grid cell could not be checked against the station")
+        tier = "warning" if col_72h in ("amber", "red") and not held else "routine"
         ind_id = "VS-IND-2" if col_72h == "red" else ("VS-IND-1" if col_72h == "amber" else None)
         station = z.get("station", z["name"])
         icao = z.get("icao", "ZZZZ")
@@ -186,6 +199,14 @@ def build_feed(forecast_doc: dict) -> dict:
                    f"({hdef[level]} {hdef['unit']}) on {peak_day} UTC (72-hour stoplight: {col_72h.title()}). "
                    f"Tonight's lunar illumination is {round((tonight.get('moon_lit') or 0) * 100)}% with "
                    f"{dark_h:.1f} hours of nautical darkness under low moon.")
+        per = best_hval.get("by_model") or {}
+        if per:
+            names = {"ncep_gefs025": "GEFS", "ecmwf_ifs025": "ECMWF"}
+            hits = "red_hits" if level == "red" else "amber_hits"
+            summary += (" By model: " + ", ".join(f"{names.get(k, k)} {v[hits]} of {v['members']}" for k, v in per.items())
+                        + (", weighted equally." if len(per) > 1 else "."))
+        if held:
+            summary += f" Not sent to COP as a warning: {'; '.join(held)}."
 
         ncf = _ncf_for_hazard(best_hid) if col_72h in ("amber", "red") else []
         props = {

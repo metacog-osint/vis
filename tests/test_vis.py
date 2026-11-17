@@ -44,7 +44,7 @@ class VisTests(unittest.TestCase):
             self.assertTrue(z["countries"] and all(len(c) == 2 for c in z["countries"]))
 
     def test_duration_rule_filters_single_hour_spike_and_flags_sustained_hazard(self):
-        # 1 hour of 75 km/h gusts does NOT trigger Amber (needs >= 3 hours)
+        # 1 hour of 75 km/h gusts does NOT trigger Amber (needs two consecutive 3-hourly model steps)
         m_spike = _synthetic_model(hours=24, members=4, gust=30.0)
         for m in range(1, 5):
             m_spike["hourly"][f"wind_gusts_10m_member{m:02d}"][5] = 75.0
@@ -52,10 +52,17 @@ class VisTests(unittest.TestCase):
         self.assertEqual(d_spike["hazards"]["wind"]["amber_hits"], 0)
         self.assertEqual(d_spike["colour"], "green")
 
-        # 3 hours of 75 km/h gusts across all members triggers Amber
-        m_sust = _synthetic_model(hours=24, members=4, gust=30.0)
+        # 3 interpolated hours around one step (05-07, one step at 06) is a single step: not Amber
+        m_one = _synthetic_model(hours=24, members=4, gust=30.0)
         for m in range(1, 5):
             for h in (5, 6, 7):
+                m_one["hourly"][f"wind_gusts_10m_member{m:02d}"][h] = 75.0
+        self.assertEqual(forecast.score_zone_days([m_one, m_one], days=1)[0]["hazards"]["wind"]["amber_hits"], 0)
+
+        # Steps 06 and 09 both over the line across all members: Amber
+        m_sust = _synthetic_model(hours=24, members=4, gust=30.0)
+        for m in range(1, 5):
+            for h in (6, 7, 8, 9):
                 m_sust["hourly"][f"wind_gusts_10m_member{m:02d}"][h] = 75.0
         d_sust = forecast.score_zone_days([m_sust, m_sust], days=1)[0]
         self.assertEqual(d_sust["hazards"]["wind"]["p_amber"], 1.0)
@@ -70,7 +77,10 @@ class VisTests(unittest.TestCase):
             "ncep_gefs025": [m_amber, m_green, m_green],
             "ecmwf_ifs025": [m_amber, m_green, m_green],
         }
-        doc = forecast.build_forecast_doc(zones, by_model, days=3, generated_at="2026-10-31T18:00:00Z")
+        ok = {"cell": "land", "lat": 50.25, "lon": 31.0, "cell_elevation_m": 120.0, "station_elevation_m": 127.0,
+              "diff_m": -7.0, "ok": True}
+        doc = forecast.build_forecast_doc(zones, by_model, days=3, generated_at="2026-10-31T18:00:00Z",
+                                          grids=[ok, ok, ok])
         fc = feed_v2.build_feed(doc)
         self.assertEqual(fc["dropped"], [])
         self.assertEqual(fc["program"], "vis")
@@ -86,6 +96,46 @@ class VisTests(unittest.TestCase):
         files = build_site.build(doc)
         self.assertIn("index.html", files)
         self.assertIn("Vis", files["index.html"])
+
+    def test_models_weigh_equally_and_warnings_need_two_models_and_a_checked_cell(self):
+        # GEFS 4 of 4 members over the wind line, ECMWF 0 of 8: equal weight gives 50%, not 4 of 12.
+        gefs = _synthetic_model(hours=72, members=4, gust=70.0)
+        ecmwf = _synthetic_model(hours=72, members=8, gust=20.0)
+        d = forecast.score_zone_days([gefs, ecmwf], days=1, model_ids=["ncep_gefs025", "ecmwf_ifs025"])[0]
+        w = d["hazards"]["wind"]
+        self.assertEqual(w["p_amber"], 0.5)
+        self.assertEqual(w["by_model"]["ncep_gefs025"]["amber_hits"], 4)
+        self.assertEqual(w["by_model"]["ecmwf_ifs025"]["members"], 8)
+
+        zones = forecast.load_zones()[:1]
+        both = {"ncep_gefs025": [gefs], "ecmwf_ifs025": [_synthetic_model(hours=72, members=8, gust=70.0)]}
+        off = {"cell": "land", "lat": 50.25, "lon": 31.0, "cell_elevation_m": 936.0, "station_elevation_m": 57.0,
+               "diff_m": 879.0, "ok": False}
+        p = feed_v2.build_feed(forecast.build_forecast_doc(zones, both, days=3, generated_at="2026-10-31T18:00:00Z",
+                                                             grids=[off]))["features"][1]["properties"]
+        self.assertEqual(p["tier"], "routine")
+        self.assertIn("grid cell sits 879 m above the station", p["summary"])
+        self.assertIn("GEFS 4 of 4, ECMWF 8 of 8, weighted equally", p["summary"])
+        p = feed_v2.build_feed(forecast.build_forecast_doc(zones, both, days=3, generated_at="2026-10-31T18:00:00Z"))[
+            "features"][1]["properties"]
+        self.assertIn("could not be checked", p["summary"])   # no grid record: no warning
+
+    def test_grid_check_compares_cell_and_station_elevation(self):
+        class R:
+            def __init__(self, body): self.body = body
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self): return json.dumps(self.body).encode()
+        zones = [{"lat": 10.601, "lon": -66.991, "icao": "SVMI"}, {"lat": 50.345, "lon": 30.895, "icao": "UKBB"}]
+        answers = [{"latitude": 10.5, "longitude": -67.0}, {"latitude": 50.25, "longitude": 31.0}]
+        seen = []
+        def opener(req, timeout=None):
+            seen.append(req.full_url)
+            return R({"elevation": [57.0, 127.0, 936.0, 120.0]})
+        g = forecast.grid_check(zones, answers, opener=opener)
+        self.assertEqual((g[0]["diff_m"], g[0]["ok"]), (879.0, False))
+        self.assertEqual((g[1]["diff_m"], g[1]["ok"]), (-7.0, True))
+        self.assertEqual(len(seen), 1)
 
     def test_low_cloud_cover_shows_at_most_yellow(self):
         m = _synthetic_model(hours=24, members=4, cloud=100.0)

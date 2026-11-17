@@ -77,7 +77,7 @@
       "lat": 32.011,
       "lon": 34.887,
       "alternates": [
-        {"station": "Beirut Rafic Hariri", "icao": "OLBA", "lat": 33.821, "lon": 35.488, "country": "LB"}
+        {"station": "Beirut Rafic Hariri", "icao": "OLBA", "cell": "sea", "lat": 33.821, "lon": 35.488, "country": "LB"}
       ]
     },
     {
@@ -191,6 +191,7 @@
       "countries": ["VE"],
       "station": "Caracas Maiquetía",
       "icao": "SVMI",
+      "cell": "sea",
       "lat": 10.601,
       "lon": -66.991,
       "alternates": [

@@ -39,38 +39,52 @@ META_DATASET = {"ncep_gefs025": "ncep_gefs025", "ecmwf_ifs025": "ecmwf_ifs025_en
 # ECMWF run was pooled while the page said 82 members; on 16 Nov the newest ECMWF run on Open-Meteo was 66 h old).
 MAX_RUN_AGE_HOURS = 24.0
 VARS = "wind_gusts_10m,precipitation,temperature_2m,snowfall,visibility,cloud_cover_low"
+# Both ensembles are 3-hourly on Open-Meteo (metadata `temporal_resolution_seconds` 10800, checked 15 Nov 2026); the
+# hourly series between steps are interpolated. Persistence is therefore counted on the model's own steps, at 00, 03,
+# ... 21 UTC: a hazard must hold on `min_steps` consecutive steps (Tom's yes 16 Nov 2026, from the 15 Nov review: under
+# straight-line interpolation one strong 3-hourly value gave up to five hourly values over the line).
+NATIVE_STEP_HOURS = 3
+# Grid cell check (15 Nov 2026 review: Caracas Maiquetia, a sea-level runway, was read from a cell centred 936 m up in
+# the coastal range; the sea cell beside it gave 0 of 31 members where the land cell gave 14). Each point names the
+# cell Open-Meteo should use (`cell` in config/points.json: land, sea or nearest; default land), and every run compares
+# the elevation of the cell's centre with the station's. A difference over this many metres keeps the point's
+# Amber or Red out of COP's warnings.
+GRID_MAX_DIFF_M = 300.0
+ELEVATION_URL = "https://api.open-meteo.com/v1/elevation"
 
 # Operational thresholds for theatre weather (air/UAS/ISR, maritime, ground mobility).
-# Transient hourly hazards require min_hours in the UTC day so a single 1-hour shower does not colour a 24h day.
+# Transient hazards must hold on `min_steps` consecutive 3-hourly model steps in the UTC day (see NATIVE_STEP_HOURS).
 HAZARDS = [
-    {"id": "wind", "name": "Strong wind", "var": "wind_gusts_10m", "agg": "max", "dir": "above", "min_hours": 3,
+    {"id": "wind", "name": "Strong wind", "var": "wind_gusts_10m", "agg": "max", "dir": "above", "min_steps": 2,
      "amber": 65.0, "red": 90.0, "unit": "km/h",
-     "why": "10 m gusts sustained >= 3 h; small UAS and rotary-wing limits ~65 km/h, severe air/port disruption >= 90 km/h"},
+     "why": "10 m gusts at or over the line on two consecutive 3-hourly model steps; small UAS and rotary-wing limits ~65 km/h, severe air/port disruption >= 90 km/h"},
     # Cover, not ceiling height: neither ensemble on Open-Meteo carries cloud base (checked 8 Nov 2026), so low cloud
     # can only raise awareness (Tom, 8 Nov 2026: "Cover, max Yellow").
-    {"id": "lowcloud", "name": "Low cloud cover", "var": "cloud_cover_low", "agg": "max", "dir": "above", "min_hours": 3,
+    {"id": "lowcloud", "name": "Low cloud cover", "var": "cloud_cover_low", "agg": "max", "dir": "above", "min_steps": 2,
      "amber": 80.0, "red": 95.0, "unit": "%", "max_colour": "yellow",
-     "why": "Cloud cover in the lowest 3 km for >= 3 h (ECMWF members only); it degrades optical ISR, laser designation "
+     "why": "Cloud cover in the lowest 3 km on two consecutive 3-hourly steps (ECMWF members only); it degrades optical ISR, laser designation "
             "and VFR flying, but it is cover, not ceiling height, so it shows at most Yellow"},
-    {"id": "vis", "name": "Poor visibility", "var": "visibility", "agg": "min", "dir": "below", "min_hours": 3,
+    {"id": "vis", "name": "Poor visibility", "var": "visibility", "agg": "min", "dir": "below", "min_steps": 2,
      "amber": 3000.0, "red": 1000.0, "unit": "m",
-     "why": "Surface visibility < 3 km (amber) or < 1 km (red) for >= 3 h (fog, mist, dust, smoke); GEFS members"},
+     "why": "Surface visibility < 3 km (amber) or < 1 km (red) on two consecutive 3-hourly steps (fog, mist, dust, "
+            "smoke); GEFS members"},
     {"id": "rain", "name": "Heavy rain", "var": "precipitation", "agg": "sum", "dir": "above", "min_hours": 1,
      "amber": 25.0, "red": 60.0, "unit": "mm/24h",
      "why": "24-hour rainfall total; flash flooding, unpaved road softening and river-crossing degradation"},
     {"id": "snow", "name": "Heavy snow", "var": "snowfall", "agg": "sum", "dir": "above", "min_hours": 1,
      "amber": 10.0, "red": 25.0, "unit": "cm/24h",
      "why": "24-hour snowfall total; road, runway and supply-line disruption"},
-    {"id": "icing", "name": "Freezing rain / icing", "var": "temperature_2m", "agg": "joint", "dir": "below", "min_hours": 2,
+    {"id": "icing", "name": "Freezing rain / icing", "var": "temperature_2m", "agg": "joint", "dir": "below", "min_steps": 2,
      "amber": 0.0, "red": 0.0, "unit": "C + mm/h",
      "with": {"var": "precipitation", "dir": "above", "amber": 1.0, "red": 3.0},
-     "why": "2 m temperature <= 0 C with rain >= 1 / 3 mm/h in the same hour for >= 2 h; airframe and road icing"},
-    {"id": "heat", "name": "Extreme heat", "var": "temperature_2m", "agg": "max", "dir": "above", "min_hours": 3,
+     "why": "2 m temperature <= 0 C with precipitation >= 1 / 3 mm/h at the same 3-hourly step, on two consecutive "
+            "steps; airframe and road icing"},
+    {"id": "heat", "name": "Extreme heat", "var": "temperature_2m", "agg": "max", "dir": "above", "min_steps": 2,
      "amber": 40.0, "red": 45.0, "unit": "C",
-     "why": "2 m air temperature >= 40 / 45 C for >= 3 h; heat-casualty risk and high density altitude for rotary-wing lift"},
-    {"id": "cold", "name": "Extreme cold", "var": "temperature_2m", "agg": "min", "dir": "below", "min_hours": 3,
+     "why": "2 m air temperature >= 40 / 45 C on two consecutive 3-hourly steps; heat-casualty risk and high density altitude for rotary-wing lift"},
+    {"id": "cold", "name": "Extreme cold", "var": "temperature_2m", "agg": "min", "dir": "below", "min_steps": 2,
      "amber": -15.0, "red": -25.0, "unit": "C",
-     "why": "2 m air temperature <= -15 / -25 C for >= 3 h; cold-injury, battery and hydraulic limits"},
+     "why": "2 m air temperature <= -15 / -25 C on two consecutive 3-hourly steps; cold-injury, battery and hydraulic limits"},
 ]
 
 COLOUR_RANK = {"green": 0, "yellow": 1, "amber": 2, "red": 3}
@@ -87,18 +101,35 @@ def matrix_colour(p_amber, p_red):
     return "green"
 
 
-def fetch_model(zones, model, days, wait=time.sleep):
-    """One call for all points. Open-Meteo weights ensemble calls heavily (one 16-point run used most of the free
-    600-a-minute allowance on 8 Nov 2026), so a refused call (HTTP 429) waits a minute and tries again, twice."""
-    q = urllib.parse.urlencode({
+def fetch_model(zones, model, days, wait=time.sleep, opener=None):
+    """One call per cell selection (land, sea, nearest) for all points that use it, answers back in the points'
+    order. Open-Meteo weights ensemble calls by location, so splitting the points costs no more. A refused call
+    (HTTP 429) waits a minute and tries again, twice."""
+    groups = {}
+    for i, z in enumerate(zones):
+        groups.setdefault(z.get("cell") or "land", []).append(i)
+    out = [None] * len(zones)
+    for cell, idx in groups.items():
+        got = _fetch_cells([zones[i] for i in idx], model, days, cell, wait, opener)
+        for i, r in zip(idx, got):
+            out[i] = r
+    return out
+
+
+def _fetch_cells(zones, model, days, cell, wait=time.sleep, opener=None):
+    opener = opener or urllib.request.urlopen
+    params = {
         "latitude": ",".join(f"{z['lat']:.4f}" for z in zones),
         "longitude": ",".join(f"{z['lon']:.4f}" for z in zones),
         "hourly": VARS, "models": model, "forecast_days": days, "timezone": "UTC",
-    })
+    }
+    if cell != "land":   # land is Open-Meteo's default; leaving it out keeps the land points' call as before
+        params["cell_selection"] = cell
+    q = urllib.parse.urlencode(params)
     req = urllib.request.Request(f"{ENSEMBLE_URL}?{q}", headers={"User-Agent": "Vis/1.0 (+https://vis.theintelligence.company)"})
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with opener(req, timeout=60) as r:
                 data = json.loads(r.read().decode("utf-8"))
             break
         except urllib.error.HTTPError as e:
@@ -107,6 +138,39 @@ def fetch_model(zones, model, days, wait=time.sleep):
             print(f"  {model}: Open-Meteo refused the call (429); waiting 65 s", flush=True)
             wait(65)
     return data if isinstance(data, list) else [data]
+
+
+def grid_check(zones, answers, opener=None):
+    """Per point: the cell Open-Meteo used (its centre from the answer) and the elevation of that centre against the
+    station's, both from Open-Meteo's elevation API in one call. ok is None when either is unknown."""
+    opener = opener or urllib.request.urlopen
+    rows = []
+    for z, a in zip(zones, answers):
+        a = a or {}
+        rows.append({"cell": z.get("cell") or "land", "lat": a.get("latitude"), "lon": a.get("longitude"),
+                     "cell_elevation_m": None, "station_elevation_m": None, "diff_m": None, "ok": None})
+    have = [i for i, r in enumerate(rows) if r["lat"] is not None and r["lon"] is not None]
+    if not have:
+        return rows
+    lats = [zones[i]["lat"] for i in have] + [rows[i]["lat"] for i in have]
+    lons = [zones[i]["lon"] for i in have] + [rows[i]["lon"] for i in have]
+    q = urllib.parse.urlencode({"latitude": ",".join(f"{x:.4f}" for x in lats),
+                                "longitude": ",".join(f"{x:.4f}" for x in lons)})
+    req = urllib.request.Request(f"{ELEVATION_URL}?{q}", headers={"User-Agent": "Vis/1.0 (+https://vis.theintelligence.company)"})
+    try:
+        with opener(req, timeout=30) as r:
+            elev = json.loads(r.read().decode("utf-8"))["elevation"]
+    except Exception as e:  # noqa: BLE001 - unknown, never a stop; the feed then sends no warning for the point
+        print(f"  grid check: elevation unreadable ({e.__class__.__name__})", flush=True)
+        return rows
+    n = len(have)
+    for k, i in enumerate(have):
+        st, ce = elev[k], elev[n + k]
+        rows[i].update({"station_elevation_m": st, "cell_elevation_m": ce})
+        if st is not None and ce is not None:
+            rows[i]["diff_m"] = round(ce - st, 1)
+            rows[i]["ok"] = abs(ce - st) <= GRID_MAX_DIFF_M
+    return rows
 
 
 def _utc(ts):
@@ -160,7 +224,7 @@ def expand_points(zones):
             rows.append({
                 "id": f"{z['id']}-{a['icao']}", "zone_id": z["id"], "role": "alternate", "name": z["name"],
                 "warning_problem_id": z.get("warning_problem_id"), "station": a["station"], "icao": a["icao"],
-                "lat": a["lat"], "lon": a["lon"],
+                "lat": a["lat"], "lon": a["lon"], "cell": a.get("cell"),
                 "countries": [a["country"]] if a.get("country") else list(z.get("countries", [])),
             })
     return rows
@@ -176,37 +240,53 @@ def hit(vals, threshold, direction):
     return (vals >= threshold) if direction == "above" else (vals <= threshold)
 
 
-def member_hits_day(h, m_slice, m2_slice=None):
-    """Return (amber_hit, red_hit, summary_val) for one ensemble member over one 24-hour UTC slice."""
-    min_h = h.get("min_hours", 1)
+def _steps_run(flags, native):
+    """Longest run of consecutive model steps (native True) that are all hits; hours between steps are skipped."""
+    best = run = 0
+    for f, n in zip(flags, native):
+        if not n:
+            continue
+        run = run + 1 if f else 0
+        best = max(best, run)
+    return best
+
+
+def member_hits_day(h, m_slice, m2_slice=None, native=None):
+    """Return (amber_hit, red_hit, summary_val) for one ensemble member over one 24-hour UTC slice. `native` marks
+    the hours that are the model's own 3-hourly steps (default: every hour)."""
+    min_s = h.get("min_steps", 1)
+    native = native if native is not None else [True] * len(m_slice)
     if h["agg"] == "joint":
         if m2_slice is None:
             return False, False, None
         w = h["with"]
-        pairs = [(a, b) for a, b in zip(m_slice, m2_slice) if a is not None and b is not None]
-        if not pairs:
+        if not any(a is not None and b is not None for a, b in zip(m_slice, m2_slice)):
             return False, False, None
-        ah = sum(1 for a, b in pairs if hit(a, h["amber"], h["dir"]) and hit(b, w["amber"], w["dir"]))
-        rh = sum(1 for a, b in pairs if hit(a, h["red"], h["dir"]) and hit(b, w["red"], w["dir"]))
-        return ah >= min_h, rh >= min_h, None
+        fa = [a is not None and b is not None and hit(a, h["amber"], h["dir"]) and hit(b, w["amber"], w["dir"])
+              for a, b in zip(m_slice, m2_slice)]
+        fr = [a is not None and b is not None and hit(a, h["red"], h["dir"]) and hit(b, w["red"], w["dir"])
+              for a, b in zip(m_slice, m2_slice)]
+        return _steps_run(fa, native) >= min_s, _steps_run(fr, native) >= min_s, None
     vals = [v for v in m_slice if v is not None]
     if not vals:
         return False, False, None
     if h["agg"] == "sum":
         total = sum(vals)
         return hit(total, h["amber"], h["dir"]), hit(total, h["red"], h["dir"]), total
-    ah = sum(1 for v in vals if hit(v, h["amber"], h["dir"]))
-    rh = sum(1 for v in vals if hit(v, h["red"], h["dir"]))
+    fa = [v is not None and hit(v, h["amber"], h["dir"]) for v in m_slice]
+    fr = [v is not None and hit(v, h["red"], h["dir"]) for v in m_slice]
     stat = max(vals) if h["agg"] == "max" else min(vals)
-    return ah >= min_h, rh >= min_h, stat
+    return _steps_run(fa, native) >= min_s, _steps_run(fr, native) >= min_s, stat
 
 
-def score_zone_days(zone_models, days, now=None):
+def score_zone_days(zone_models, days, now=None, model_ids=None):
     """Score each UTC day. With `now`, hours already past are left out: the first day is scored from the current
     UTC hour (review 15 Nov 2026: 11 of 18 warnings were issued 17 to 23 hours into the day they forecast, so they
     counted hours that had already happened)."""
     times = zone_models[0]["hourly"]["time"]
     start = first_hour_index(times, now)
+    native_all = [int(t[11:13]) % NATIVE_STEP_HOURS == 0 for t in times]
+    model_ids = model_ids or [f"model{k + 1}" for k in range(len(zone_models))]
     day_Warning = []
     for d in range(days):
         i0, i1 = d * 24, (d + 1) * 24
@@ -226,7 +306,9 @@ def score_zone_days(zone_models, days, now=None):
             amber_hits = red_hits = total = 0
             stat_vals = []
             hazard_models = set()
+            per_model = {}
             for m_idx, zm in enumerate(zone_models):
+                pm = {"members": 0, "amber_hits": 0, "red_hits": 0}
                 members = member_series(zm["hourly"], h["var"])
                 if members:
                     models_contributing.add(m_idx)
@@ -234,21 +316,29 @@ def score_zone_days(zone_models, days, now=None):
                 with_members = member_series(zm["hourly"], h["with"]["var"]) if h["agg"] == "joint" else None
                 for k, m in enumerate(members):
                     m2 = with_members[k][i0:i1] if (with_members and k < len(with_members)) else None
-                    ah, rh, sval = member_hits_day(h, m[i0:i1], m2)
+                    ah, rh, sval = member_hits_day(h, m[i0:i1], m2, native_all[i0:i1])
                     if h["agg"] == "joint" and m2 is None:
                         continue
                     if sval is None and h["agg"] != "joint":
                         continue
                     total += 1
+                    pm["members"] += 1
                     if ah:
                         amber_hits += 1
+                        pm["amber_hits"] += 1
                     if rh:
                         red_hits += 1
+                        pm["red_hits"] += 1
                     if sval is not None:
                         stat_vals.append(sval)
+                if pm["members"]:
+                    per_model[model_ids[m_idx]] = pm
             if total == 0:
                 continue
-            pa, pr = amber_hits / total, red_hits / total
+            # Each model weighs the same, whatever its member count (Tom's yes 16 Nov 2026; pooled by count, ECMWF's
+            # 51 members had carried 62% of the weight). Each model's own share is kept beside it.
+            pa = sum(v["amber_hits"] / v["members"] for v in per_model.values()) / len(per_model)
+            pr = sum(v["red_hits"] / v["members"] for v in per_model.values()) / len(per_model)
             col = matrix_colour(pa, pr)
             cap = h.get("max_colour")
             if cap and COLOUR_RANK[col] > COLOUR_RANK[cap]:
@@ -266,7 +356,7 @@ def score_zone_days(zone_models, days, now=None):
                 "p_amber": round(pa, 3), "term_amber": ta["term"], "band_amber": ta["band_label"],
                 "p_red": round(pr, 3), "term_red": tr["term"], "band_red": tr["band_label"],
                 "median": med, "p90": p90, "colour": col,
-                "models": len(hazard_models),
+                "models": len(hazard_models), "by_model": per_model,
             }
         out.append({"day": day_str, "from": times[i0][:13] + ":00Z", "hours": i1 - i0, "colour": worst,
                     "models_present": len(models_contributing), "hazards": hazards_out})
@@ -287,14 +377,15 @@ def load_zones(points_path=None, entities_path=None):
              "station": z["name"], "icao": "ZZZZ", "countries": []} for z in ent["zones"]]
 
 
-def build_forecast_doc(zones, by_model, days=7, generated_at=None, runs=None):
+def build_forecast_doc(zones, by_model, days=7, generated_at=None, runs=None, grids=None):
     """`runs` is {model id: model_run() result}; a model missing from `by_model` was left out (stale run)."""
     generated_at = generated_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     now = datetime.strptime(generated_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     runs = runs or {}
     out_zones = []
     for i, z in enumerate(zones):
-        z_days = score_zone_days([by_model[m][i] for m, _ in MODELS if m in by_model], days, now=now)
+        ids = [m for m, _ in MODELS if m in by_model]
+        z_days = score_zone_days([by_model[m][i] for m in ids], days, now=now, model_ids=ids)
         for d in z_days:
             day_dt = datetime.strptime(d["day"], "%Y-%m-%d").replace(tzinfo=timezone.utc)
             d["night"] = astro.night(z["lat"], z["lon"], day_dt)
@@ -305,6 +396,7 @@ def build_forecast_doc(zones, by_model, days=7, generated_at=None, runs=None):
             "station": z.get("station", z["name"]), "icao": z.get("icao", "ZZZZ"),
             "countries": z.get("countries", []),
             "lat": z["lat"], "lon": z["lon"],
+            "grid": (grids[i] if grids else None),
             "days": z_days,
         })
     return {
@@ -321,6 +413,8 @@ def build_forecast_doc(zones, by_model, days=7, generated_at=None, runs=None):
         } for m, label in MODELS],
         "members_used": sum(MODEL_MEMBERS.get(m, 0) for m, _ in MODELS if m in by_model),
         "max_run_age_hours": MAX_RUN_AGE_HOURS,
+        "native_step_hours": NATIVE_STEP_HOURS, "grid_max_diff_m": GRID_MAX_DIFF_M,
+        "model_weighting": "equal",
         "source": "Open-Meteo Ensemble API (open-meteo.com, CC BY 4.0); sun and moon computed (Meeus)",
         "hazards": [{k: v for k, v in h.items()} for h in HAZARDS],
         "zones": out_zones,
@@ -353,7 +447,12 @@ def main():
               "it is)", flush=True)
         return 1
 
-    result = build_forecast_doc(zones, by_model, days=a.days, generated_at=generated_at, runs=runs)
+    first = next(iter(by_model.values()))
+    grids = grid_check(zones, first)
+    bad = [f"{z.get('icao')} ({g['diff_m']:+.0f} m)" for z, g in zip(zones, grids) if g["ok"] is False]
+    print(f"grid check: {sum(1 for g in grids if g['ok'])} of {len(zones)} points within {GRID_MAX_DIFF_M:g} m"
+          + (f"; off: {', '.join(bad)}" if bad else ""), flush=True)
+    result = build_forecast_doc(zones, by_model, days=a.days, generated_at=generated_at, runs=runs, grids=grids)
     os.makedirs(a.out, exist_ok=True)
     p = os.path.join(a.out, "forecast.json")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
