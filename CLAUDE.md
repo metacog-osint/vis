@@ -44,6 +44,8 @@ Times: store UTC; the page shows the viewer's zone through the shared `tic-time.
   Known limit: that run reached only 21 Nov 21Z, and later day-7 hours still came from the 13 Nov 12Z run, which
   the run-age check (newest run only) cannot see.
 
+- **Method 1.1 (16 Nov 2026, Tom's yes; built in worktree `[local path]`, branch `method/cells-models-steps`, not committed):** models weighted equally with each one's share kept; persistence on two consecutive 3-hourly model steps; per-point cell selection (sea for SVMI and OLBA) and a grid-elevation check every run; Amber or Red reaches COP as a warning only with two models and a checked cell. Details in `doctrine/method.md`. Live check 17 Nov 2026 about 04:30 UTC: 30 of 31 points within 300 m (HHAS -446 m), feed lint PASS, 0 warnings.
+
 ## Rules
 - `doctrine/kit/` is vendored from `[local path]`; never edit it here.
 - Every threshold is indicative (JP 3-59 gives no numeric limits); say so wherever thresholds appear.

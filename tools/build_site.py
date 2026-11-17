@@ -70,14 +70,14 @@ INDEX_HTML = """<!doctype html>
       <div class="card">
         <h2>Hazard thresholds</h2>
         <p class="small">Each day column is a UTC day. Times show in your own time zone (the Time button changes it).</p>
-        <p class="small">Hourly hazards must last at least 3 hours in a UTC day (2 for freezing rain), so a brief shower or gust does not colour the whole day.</p>
+        <p class="small">Both models step every 3 hours (Open-Meteo serves the hours between interpolated), so a hazard must hold on two consecutive 3-hourly steps in a UTC day; a brief shower or gust does not colour the whole day.</p>
         <ul id="vis-thresholds" class="thresh-list"></ul>
       </div>
       <div class="card">
         <h2>How to read the table</h2>
         <ul class="thresh-list">
           <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let the forecasts be checked against the station’s METAR reports later; that scoring is not built yet.</li>
-          <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, given with its ICD 203 term. Most hazards use all 82 members; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
+          <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, each model weighted equally (its own share is shown beside it), given with its ICD 203 term. Most hazards use both models; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
           <li><b>Tonight’s light:</b> civil dusk and dawn, the moon’s lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit.</li>
         </ul>
       </div>
@@ -87,7 +87,7 @@ INDEX_HTML = """<!doctype html>
       <div class="card" id="about">
         <h2>About Vis</h2>
         <p class="small"><b>What it is.</b> A program of The Intelligence Company. For each of <a href="https://watchfloor.theintelligence.company">Watchfloor</a>’s conflict zones, Vis estimates how likely the coming week’s weather is to degrade air, ISR, maritime or ground operations, names the hazard behind it, and gives tonight’s light.</p>
-        <p class="small"><b>Method.</b> Twice a day, after the 00Z and 12Z ensemble runs reach Open-Meteo, Vis reads every member’s hourly forecast at each point and counts the members that reach each hazard’s amber and red thresholds. A model whose newest run on Open-Meteo is more than 24 hours old is left out, and the page says so. Today’s column counts only the hours still ahead. Sun and moon are computed with Meeus’s formulas; checked against the US Naval Observatory at four points on 31 Oct 2026, sun times agreed within 1 minute and moon times within 2.</p>
+        <p class="small"><b>Method.</b> Twice a day, after the 00Z and 12Z ensemble runs reach Open-Meteo, Vis reads every member’s forecast at each point (3-hourly model steps) and counts the members that reach each hazard’s amber and red thresholds. A model whose newest run on Open-Meteo is more than 24 hours old is left out, and the page says so. Today’s column counts only the hours still ahead. Sun and moon are computed with Meeus’s formulas; checked against the US Naval Observatory at four points on 31 Oct 2026, sun times agreed within 1 minute and moon times within 2.</p>
         <p class="small"><b>Limits.</b></p>
         <ul class="thresh-list" id="vis-limits">
           <li>Not an official forecast, and not for flight planning or go/no-go decisions. Use your weather unit or the national meteorological service.</li>
