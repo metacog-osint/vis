@@ -204,6 +204,43 @@ class VisTests(unittest.TestCase):
             forecast.urllib.request.urlopen = real
         self.assertEqual((len(calls), waits, out), (2, [65], [{"hourly": {"time": []}}]))
 
+    def _fetch_with(self, failures):
+        """fetch_model against a fake urlopen that raises each of `failures` in turn, then answers."""
+        import io
+        calls, waits = [], []
+
+        def fake_urlopen(req, timeout=60):
+            calls.append(req.full_url)
+            if len(calls) <= len(failures):
+                raise failures[len(calls) - 1]
+            return io.BytesIO(b'[{"hourly": {"time": []}}]')
+
+        real = forecast.urllib.request.urlopen
+        forecast.urllib.request.urlopen = fake_urlopen
+        try:
+            out = forecast.fetch_model([{"lat": 1.0, "lon": 2.0}], "ecmwf_ifs025", 7, wait=waits.append)
+        finally:
+            forecast.urllib.request.urlopen = real
+        return len(calls), waits, out
+
+    def test_fetch_retries_a_network_failure_or_timeout(self):
+        import urllib.error
+        got = self._fetch_with([urllib.error.URLError(TimeoutError("_ssl.c:983: The handshake operation timed out")),
+                                TimeoutError("The read operation timed out")])
+        self.assertEqual(got, (3, [65, 65], [{"hourly": {"time": []}}]))
+
+    def test_fetch_gives_up_after_three_network_failures(self):
+        import urllib.error
+        with self.assertRaises(urllib.error.URLError):
+            self._fetch_with([urllib.error.URLError("down")] * 3)
+
+    def test_fetch_raises_other_http_errors_at_once(self):
+        import io
+        import urllib.error
+        err = urllib.error.HTTPError("u", 500, "Server Error", {}, io.BytesIO(b"{}"))
+        with self.assertRaises(urllib.error.HTTPError):
+            self._fetch_with([err])
+
     def test_stale_model_run_is_judged_from_open_meteo_metadata(self):
         import io
         now = datetime(2026, 11, 16, 6, 0, tzinfo=timezone.utc)

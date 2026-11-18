@@ -104,7 +104,8 @@ def matrix_colour(p_amber, p_red):
 def fetch_model(zones, model, days, wait=time.sleep, opener=None):
     """One call per cell selection (land, sea, nearest) for all points that use it, answers back in the points'
     order. Open-Meteo weights ensemble calls by location, so splitting the points costs no more. A refused call
-    (HTTP 429) waits a minute and tries again, twice."""
+    (HTTP 429) or one with no answer (a URLError, timeout or dropped connection) waits a minute and tries again,
+    twice. Other HTTP errors are raised at once."""
     groups = {}
     for i, z in enumerate(zones):
         groups.setdefault(z.get("cell") or "land", []).append(i)
@@ -136,6 +137,13 @@ def _fetch_cells(zones, model, days, cell, wait=time.sleep, opener=None):
             if e.code != 429 or attempt == 2:
                 raise
             print(f"  {model}: Open-Meteo refused the call (429); waiting 65 s", flush=True)
+            wait(65)
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            # A network failure before any answer (run 44017839782, 17 Nov 2026: a TLS handshake timeout) is tried
+            # again the same way; HTTPError is a URLError, so it is caught above first.
+            if attempt == 2:
+                raise
+            print(f"  {model}: no answer from Open-Meteo ({type(e).__name__}: {e}); waiting 65 s", flush=True)
             wait(65)
     return data if isinstance(data, list) else [data]
 
