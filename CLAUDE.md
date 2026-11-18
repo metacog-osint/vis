@@ -32,7 +32,8 @@ Times: store UTC; the page shows the viewer's zone through the shared `tic-time.
 - Local preview: `python tools/forecast.py` (live data), `python tools/build_site.py`, then serve `site/` (launch
   config `vis` in `[local path]`, port 8744). Tests: `python tests/test_vis.py`.
 - Open-Meteo weights ensemble calls heavily: one 31-point run uses most of the free 600-a-minute allowance. Leave a
-  minute between runs; `fetch_model` waits 65 s and retries on HTTP 429.
+  minute between runs; `fetch_model` waits 65 s and retries (twice) on HTTP 429 and, since 18 Nov 2026, on a URLError, timeout or
+  dropped connection (run 44017839782 failed once on a TLS handshake timeout, 17 Nov 04:33 UTC).
 
 - **Run age and today's hours (live since 16 Nov 2026, 07:07 UTC; `main` at `576050c`, build 43821439923):** `forecast.py` reads each
   model's newest run from `https://ensemble-api.open-meteo.com/data/<set>/static/meta.json` (`ecmwf_ifs025` reads the
