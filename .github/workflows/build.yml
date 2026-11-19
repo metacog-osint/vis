@@ -50,6 +50,8 @@ jobs:
     if: needs.gate.outputs.skip != 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write  # the archive step uploads release assets (monthly release vis-data-YYYY-MM)
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -77,3 +79,17 @@ jobs:
           fi
           npx --yes wrangler@4.151.3 pages deploy site --project-name vis --branch main \
             --commit-hash "$GITHUB_SHA" --commit-message "build $GITHUB_SHA" --commit-dirty=true
+      # Retention (18 Nov 2026): keep every build's forecast.json (gzipped) in a monthly release. It runs after the
+      # deploy, so a failure here never blocks the live site, but it fails the run loudly. Asset names are unique per
+      # build (newest model run + build time); no --clobber. The feed is derived from forecast.json, so not archived.
+      - name: Archive forecast.json to release vis-data-YYYY-MM
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python tools/archive.py prepare out/forecast.json archive > "$RUNNER_TEMP/archive.env"
+          cat "$RUNNER_TEMP/archive.env"
+          set -a; . "$RUNNER_TEMP/archive.env"; set +a
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag"             --notes "Per-build archive of Vis forecast.json (gzip). Forecasts from Open-Meteo, CC BY 4.0. Asset name: newest model run (UTC) then build time."
+          gh release upload "$tag" "$path"
+          echo "Archived $name to $tag"

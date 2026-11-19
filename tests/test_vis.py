@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "doctrine" / "kit" / "python"))
 
 import astro  # noqa: E402
+import archive  # noqa: E402
 import build_site  # noqa: E402
 import feed_v2  # noqa: E402
 import forecast  # noqa: E402
@@ -317,6 +318,41 @@ class VisTests(unittest.TestCase):
         self.assertIn("civil_dawn", n)
         self.assertTrue(0.0 <= n["moon_lit"] <= 1.0)
         self.assertTrue(0 <= n["dark_low_light_min"] <= n["dark_min"])
+
+
+class ArchiveTests(unittest.TestCase):
+    DOC = {"generated_at": "2026-11-18T20:25:12Z", "models": [
+        {"id": "gfs", "used": True, "run_time": "2026-11-18T12:00Z"},
+        {"id": "ecmwf", "used": True, "run_time": "2026-11-18T06:00Z"},
+        {"id": "old", "used": False, "run_time": "2026-11-20T00:00Z"}]}
+
+    def test_name_and_tag(self):
+        self.assertEqual(archive.asset_name(self.DOC), "20261118T1200Z.forecast.gen-20261118T202512Z.json.gz")
+        self.assertEqual(archive.tag_for(self.DOC), "vis-data-2026-11")
+
+    def test_no_used_run_raises(self):
+        with self.assertRaises(ValueError):
+            archive.run_stamp({"generated_at": "2026-11-18T20:25:12Z", "models": [{"used": False, "run_time": "x"}]})
+
+    def test_gzip_is_deterministic_and_lossless(self):
+        import gzip
+        raw = json.dumps(self.DOC).encode()
+        self.assertEqual(archive.pack(raw), archive.pack(raw))
+        self.assertEqual(gzip.decompress(archive.pack(raw)), raw)
+
+    def test_prepare_writes_unchanged_forecast_and_site_output_is_unaffected(self):
+        import gzip
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d) / "forecast.json"
+            src.write_text(json.dumps(self.DOC), encoding="utf-8")
+            before = src.read_bytes()
+            tag, name, p = archive.prepare(src, Path(d) / "archive")
+            self.assertEqual(src.read_bytes(), before)  # the live input is untouched
+            self.assertEqual(gzip.decompress(p.read_bytes()), before)
+            self.assertEqual(p.name, name)
+            tag2, name2, p2 = archive.prepare(src, Path(d) / "archive")  # same input -> same name and bytes
+            self.assertEqual((tag, name, p.read_bytes()), (tag2, name2, p2.read_bytes()))
 
 
 if __name__ == "__main__":
