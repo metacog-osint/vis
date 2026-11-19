@@ -11,4 +11,4 @@ reference airfield or port, and tonight's light. Planned at https://vis.theintel
 - Method: `doctrine/method.md`. Run: `python tools/forecast.py`, then `python tools/build_site.py`.
 
 Data: Open-Meteo (CC BY 4.0, free for non-commercial use), NOAA GEFS (public domain), ECMWF IFS ensemble (CC BY 4.0).
-Code: GNU AGPL-3.0 (`LICENSE`). The vendored doctrine kit in `doctrine/kit/` keeps its own licence.
+Code: GNU AGPL-3.0 (`LICENSE`). Shared and third-party files keep their own licences, listed in `NOTICE`.
