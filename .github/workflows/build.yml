@@ -90,6 +90,7 @@ jobs:
           python tools/archive.py prepare out/forecast.json archive > "$RUNNER_TEMP/archive.env"
           cat "$RUNNER_TEMP/archive.env"
           set -a; . "$RUNNER_TEMP/archive.env"; set +a
-          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" \n            --notes "Per-build archive of Vis forecast.json (gzip). Forecasts from Open-Meteo, CC BY 4.0. Asset name: newest model run (UTC) then build time."
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" \
+            --notes "Per-build archive of Vis forecast.json (gzip). Forecasts from Open-Meteo, CC BY 4.0. Asset name: newest model run (UTC) then build time."
           gh release upload "$tag" "$path"
           echo "Archived $name to $tag"
