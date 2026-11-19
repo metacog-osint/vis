@@ -5,7 +5,7 @@ Third-party and shared files in this repository keep their own licences:
 
 - doctrine/kit/        The Intelligence Company doctrine kit, MIT (doctrine/kit/LICENSE)
 - tic-*.js, tic-*.css in site/
-  The Intelligence Company's shared site scripts (tic-nav, tic-time), MIT.
+  The Intelligence Company's shared site scripts (tic-nav, tic-tabs, tic-time), MIT.
   Canonical copies: site/shared/ in github.com/metacog-osint/theintelligence-company.
 - site/fonts/          IBM Plex Sans and Mono, SIL Open Font License 1.1 (site/fonts/OFL-ibm-plex.txt)
 
