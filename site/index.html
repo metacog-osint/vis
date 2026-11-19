@@ -9,6 +9,7 @@
   <link rel="preload" href="fonts/ibm-plex-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="tic-nav.css">
   <link rel="stylesheet" href="tic-time.css">
+  <link rel="stylesheet" href="tic-tabs.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -32,6 +33,9 @@
 
   <main class="wrap">
     <p id="vis-stale" class="stale" role="status" hidden></p>
+    <!-- Sections row (tic-tabs.js from the hub): one group at a time on a phone, a jumping row wider -->
+    <div data-tic-tabs>
+    <div id="sec-forecast" data-tab-label="Forecast">
     <section class="legend-bar" aria-label="Colour key">
       <div class="matrix-pills">
         <span class="pill col-green"><b>Green</b> · No significant impact</span>
@@ -44,13 +48,15 @@
       </div>
     </section>
 
-    <section class="table-wrap" aria-label="Seven-day operational weather and illumination by zone">
+    <section class="table-wrap" tabindex="0" aria-label="Seven-day operational weather and illumination by zone">
       <table id="vis-table" class="vis-table">
         <thead id="vis-thead"></thead>
         <tbody id="vis-tbody"></tbody>
       </table>
     </section>
+    </div>
 
+    <div id="sec-method" data-tab-label="How to read it">
     <section class="method-grid" aria-label="Operational thresholds and method">
       <div class="card">
         <h2>Hazard thresholds</h2>
@@ -68,6 +74,9 @@
       </div>
     </section>
 
+    </div>
+
+    <div id="sec-about" data-tab-label="About and sources">
     <section class="method-grid" aria-label="About Vis and its sources">
       <div class="card" id="about">
         <h2>About Vis</h2>
@@ -95,6 +104,8 @@
         </ul>
       </div>
     </section>
+    </div>
+    </div>
   </main>
 
   <footer class="wrap site-foot">
@@ -102,6 +113,7 @@
   </footer>
 
   <script src="tic-time.js"></script>
+  <script src="tic-tabs.js" defer></script>
   <script src="tic-nav.js" data-current="vis" defer data-health="on"></script>
   <script type="module" src="vis.js"></script>
 </body>

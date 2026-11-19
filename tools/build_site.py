@@ -24,6 +24,7 @@ INDEX_HTML = """<!doctype html>
   <link rel="preload" href="fonts/ibm-plex-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="tic-nav.css">
   <link rel="stylesheet" href="tic-time.css">
+  <link rel="stylesheet" href="tic-tabs.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -47,6 +48,9 @@ INDEX_HTML = """<!doctype html>
 
   <main class="wrap">
     <p id="vis-stale" class="stale" role="status" hidden></p>
+    <!-- Sections row (tic-tabs.js from the hub): one group at a time on a phone, a jumping row wider -->
+    <div data-tic-tabs>
+    <div id="sec-forecast" data-tab-label="Forecast">
     <section class="legend-bar" aria-label="Colour key">
       <div class="matrix-pills">
         <span class="pill col-green"><b>Green</b> · No significant impact</span>
@@ -59,13 +63,15 @@ INDEX_HTML = """<!doctype html>
       </div>
     </section>
 
-    <section class="table-wrap" aria-label="Seven-day operational weather and illumination by zone">
+    <section class="table-wrap" tabindex="0" aria-label="Seven-day operational weather and illumination by zone">
       <table id="vis-table" class="vis-table">
         <thead id="vis-thead"></thead>
         <tbody id="vis-tbody"></tbody>
       </table>
     </section>
+    </div>
 
+    <div id="sec-method" data-tab-label="How to read it">
     <section class="method-grid" aria-label="Operational thresholds and method">
       <div class="card">
         <h2>Hazard thresholds</h2>
@@ -83,6 +89,9 @@ INDEX_HTML = """<!doctype html>
       </div>
     </section>
 
+    </div>
+
+    <div id="sec-about" data-tab-label="About and sources">
     <section class="method-grid" aria-label="About Vis and its sources">
       <div class="card" id="about">
         <h2>About Vis</h2>
@@ -110,6 +119,8 @@ INDEX_HTML = """<!doctype html>
         </ul>
       </div>
     </section>
+    </div>
+    </div>
   </main>
 
   <footer class="wrap site-foot">
@@ -117,6 +128,7 @@ INDEX_HTML = """<!doctype html>
   </footer>
 
   <script src="tic-time.js"></script>
+  <script src="tic-tabs.js" defer></script>
   <script src="tic-nav.js" data-current="vis" defer data-health="on"></script>
   <script type="module" src="vis.js"></script>
 </body>
@@ -233,6 +245,7 @@ h1 .sub {
   border-radius: 6px;
   padding: 8px;
 }
+.table-wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .vis-table {
   width: 100%;
   border-collapse: separate;
@@ -280,6 +293,8 @@ h1 .sub {
   font-size: 12px;
 }
 .mono { font-family: "IBM Plex Mono", monospace; }
+/* Sections row (tic-tabs.css) in Vis's colours */
+.tic-tabs-nav { --panel: var(--card); --line: var(--rule); --link: var(--accent); }
 .method-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
@@ -465,7 +480,15 @@ async function init() {
     .join("");
 }
 
-init();
+// A link to a zone's row (#zone-..., from COP) lands before the rows are drawn; land it once they are
+// (19 Nov 2026: every row below the first stopped 1,800 to 3,400 px short).
+function land() {
+  const id = location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : "";
+  const el = id ? document.getElementById(id) : null;
+  if (el) el.scrollIntoView({ block: "start" });
+}
+
+init().then(land, () => {});
 if (T) { T.mountSettings(document.getElementById("time-settings")); T.onChange(() => init()); }
 """
 

@@ -108,6 +108,7 @@ h1 .sub {
   border-radius: 6px;
   padding: 8px;
 }
+.table-wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .vis-table {
   width: 100%;
   border-collapse: separate;
@@ -155,6 +156,8 @@ h1 .sub {
   font-size: 12px;
 }
 .mono { font-family: "IBM Plex Mono", monospace; }
+/* Sections row (tic-tabs.css) in Vis's colours */
+.tic-tabs-nav { --panel: var(--card); --line: var(--rule); --link: var(--accent); }
 .method-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));

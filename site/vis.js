@@ -127,5 +127,13 @@ async function init() {
     .join("");
 }
 
-init();
+// A link to a zone's row (#zone-..., from COP) lands before the rows are drawn; land it once they are
+// (19 Nov 2026: every row below the first stopped 1,800 to 3,400 px short).
+function land() {
+  const id = location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : "";
+  const el = id ? document.getElementById(id) : null;
+  if (el) el.scrollIntoView({ block: "start" });
+}
+
+init().then(land, () => {});
 if (T) { T.mountSettings(document.getElementById("time-settings")); T.onChange(() => init()); }
