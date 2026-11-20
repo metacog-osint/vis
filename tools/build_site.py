@@ -25,6 +25,7 @@ INDEX_HTML = """<!doctype html>
   <link rel="stylesheet" href="tic-nav.css">
   <link rel="stylesheet" href="tic-time.css">
   <link rel="stylesheet" href="tic-tabs.css">
+  <link rel="stylesheet" href="tic-fold.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -63,12 +64,13 @@ INDEX_HTML = """<!doctype html>
       </div>
     </section>
 
-    <section class="table-wrap" tabindex="0" aria-label="Seven-day operational weather and illumination by zone">
-      <table id="vis-table" class="vis-table">
+    <!-- A window about ten rows tall that scrolls, header kept in view, with "Show all" (tic-fold.js from the hub) -->
+    <div class="table-wrap" tabindex="0">
+      <table id="vis-table" class="vis-table" data-tic-fold aria-label="Seven-day operational weather and illumination by zone">
         <thead id="vis-thead"></thead>
         <tbody id="vis-tbody"></tbody>
       </table>
-    </section>
+    </div>
     </div>
 
     <div id="sec-method" data-tab-label="How to read it">
@@ -129,6 +131,7 @@ INDEX_HTML = """<!doctype html>
 
   <script src="tic-time.js"></script>
   <script src="tic-tabs.js" defer></script>
+  <script src="tic-fold.js" defer></script>
   <script src="tic-nav.js" data-current="vis" defer data-health="on"></script>
   <script type="module" src="vis.js"></script>
 </body>
@@ -295,6 +298,8 @@ h1 .sub {
 .mono { font-family: "IBM Plex Mono", monospace; }
 /* Sections row (tic-tabs.css) in Vis's colours */
 .tic-tabs-nav { --panel: var(--card); --line: var(--rule); --link: var(--accent); }
+/* Long-table window and its "Show all" button (tic-fold.css) in Vis's colours */
+.tic-fold-box, .tic-fold-bar, .tic-fold-find { --panel: var(--card); --line: var(--rule); --link: var(--accent); }
 .method-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
