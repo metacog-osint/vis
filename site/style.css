@@ -158,6 +158,8 @@ h1 .sub {
 .mono { font-family: "IBM Plex Mono", monospace; }
 /* Sections row (tic-tabs.css) in Vis's colours */
 .tic-tabs-nav { --panel: var(--card); --line: var(--rule); --link: var(--accent); }
+/* Long-table window and its "Show all" button (tic-fold.css) in Vis's colours */
+.tic-fold-box, .tic-fold-bar, .tic-fold-find { --panel: var(--card); --line: var(--rule); --link: var(--accent); }
 .method-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
