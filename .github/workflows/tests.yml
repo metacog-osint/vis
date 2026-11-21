@@ -1,0 +1,25 @@
+name: tests
+# Runs the same tests as build.yml on every pull request to main, so a PR has a check to read at its head sha.
+# No secrets, no deploy, no release writes, and a read-only token.
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: tests-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - name: Tests
+        run: python tests/test_vis.py
+      - name: Doctrine and kit copy
+        run: python doctrine/kit/tic.py kitcheck
