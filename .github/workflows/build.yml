@@ -49,7 +49,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.skip != 'yes'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write  # the archive step uploads release assets (monthly release vis-data-YYYY-MM)
     steps:
@@ -62,6 +62,15 @@ jobs:
         run: python doctrine/kit/tic.py kitcheck
       - name: Forecast (Open-Meteo ensembles)
         run: python tools/forecast.py --days 7
+      # Location detail (22 Nov 2026): per-point forecast, METAR/TAF, normals and records for the pop-up. The climate
+      # cache comes from release vis-climate (filled by climate.yml); without it the pop-up shows no normals yet.
+      # locations.py never fails the build: a source that fails is written into the file's errors list.
+      - name: Climate cache from release vis-climate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download vis-climate -p climate.json -D out --clobber || echo "No climate cache yet"
+      - name: Location detail (Open-Meteo forecast, AWC METAR/TAF)
+        run: python tools/locations.py
       - name: Feed and site
         run: python tools/build_site.py
       - name: Lint the feed
@@ -82,15 +91,17 @@ jobs:
       # Retention (18 Nov 2026): keep every build's forecast.json (gzipped) in a monthly release. It runs after the
       # deploy, so a failure here never blocks the live site, but it fails the run loudly. Asset names are unique per
       # build (newest model run + build time); no --clobber. The feed is derived from forecast.json, so not archived.
-      - name: Archive forecast.json to release vis-data-YYYY-MM
+      - name: Archive forecast.json and locations.json to release vis-data-YYYY-MM
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          python tools/archive.py prepare out/forecast.json archive > "$RUNNER_TEMP/archive.env"
+          extra=""; [ -f out/locations.json ] && extra="--extra out/locations.json"
+          python tools/archive.py prepare out/forecast.json archive $extra > "$RUNNER_TEMP/archive.env"
           cat "$RUNNER_TEMP/archive.env"
           set -a; . "$RUNNER_TEMP/archive.env"; set +a
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" \
             --notes "Per-build archive of Vis forecast.json (gzip). Forecasts from Open-Meteo, CC BY 4.0. Asset name: newest model run (UTC) then build time."
           gh release upload "$tag" "$path"
           echo "Archived $name to $tag"
+          if [ -n "${extra_path:-}" ]; then gh release upload "$tag" "$extra_path"; echo "Archived $extra_name to $tag"; fi

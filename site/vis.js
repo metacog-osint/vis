@@ -1,4 +1,5 @@
 import { likelihoodLabel } from "./vendor/tic-doctrine.js";
+import { setup as setupDetail } from "./locdetail.js";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -53,12 +54,15 @@ function dayCell(d, hz) {
 function nightCell(n) {
   const lowH = Math.floor((n.dark_low_light_min || 0) / 60);
   const lowM = (n.dark_low_light_min || 0) % 60;
-  return `<td class="night-cell"><div><b>Moon ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
+  return `<td class="night-cell"><div><b>${esc(n.moon_phase || "Moon")}, ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
+    <div>Sunset ${timeSpan(n.sunset_dusk)} · sunrise ${timeSpan(n.sunset_dawn)}</div>
     <div>Civil dusk ${timeSpan(n.civil_dusk)} · dawn ${timeSpan(n.civil_dawn)}</div></td>`;
 }
 
 function rowHead(z) {
-  const meta = `${esc(z.station)} · ${esc(z.icao)} (${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})`;
+  // The station opens the point's detail pop-up (locdetail.js); the button carries the point id.
+  const btn = `<button type="button" class="loc-open" data-loc="${esc(z.id)}" title="Forecast, charts and climate for ${esc(z.station)}">${esc(z.station)} · ${esc(z.icao)}</button>`;
+  const meta = `${btn} <span class="mono">(${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})</span>`;
   if (z.role === "alternate") {
     return `<th scope="row" class="alt-head"><span class="sr">${esc(z.name)}, </span>Alternate point<span class="station-meta">${meta}</span></th>`;
   }
@@ -125,6 +129,7 @@ async function init() {
       return `<li><b>${esc(h.name)}</b>: Amber <span class="mono">${esc(lim("amber"))}</span>, Red <span class="mono">${esc(lim("red"))}</span>${n ? ` (${n} members)` : ""}. ${esc(h.why)}.</li>`;
     })
     .join("");
+  return doc;
 }
 
 // A link to a zone's row (#zone-..., from COP) lands before the rows are drawn; land it once they are
@@ -135,5 +140,5 @@ function land() {
   if (el) el.scrollIntoView({ block: "start" });
 }
 
-init().then(land, () => {});
+init().then((doc) => { land(); setupDetail({ hazardList: doc.hazards || [], points: doc.zones || [] }); }, () => {});
 if (T) { T.mountSettings(document.getElementById("time-settings")); T.onChange(() => init()); }

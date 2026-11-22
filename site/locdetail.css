@@ -1,0 +1,106 @@
+/* Vis location detail pop-up (22 Nov 2026), with locdetail.js. Colours follow style.css's tokens. */
+.chips-hint { font-size: 12px; color: var(--muted); margin-right: 10px; }
+.loc-open {
+  font: inherit; color: var(--accent); background: none; border: 0; padding: 0; margin: 0;
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px; text-align: left;
+}
+.loc-open:hover { text-decoration-thickness: 2px; }
+.loc-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+.loc-dialog {
+  width: min(1100px, calc(100vw - 24px)); max-height: calc(100vh - 32px);
+  padding: 0; border: 1px solid var(--rule); border-radius: 8px;
+  background: var(--card); color: var(--ink);
+  box-shadow: 0 18px 50px rgba(11, 26, 43, 0.28);
+}
+.loc-dialog::backdrop { background: rgba(11, 26, 43, 0.45); }
+.loc-inner { padding: 16px 20px 20px; }
+.loc-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  position: sticky; top: -16px; background: var(--card); padding: 16px 0 10px; margin-top: -16px;
+  border-bottom: 1px solid var(--rule); z-index: 2;
+}
+.loc-head h2 { margin: 0; font-size: 22px; font-weight: 600; }
+.loc-head .eyebrow { margin: 0 0 2px; }
+.loc-close {
+  font-size: 24px; line-height: 1; width: 36px; height: 36px; border-radius: 6px;
+  border: 1px solid var(--rule); background: var(--bg); color: var(--ink); cursor: pointer;
+}
+.loc-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.loc-h { font-size: 15px; font-weight: 600; margin: 18px 0 8px; }
+.loc-h .small { font-weight: 400; }
+
+.loc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+.loc-card { border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; background: var(--bg); }
+.loc-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; display: flex; gap: 8px; align-items: baseline; }
+.loc-big { font-size: 22px; font-weight: 600; margin: 2px 0 8px; }
+.loc-big .small { font-size: 12.5px; font-weight: 400; }
+.loc-tag {
+  font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 3px;
+  border: 1px solid var(--rule); background: var(--card); color: var(--ink);
+}
+.loc-dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; margin: 0; font-size: 12.5px; }
+.loc-dl dt { color: var(--muted); }
+.loc-dl dd { margin: 0; }
+.loc-raw { font-size: 11.5px; background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 8px; margin: 8px 0 0; white-space: pre-wrap; word-break: break-word; }
+.loc-anom { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; }
+.loc-anom.warm { color: #9A3412; }
+.loc-anom.cool { color: #1D4E89; }
+
+.loc-outlook { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 4px; }
+.loc-od { border-radius: 4px; padding: 6px 8px; font-size: 12px; display: flex; flex-direction: column; gap: 1px; border: 1px solid rgba(20, 35, 60, 0.12); }
+.loc-od .small { margin: 0; font-size: 11.5px; color: inherit; }
+
+.loc-fig { margin: 0 0 12px; }
+.loc-fig figcaption { font-size: 12.5px; margin-bottom: 2px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.loc-key { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.loc-key .sw { display: inline-block; width: 14px; height: 3px; border-radius: 1px; background: var(--muted); }
+.loc-chart { width: 100%; height: auto; display: block; background: var(--card); touch-action: pan-y; }
+.loc-clim { max-width: 380px; margin-top: 6px; }
+.loc-readout { font-size: 12px; color: var(--muted); margin: 2px 0 0; min-height: 1.4em; font-family: "IBM Plex Mono", monospace; }
+.loc-src { margin-top: 14px; }
+.loc-table-wrap { padding: 4px; }
+.loc-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.loc-table th, .loc-table td { padding: 5px 8px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; white-space: nowrap; }
+.loc-table thead th { font-size: 11.5px; color: var(--muted); font-weight: 600; background: #F3F4F1; }
+
+/* chart marks (SVG presentation via classes; no inline styles under the page's CSP) */
+.c-grid { stroke: #E6E9EE; stroke-width: 1; }
+.c-day { stroke: #CDD3DB; stroke-width: 1; stroke-dasharray: 2 3; }
+.c-axis { font: 10.5px "IBM Plex Mono", monospace; fill: #5B6880; }
+.c-unit { fill: #14233C; }
+.c-past { fill: #F3F4F1; }
+.c-now { stroke: #0B4F6C; stroke-width: 1.5; }
+.c-now-t { fill: #0B4F6C; }
+.c-cursor { stroke: #14233C; stroke-width: 1; stroke-dasharray: 3 2; }
+.c-zero { stroke: #8EA0B8; stroke-width: 1; }
+.c-none { stroke: none; }
+.c-temp, .loc-key .sw.c-temp { stroke: #C2410C; background: #C2410C; stroke-width: 2; fill: none; }
+.c-dew, .loc-key .sw.c-dew { stroke: #0F766E; background: #0F766E; stroke-width: 1.5; fill: none; }
+.c-hi { stroke: #C2410C; stroke-width: 1; fill: none; stroke-dasharray: 3 2; }
+.c-lo { stroke: #1D4ED8; stroke-width: 1; fill: none; stroke-dasharray: 3 2; }
+.c-norm { fill: #E7DCC8; }
+.loc-key .sw.c-norm { background: #E7DCC8; height: 8px; }
+.c-rec, .loc-key .sw.c-rec { stroke: #9F1239; background: #9F1239; stroke-width: 1; fill: none; stroke-dasharray: 4 3; }
+.c-rec-lo, .loc-key .sw.c-rec-lo { stroke: #1E3A8A; background: #1E3A8A; }
+.c-wind, .loc-key .sw.c-wind { stroke: #0B4F6C; background: #0B4F6C; stroke-width: 2; fill: none; }
+.c-gust, .loc-key .sw.c-gust { stroke: #6D28D9; background: #6D28D9; stroke-width: 1.2; fill: none; }
+.c-amber, .loc-key .sw.c-amber { stroke: #D97706; background: #D97706; stroke-width: 1; stroke-dasharray: 5 3; }
+.c-red, .loc-key .sw.c-red { stroke: #B91C1C; background: #B91C1C; stroke-width: 1; stroke-dasharray: 5 3; }
+.c-amber-t { fill: #92400E; }
+.c-red-t { fill: #991B1B; }
+.c-rain { fill: #2563EB; fill-opacity: 0.75; }
+.loc-key .sw.c-rain { background: #2563EB; height: 8px; }
+.c-pop, .loc-key .sw.c-pop { stroke: #64748B; background: #64748B; stroke-width: 1.2; fill: none; stroke-dasharray: 2 2; }
+.c-cloud { fill: #CBD5E1; fill-opacity: 0.7; stroke: none; }
+.loc-key .sw.c-cloud { background: #CBD5E1; height: 8px; }
+.c-lowcloud, .loc-key .sw.c-lowcloud { stroke: #475569; background: #475569; stroke-width: 1.2; fill: none; }
+.c-pres, .loc-key .sw.c-pres { stroke: #14233C; background: #14233C; stroke-width: 1.8; fill: none; }
+
+@media (max-width: 640px) {
+  .loc-inner { padding: 12px 12px 16px; }
+  .loc-head h2 { font-size: 18px; }
+}
+@media print {
+  .loc-dialog { box-shadow: none; }
+}

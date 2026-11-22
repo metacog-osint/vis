@@ -23,3 +23,11 @@ jobs:
         run: python tests/test_vis.py
       - name: Doctrine and kit copy
         run: python doctrine/kit/tic.py kitcheck
+      # Live probes of the location sources (22 Nov 2026). Informational: a network problem never fails the check,
+      # but the log shows whether Open-Meteo's forecast and archive APIs and AWC answer as locations.py expects.
+      - name: Probe location sources (informational)
+        continue-on-error: true
+        run: python tools/locations.py --probe
+      - name: Probe ERA5 climatology (informational)
+        continue-on-error: true
+        run: python tools/climate.py --probe

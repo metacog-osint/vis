@@ -15,6 +15,9 @@ import archive  # noqa: E402
 import build_site  # noqa: E402
 import feed_v2  # noqa: E402
 import forecast  # noqa: E402
+import climate  # noqa: E402
+import history  # noqa: E402
+import locations  # noqa: E402
 from tic_doctrine import contract, registers  # noqa: E402
 
 
@@ -353,6 +356,175 @@ class ArchiveTests(unittest.TestCase):
             self.assertEqual(p.name, name)
             tag2, name2, p2 = archive.prepare(src, Path(d) / "archive")  # same input -> same name and bytes
             self.assertEqual((tag, name, p.read_bytes()), (tag2, name2, p2.read_bytes()))
+
+
+class _Resp:
+    status = 200
+
+    def __init__(self, body):
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self):
+        return self.body
+
+
+def _fake_open_meteo_and_awc(req, timeout=0):
+    """A stand-in for Open-Meteo's forecast API and AWC: 2 days back, 2 ahead, hourly, for each requested point."""
+    import urllib.parse
+    u = urllib.parse.urlparse(req.full_url)
+    q = dict(urllib.parse.parse_qsl(u.query))
+    t0 = int(datetime(2026, 11, 20, 0, tzinfo=timezone.utc).timestamp())
+    if u.path.endswith("/forecast"):
+        out = []
+        for la, lo in zip(q["latitude"].split(","), q["longitude"].split(",")):
+            hourly = {"time": [t0 + 3600 * i for i in range(96)]}
+            for k in locations.HOURLY:
+                hourly[k] = [5.0 + (i % 24) / 4 for i in range(96)]
+            daily = {"time": [t0 + 86400 * d for d in range(4)]}
+            for k in locations.DAILY:
+                daily[k] = [1.0, 2.0, 3.0, 4.0]
+            daily["temperature_2m_max"] = [12.0, 30.0, 11.0, 10.0]  # the 21st breaks the record below
+            cur = {"time": t0 + 2 * 86400 + 4 * 3600, **{k: 1.0 for k in locations.CURRENT}}
+            out.append({"latitude": float(la), "longitude": float(lo), "elevation": 120.0, "timezone": "UTC",
+                        "timezone_abbreviation": "UTC", "utc_offset_seconds": 0, "hourly": hourly, "daily": daily,
+                        "current": cur})
+        return _Resp(json.dumps(out if len(out) > 1 else out[0]).encode())
+    if "metar" in u.path:
+        rows = [{"icaoId": i, "obsTime": t0 + 2 * 86400 + 3 * 3600, "temp": 8, "dewp": 4, "wdir": 250, "wspd": 12,
+                 "wgst": 22, "visib": "6+", "altim": 1012, "fltCat": "MVFR", "rawOb": f"{i} 220300Z 25012G22KT",
+                 "clouds": [{"cover": "FEW", "base": 1200}, {"cover": "BKN", "base": 2500}]}
+                for i in q["ids"].split(",")]
+        return _Resp(json.dumps(rows).encode())
+    if "taf" in u.path:
+        return _Resp(b"")  # AWC answers an empty body (or 204) when there is nothing
+    raise AssertionError(req.full_url)
+
+
+def _fake_climate(lat=50.0):
+    from datetime import date, timedelta
+    import math
+    daily = {"time": [], "temperature_2m_max": [], "temperature_2m_min": [], "precipitation_sum": []}
+    d = date(1991, 1, 1)
+    while d <= date(2020, 12, 31):
+        doy = d.timetuple().tm_yday
+        base = 10 - 12 * math.cos(2 * math.pi * (doy - 15) / 365)
+        daily["time"].append(d.isoformat())
+        daily["temperature_2m_max"].append(base + 5 + (d.year % 5))
+        daily["temperature_2m_min"].append(base - 5 - (d.year % 3))
+        daily["precipitation_sum"].append(2.0 if d.day % 3 == 0 else 0.0)
+        d += timedelta(1)
+    return climate.summarise(daily, 1991, 2020, lat)
+
+
+class LocationTests(unittest.TestCase):
+    """The location pop-up's data (22 Nov 2026): sun and moon, climate summary, the per-point file and its history."""
+
+    def test_sunrise_and_sunset_match_the_almanac_within_three_minutes(self):
+        # USNO for Kyiv (50.45 N, 30.52 E), 22 Nov 2026: sunrise 05:21 UTC, sunset 14:03 UTC
+        s = astro.sun_day(50.45, 30.52, datetime(2026, 11, 22, tzinfo=timezone.utc))
+        rise = datetime.fromisoformat(s["sunrise"].replace("Z", "+00:00"))
+        sset = datetime.fromisoformat(s["sunset"].replace("Z", "+00:00"))
+        self.assertLess(abs((rise - datetime(2026, 11, 22, 5, 21, tzinfo=timezone.utc)).total_seconds()), 180)
+        self.assertLess(abs((sset - datetime(2026, 11, 22, 14, 3, tzinfo=timezone.utc)).total_seconds()), 180)
+        self.assertIsNone(s["polar"])
+
+    def test_polar_night_has_no_sunrise(self):
+        s = astro.sun_day(78.2, 15.6, datetime(2026, 12, 21, tzinfo=timezone.utc))  # Svalbard
+        self.assertEqual((s["polar"], s["sunrise"], s["sunset"]), ("polar_night", None, None))
+
+    def test_moon_phase_names_the_full_moon(self):
+        p = astro.moon_phase(datetime(2026, 11, 24, 15, tzinfo=timezone.utc))
+        self.assertEqual(p["name"], "Full moon")
+
+    def test_koppen_classes(self):
+        # Kyiv-like: cold winter, warm summer, no dry season -> Dfb; a hot desert -> BWh
+        self.assertEqual(climate.koppen([-4, -3, 2, 9, 15, 18, 20, 19, 14, 8, 2, -2],
+                                        [40, 40, 40, 45, 55, 70, 75, 60, 50, 40, 45, 45], 50.4), "Dfb")
+        self.assertEqual(climate.koppen([20, 22, 25, 29, 33, 35, 35, 35, 33, 29, 25, 21],
+                                        [5, 3, 2, 1, 0, 0, 0, 0, 0, 1, 2, 4], 25.0), "BWh")
+
+    def test_climate_summary_has_normals_and_dated_records_for_every_day(self):
+        c = _fake_climate()
+        self.assertEqual(len(c["daily"]["normal_tmax_c"]), 366)
+        i = climate.MD_INDEX["07-15"]
+        self.assertGreater(c["daily"]["normal_tmax_c"][i], c["daily"]["normal_tmin_c"][i])
+        self.assertGreaterEqual(c["daily"]["record_tmax_c"][i], c["daily"]["normal_tmax_c"][i])
+        self.assertIn(c["daily"]["record_tmax_year"][i], range(1991, 2021))
+        self.assertEqual(len(c["monthly"]["tmax_c"]), 12)
+
+    def _doc(self):
+        zones = forecast.load_zones()[:2]
+        m = [_synthetic_model(hours=72, gust=70.0), _synthetic_model(hours=72)]
+        ok = {"cell": "land", "lat": 50.25, "lon": 31.0, "cell_elevation_m": 120.0, "station_elevation_m": 127.0,
+              "diff_m": -7.0, "ok": True}
+        return forecast.build_forecast_doc(zones, {"ncep_gefs025": m, "ecmwf_ifs025": m}, days=3,
+                                           generated_at="2026-10-31T18:00:00Z", grids=[ok, ok])
+
+    def test_location_file_joins_forecast_metar_and_climate_and_never_raises(self):
+        doc = self._doc()
+        clim = {"points": {doc["zones"][0]["id"]: _fake_climate()}, "updated_at": "2026-11-22T00:00:00Z"}
+        now = datetime(2026, 11, 22, 4, 30, tzinfo=timezone.utc)
+        loc = locations.build(doc, clim, now=now, opener=_fake_open_meteo_and_awc, wait=lambda s: None)
+        self.assertEqual(loc["schema"], "vis-locations/1")
+        p0, p1 = loc["points"]
+        self.assertEqual(p0["schema"], "vis-location/1")
+        m = p0["now"]["metar"]
+        self.assertEqual((m["flight_category"], m["ceiling_ft"], m["age_min"]), ("MVFR", 2500, 90))
+        self.assertIsNone(p0["now"]["taf"])
+        self.assertEqual(p0["today"]["date"], "2026-11-22")
+        self.assertIsNotNone(p0["today"]["normal_tmax_c"])
+        self.assertIn("2026-11-21", p0["trends"]["past_7_days"]["above_record_high"])
+        self.assertEqual(len(p0["hourly"]["time"]), 96)
+        self.assertIsNone(p0["site"]["biome"])
+        self.assertEqual(p0["errors"], [])
+        self.assertTrue(any(e.startswith("climate:") for e in p1["errors"]))  # not built yet for point 2
+
+        def broken(req, timeout=0):
+            raise ConnectionError("down")
+        bad = locations.build(doc, None, now=now, opener=broken, wait=lambda s: None)
+        self.assertTrue(all(p["now"]["metar"] is None and p["errors"] for p in bad["points"]))
+
+        files = build_site.location_files(loc)
+        self.assertIn(f"data/locations/{p0['id']}.json", files)
+        index = json.loads(files["data/locations.json"])
+        self.assertEqual((index["schema"], len(index["points"])), ("vis-locations-index/1", 2))
+        self.assertEqual(index["points"][0]["flight_category"], "MVFR")
+
+        with __import__("tempfile").TemporaryDirectory() as d:
+            con = history.connect(Path(d) / "h.sqlite")
+            raw = json.dumps(loc).encode()
+            self.assertEqual(history.load_asset(con, "20261122T0000Z.locations.gen-x.json", raw), "8 daily rows")
+            self.assertEqual(history.load_asset(con, "20261122T0000Z.locations.gen-x.json", raw), "already loaded")
+            self.assertEqual(con.execute("SELECT COUNT(*) FROM metar").fetchone()[0], 2)
+            history.load_asset(con, "20261122T0000Z.forecast.gen-x.json", json.dumps(doc).encode())
+            self.assertGreater(con.execute("SELECT COUNT(*) FROM ensemble").fetchone()[0], 0)
+
+    def test_feed_points_carry_sun_moon_and_the_detail_links(self):
+        fc = feed_v2.build_feed(self._doc())
+        ms = fc["features"][1]["properties"]["measures"]
+        for k in ("sunrise", "sunset", "day_length_min", "moon_phase", "detail_url", "detail_page"):
+            self.assertIn(k, ms)
+        self.assertTrue(ms["detail_url"].endswith(".json"))
+        self.assertIn("#loc-", ms["detail_page"])
+
+    def test_archive_packs_the_location_file_under_the_forecast_stamps(self):
+        import gzip
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d) / "forecast.json"
+            src.write_text(json.dumps(ArchiveTests.DOC), encoding="utf-8")
+            extra = Path(d) / "locations.json"
+            extra.write_text('{"schema": "vis-locations/1"}', encoding="utf-8")
+            name, p = archive.prepare_extra(src, extra, Path(d) / "a")
+            self.assertEqual(name, "20261118T1200Z.locations.gen-20261118T202512Z.json.gz")
+            self.assertEqual(gzip.decompress(p.read_bytes()), extra.read_bytes())
+            self.assertIsNone(archive.prepare_extra(src, Path(d) / "missing.json", Path(d) / "a"))
 
 
 if __name__ == "__main__":

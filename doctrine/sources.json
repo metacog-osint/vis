@@ -33,6 +33,50 @@
       "grade": "A1",
       "independence_group": "ephemeris",
       "descriptor": "Deterministic solar twilight, moonrise/moonset, lunar disc illumination and low-light dark minutes."
+    },
+    {
+      "id": "open-meteo-forecast",
+      "name": "Open-Meteo Forecast API (best-match deterministic models)",
+      "publisher": "Open-Meteo",
+      "url": "https://open-meteo.com/en/docs",
+      "licence": "CC BY 4.0 (Open-Meteo); free API for non-commercial use",
+      "use": "ingest",
+      "grade": "B2",
+      "independence_group": "open-meteo-deterministic",
+      "descriptor": "Hourly and daily deterministic forecast per point, 7 past days and 7 ahead, for the location pop-up's charts (added 22 Nov 2026). Context only: hazard colours stay on the ensembles."
+    },
+    {
+      "id": "awc-metar-taf",
+      "name": "NOAA Aviation Weather Center data API (METAR, TAF)",
+      "publisher": "NOAA / NWS Aviation Weather Center",
+      "url": "https://aviationweather.gov/data/api/",
+      "licence": "US Government work, public domain",
+      "use": "ingest",
+      "grade": "A2",
+      "independence_group": "observations",
+      "descriptor": "Latest METAR and TAF per reference airfield, shown as observed conditions in the location pop-up and kept in the history store (added 22 Nov 2026). Not yet used to score the forecast."
+    },
+    {
+      "id": "open-meteo-era5",
+      "name": "ERA5 reanalysis (ECMWF / Copernicus Climate Change Service) via Open-Meteo Historical Weather API",
+      "publisher": "Open-Meteo / ECMWF C3S",
+      "url": "https://open-meteo.com/en/docs/historical-weather-api",
+      "licence": "CC BY 4.0 (Open-Meteo); contains modified Copernicus Climate Change Service information",
+      "use": "ingest",
+      "grade": "B2",
+      "independence_group": "ecmwf-reanalysis",
+      "descriptor": "Daily ERA5 history at 0.25 deg per point: 1991-2020 normals, records since 1940 and a Koppen-Geiger class (added 22 Nov 2026). A grid-cell climate, not the station's own record."
+    },
+    {
+      "id": "open-meteo-elevation",
+      "name": "Open-Meteo Elevation API (Copernicus DEM GLO-90)",
+      "publisher": "Open-Meteo / ESA Copernicus",
+      "url": "https://open-meteo.com/en/docs/elevation-api",
+      "licence": "CC BY 4.0 (Open-Meteo); Copernicus DEM GLO-90 licence",
+      "use": "ingest",
+      "grade": "A2",
+      "independence_group": "copernicus-dem",
+      "descriptor": "Station and model-cell elevations for the grid check (since 16 Nov 2026) and the pop-up's site facts."
     }
   ]
 }

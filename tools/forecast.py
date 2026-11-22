@@ -397,6 +397,7 @@ def build_forecast_doc(zones, by_model, days=7, generated_at=None, runs=None, gr
         for d in z_days:
             day_dt = datetime.strptime(d["day"], "%Y-%m-%d").replace(tzinfo=timezone.utc)
             d["night"] = astro.night(z["lat"], z["lon"], day_dt)
+            d["sun"] = astro.sun_day(z["lat"], z["lon"], day_dt)
         zone_id = z.get("zone_id", z["id"])
         out_zones.append({
             "id": z["id"], "zone_id": zone_id, "role": z.get("role", "reference"), "name": z["name"],
