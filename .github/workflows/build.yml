@@ -64,6 +64,14 @@ jobs:
         run: python tools/forecast.py --days 7
       - name: Feed and site
         run: python tools/build_site.py
+      # Contract 2.1: the kit's history log gives each subject its last_change. The log is append-only and lives in
+      # history/ on main; a failure here leaves the feed without last_change and never blocks the deploy.
+      - name: History (history/, site/data/ended.geojson, last_change in the feed)
+        run: |
+          git fetch -q --depth=1 origin main && git checkout -q FETCH_HEAD -- history 2>/dev/null \
+            || echo "No history/ on main yet"
+          python doctrine/kit/tic.py history site/data/feed.geojson --dir history --ended site/data/ended.geojson \
+            --fill-last-change || echo "::warning::history step failed; this run is missing from history/"
       - name: Lint the feed
         run: python doctrine/kit/tic.py lint site/data/feed.geojson
       - uses: actions/setup-node@v7
@@ -79,6 +87,20 @@ jobs:
           fi
           npx --yes wrangler@4.151.3 pages deploy site --project-name vis --branch main \
             --commit-hash "$GITHUB_SHA" --commit-message "build $GITHUB_SHA" --commit-dirty=true
+      - name: Commit history/
+        run: |
+          git config user.name "vis-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          stamp="history: $(date -u +%Y-%m-%dT%H:%MZ)"
+          for i in 1 2 3; do
+            git fetch -q --depth=1 origin main && git reset -q --mixed FETCH_HEAD || { sleep $((i * 15)); continue; }
+            git add history
+            git diff --cached --quiet -- history && { echo "history: nothing new"; exit 0; }
+            git commit -q -m "$stamp" && git push -q origin HEAD:main && exit 0
+            echo "::warning::history push attempt $i failed"
+            sleep $((i * 15))
+          done
+          echo "::warning::history not committed this run; the next run logs these changes again from the last state"
       # Retention (18 Nov 2026): keep every build's forecast.json (gzipped) in a monthly release. It runs after the
       # deploy, so a failure here never blocks the live site, but it fails the run loudly. Asset names are unique per
       # build (newest model run + build time); no --clobber. The feed is derived from forecast.json, so not archived.

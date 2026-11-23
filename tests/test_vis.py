@@ -92,6 +92,15 @@ class VisTests(unittest.TestCase):
             self.assertEqual(errs, [], f["properties"]["id"])
         z0 = fc["features"][1]["properties"]
         self.assertEqual((z0["kind"], z0["tier"], z0["confidence"]), ("forecast", "warning", "moderate"))
+        # Contract 2.1: the subject carries no date, so the same zone on another day is the same subject.
+        self.assertEqual((fc["contract_rev"], fc["kit"]), ("2.1", feed_v2.KIT_VERSION))
+        self.assertEqual(z0["subject_id"], f"vis:zone:{zones[0]['id']}")
+        self.assertNotIn("2026", z0["subject_id"])
+        self.assertEqual(fc["features"][0]["properties"]["subject_id"], "vis:summary:daily")
+        for f in fc["features"]:
+            self.assertTrue(f["properties"]["event_start"].endswith("Z"))
+        self.assertLessEqual(z0["event_start"], z0["event_end"])
+        self.assertEqual(set(fc["health"]), {"open-meteo-gefs", "open-meteo-ecmwf", "astro-meeus"})
         self.assertIn("UKBB", z0["resolution"]["rule"])
 
         files = build_site.build(doc)
