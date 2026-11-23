@@ -30,7 +30,7 @@ Times: store UTC; the page shows the viewer's zone through the shared `tic-time.
 - `site/index.html`, `style.css`, `vis.js` and `_headers` are **generated** from strings in `tools/build_site.py`:
   edit there, then run `python tools/build_site.py`. `site/data/` and `out/` are git-ignored.
 - Local preview: `python tools/forecast.py` (live data), `python tools/build_site.py`, then serve `site/` (launch
-  config `vis` in `D:\Projects\.claude\launch.json`, port 8744). Tests: `python tests/test_vis.py`.
+  config `vis` in the workspace `launch.json`, port 8744). Tests: `python tests/test_vis.py`.
 - Open-Meteo weights ensemble calls heavily: one 31-point run uses most of the free 600-a-minute allowance. Leave a
   minute between runs; `fetch_model` waits 65 s and retries (twice) on HTTP 429 and, since 18 Nov 2026, on a URLError, timeout or
   dropped connection (run 44017839782 failed once on a TLS handshake timeout, 17 Nov 04:33 UTC).
@@ -45,10 +45,10 @@ Times: store UTC; the page shows the viewer's zone through the shared `tic-time.
   Known limit: that run reached only 21 Nov 21Z, and later day-7 hours still came from the 13 Nov 12Z run, which
   the run-age check (newest run only) cannot see.
 
-- **Method 1.1 (16 Nov 2026, Tom's yes; built in worktree `D:\Projects\_worktrees\vis-method`, branch `method/cells-models-steps`, not committed):** models weighted equally with each one's share kept; persistence on two consecutive 3-hourly model steps; per-point cell selection (sea for SVMI and OLBA) and a grid-elevation check every run; Amber or Red reaches COP as a warning only with two models and a checked cell. Details in `doctrine/method.md`. Live check 17 Nov 2026 about 04:30 UTC: 30 of 31 points within 300 m (HHAS -446 m), feed lint PASS, 0 warnings.
+- **Method 1.1 (16 Nov 2026, Tom's yes; built in a separate worktree, branch `method/cells-models-steps`, not committed):** models weighted equally with each one's share kept; persistence on two consecutive 3-hourly model steps; per-point cell selection (sea for SVMI and OLBA) and a grid-elevation check every run; Amber or Red reaches COP as a warning only with two models and a checked cell. Details in `doctrine/method.md`. Live check 17 Nov 2026 about 04:30 UTC: 30 of 31 points within 300 m (HHAS -446 m), feed lint PASS, 0 warnings.
 
 ## Rules
-- `doctrine/kit/` is vendored from `D:\Projects\tic-doctrine`; never edit it here.
+- `doctrine/kit/` is vendored from `../tic-doctrine`; never edit it here.
 - Every threshold is indicative (JP 3-59 gives no numeric limits); say so wherever thresholds appear.
 - Don't claim verification that isn't built: scoring against METARs is plan step W3, not done.
 - House bar and time files are copies of the hub's `site/shared/` files; keep the version lines.
