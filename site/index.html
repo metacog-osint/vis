@@ -12,8 +12,10 @@
   <link rel="stylesheet" href="tic-tabs.css">
   <link rel="stylesheet" href="tic-fold.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="alternate" type="application/geo+json" title="Vis feed (GeoJSON)" href="data/feed.geojson">
 </head>
 <body>
+  <a class="skip" href="#main">Skip to content</a>
   <header class="site-head">
     <div class="wrap head-inner">
       <div>
@@ -41,15 +43,12 @@
       <div class="meta-box">
         <div id="vis-stamp" class="stamp">Loading forecast…</div>
         <div><span id="time-settings"></span></div>
-        <div class="links">
-          <a href="data/feed.geojson">Feed (GeoJSON)</a> ·
-          <a href="data/forecast.json">Forecast data (JSON)</a>
-        </div>
       </div>
     </div>
   </header>
 
-  <main class="wrap">
+  <main id="main" class="wrap">
+    <noscript><p class="noscript">This page needs JavaScript to draw its forecasts.</p></noscript>
     <p id="vis-stale" class="stale" role="status" hidden></p>
     <!-- Sections row (tic-tabs.js from the hub): one group at a time on a phone, a jumping row wider -->
     <div data-tic-tabs>
@@ -86,14 +85,14 @@
       <div class="card">
         <h2>How to read the table</h2>
         <ul class="thresh-list">
-          <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let the forecasts be checked against the station’s METAR reports later; that scoring is not built yet.</li>
+          <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let each forecast be checked against the station’s METAR reports (see “Measured skill” below).</li>
           <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, each model weighted equally (its own share is shown beside it), given with its ICD 203 term. Most hazards use both models; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
           <li><b>What sets a cell’s colour:</b> each hazard has an amber and a more severe red threshold, and the colour comes from the chance of reaching either one. Yellow: at least 20% for the amber threshold, or at least 5% for the red one. Amber: at least 45% for amber, or 20% for red. Red: at least 45% for red. A severe outcome therefore colours a cell at a low chance, and the line names the threshold behind the colour. Example: “Low cloud cover ≥ 95 %: Very unlikely · 6% (severe threshold)” is Yellow, because 6% is above the 5% needed for the severe threshold. The day’s colour is its worst hazard. Low cloud cover never goes above Yellow.</li>
           <li><b>Tonight’s light:</b> civil dusk and dawn, the moon’s lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit.</li>
         </ul>
       </div>
     </section>
-
+<section class="method-grid" aria-label="Measured skill"><div class="card" id="skill"><h2>Measured skill</h2><p class="small">No forecast has been scored yet.</p></div></section>
     </div>
 
     <div id="sec-about" data-tab-label="About and sources">
@@ -108,7 +107,7 @@
           <li>Thresholds are indicative. Joint doctrine (JP 3-59) names the parameters that matter but publishes no numeric limits, and real limits depend on the platform.</li>
           <li>Each point is read from a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
           <li>Visibility comes from GEFS alone, where it is a diagnosed field that often runs too low in fog and rain.</li>
-          <li>Forecasts are not yet scored against observations, so their calibration is unmeasured.</li>
+          <li>Only wind, visibility, heat and cold can be checked against METARs, and only at stations that report; the sample since 19 Nov 2026 is small, and “Measured skill” says where it is too small to read.</li>
         </ul>
         <p class="small"><b>Terms.</b> Provided as is, without warranty. Code under the GNU AGPL-3.0; data under its sources’ licences, below.</p>
       </div>
@@ -118,6 +117,7 @@
           <li><b>Ensemble forecasts:</b> <a href="https://open-meteo.com/en/docs/ensemble-api" rel="noopener">Open-Meteo Ensemble API</a>, CC BY 4.0, free for non-commercial use.</li>
           <li><b>NOAA NCEP GEFS</b> 0.25°, 31 members: US public domain.</li>
           <li><b>ECMWF IFS ensemble</b> 0.25°, 51 members: ECMWF open data, CC BY 4.0.</li>
+          <li><b>Observations for scoring:</b> METARs from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US public domain.</li>
           <li><b>Sun and moon:</b> computed by Vis from Jean Meeus, <i>Astronomical Algorithms</i>.</li>
           <li><b>Zones:</b> Watchfloor’s conflict zones. <b>Reference points:</b> chosen by Vis (<a href="https://github.com/metacog-osint/vis/blob/main/config/points.json" rel="noopener">list</a>).</li>
           <li><b>Fonts:</b> IBM Plex, SIL Open Font License.</li>
@@ -130,6 +130,12 @@
 
   <footer class="wrap site-foot">
     <p>A project of <a href="https://theintelligence.company">The Intelligence Company</a>. Forecast generated <span id="vis-asof">…</span>. <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a> (GNU AGPL-3.0). Weather data: <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> (CC BY 4.0), from NOAA GEFS and ECMWF IFS. <a href="#about">About and limits</a> · <a href="#sources">Sources</a>.</p>
+    <nav class="tic-data" aria-label="Data and downloads"><span class="tic-data-k">Data and downloads</span>
+      <a href="data/feed.geojson">Feed (GeoJSON)</a>
+      <a href="data/forecast.json">Forecast data (JSON)</a>
+      <a href="data/verification.json">Scores (JSON)</a>
+      <a href="https://github.com/metacog-osint/vis/tree/main/history" rel="noopener">Observations and scored forecasts</a>
+      <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a></nav>
   </footer>
 
   <script src="tic-time.js"></script>
