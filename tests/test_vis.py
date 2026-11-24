@@ -15,6 +15,8 @@ import archive  # noqa: E402
 import build_site  # noqa: E402
 import feed_v2  # noqa: E402
 import forecast  # noqa: E402
+import metar  # noqa: E402
+import verify  # noqa: E402
 from tic_doctrine import contract, registers  # noqa: E402
 
 
@@ -362,6 +364,77 @@ class ArchiveTests(unittest.TestCase):
             self.assertEqual(p.name, name)
             tag2, name2, p2 = archive.prepare(src, Path(d) / "archive")  # same input -> same name and bytes
             self.assertEqual((tag, name, p.read_bytes()), (tag2, name2, p2.read_bytes()))
+
+
+class VerifyTests(unittest.TestCase):
+    """Plan step W3: METAR store, resolution and scores (tools/metar.py, tools/verify.py)."""
+    HZ = {h["id"]: h for h in forecast.HAZARDS}
+
+    @staticmethod
+    def rep(t, **kw):
+        r = {"icao": "TEST", "obs_time": t, "type": "METAR", "temp_c": 10, "wspd_kt": 5, "wgst_kt": None,
+             "visib": "6+", "raw": "METAR TEST 000000Z 00005KT 9999 FEW030 10/05 Q1015"}
+        r.update(kw)
+        return r
+
+    def test_store_is_append_only_and_never_duplicates(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            a = self.rep("2026-11-20T00:00:00Z")
+            self.assertEqual(metar.append(d, [a]), 1)
+            path = metar.day_path(d, a["obs_time"])
+            first = path.read_bytes()
+            self.assertEqual(metar.append(d, [a, a]), 0)  # already stored: nothing written
+            b = self.rep("2026-11-20T00:30:00Z")
+            self.assertEqual(metar.append(d, [b]), 1)
+            self.assertTrue(path.read_bytes().startswith(first))  # earlier lines untouched
+            self.assertEqual(len(metar.load_range(d, ["2026-11-20"])["TEST"]), 2)
+
+    def test_visibility_reads_the_metric_group_before_awc_miles(self):
+        self.assertEqual(verify.visib_m(self.rep("x", visib=1.86, raw="METAR VISR 200230Z VRB02KT 3000 BR BKN200 01/M01 Q1031 TEMPO 1500")), 3000.0)
+        self.assertEqual(verify.visib_m(self.rep("x", raw="METAR X 200230Z 00000KT 9999 NSC 10/05 Q1015")), 10000.0)
+        self.assertEqual(verify.visib_m(self.rep("x", raw="METAR X 200230Z 00000KT CAVOK 10/05 Q1015")), 10000.0)
+        self.assertAlmostEqual(verify.visib_m(self.rep("x", visib="1 1/2", raw="METAR KXXX 200230Z 00000KT 1 1/2SM BR")), 1.5 * verify.SM_M)
+
+    def _steps(self, vals, hazard, field):
+        steps = verify.steps_for("2026-11-20", "2026-11-20T00:00Z")
+        reps = [self.rep(s.strftime("%Y-%m-%dT%H:%M:%SZ"), **{field: v}) for s, v in zip(steps, vals) if v is not None]
+        return verify.resolve_level(self.HZ[hazard], self.HZ[hazard]["amber"], steps, reps)
+
+    def test_two_consecutive_steps_make_an_event_and_one_does_not(self):
+        self.assertEqual(self._steps([5, 5, 40, 40, 5, 5, 5, 5], "wind", "wgst_kt")[0], 1)  # 74 km/h twice
+        self.assertEqual(self._steps([5, 5, 40, 5, 40, 5, 5, 5], "wind", "wgst_kt")[0], 0)
+        self.assertEqual(self._steps([-20, -20, 0, 0, 0, 0, 0, 0], "cold", "temp_c")[0], 1)
+
+    def test_missing_reports_are_counted_never_filled(self):
+        o, seen, _, why = self._steps([5, None, None, None, 5, 5, 5, 5], "wind", "wgst_kt")
+        self.assertIsNone(o)
+        self.assertEqual((seen, why), (5, "too few reports in the window"))
+        o, _, _, why = self._steps([5, 40, None, 5, 5, 5, 5, 5], "wind", "wgst_kt")
+        self.assertIsNone(o)  # a hit beside a gap could have been an event
+        self.assertEqual(why, "a hit sits next to a missing report")
+        steps = verify.steps_for("2026-11-20", None)
+        self.assertEqual(verify.resolve_level(self.HZ["wind"], 65.0, steps, [])[3], "no reports from the station")
+
+    def test_score_counts_one_forecast_per_run_and_marks_small_samples(self):
+        rows = []
+        for i in range(120):
+            for gen in ("2026-11-20T08:25:00Z", "2026-11-20T09:00:00Z"):  # two builds of one run
+                rows.append({"forecast": f"f{gen}", "run": "20261120T0000Z", "generated_at": gen, "zone": f"z{i % 5}",
+                             "day": f"d{i}", "lead_days": 1, "hazard": "vis", "level": "amber",
+                             "p": 0.9 if i < 12 else 0.0, "outcome": 1 if i < 12 else 0, "why": None,
+                             "threshold": 3000.0, "unit": "m"})
+        doc = verify.score(rows)
+        cell = [c for c in doc["scores"] if c["hazard"] == "vis" and c["level"] == "amber" and c["lead_days"] == "all"][0]
+        self.assertEqual((cell["n"], cell["events"], cell["points_with_events"]), (120, 12, 5))
+        self.assertTrue(cell["readable"])
+        self.assertAlmostEqual(cell["brier"], 12 * 0.01 / 120, places=4)
+        wind = [c for c in doc["scores"] if c["hazard"] == "wind" and c["lead_days"] == "all"][0]
+        self.assertFalse(wind["readable"])
+        html = build_site.verification_html(doc)
+        self.assertIn("too few to read", html)
+        self.assertIn("indicative", html)
+        self.assertNotIn("<script", html)
 
 
 if __name__ == "__main__":
