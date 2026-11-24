@@ -100,14 +100,14 @@ INDEX_HTML = """<!doctype html>
       <div class="card">
         <h2>How to read the table</h2>
         <ul class="thresh-list">
-          <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let the forecasts be checked against the station’s METAR reports later; that scoring is not built yet.</li>
+          <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let each forecast be checked against the station’s METAR reports (see “Measured skill” below).</li>
           <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, each model weighted equally (its own share is shown beside it), given with its ICD 203 term. Most hazards use both models; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
           <li><b>What sets a cell’s colour:</b> each hazard has an amber and a more severe red threshold, and the colour comes from the chance of reaching either one. Yellow: at least 20% for the amber threshold, or at least 5% for the red one. Amber: at least 45% for amber, or 20% for red. Red: at least 45% for red. A severe outcome therefore colours a cell at a low chance, and the line names the threshold behind the colour. Example: “Low cloud cover ≥ 95 %: Very unlikely · 6% (severe threshold)” is Yellow, because 6% is above the 5% needed for the severe threshold. The day’s colour is its worst hazard. Low cloud cover never goes above Yellow.</li>
           <li><b>Tonight’s light:</b> civil dusk and dawn, the moon’s lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit.</li>
         </ul>
       </div>
     </section>
-
+<!--VIS-VERIFY-->
     </div>
 
     <div id="sec-about" data-tab-label="About and sources">
@@ -122,7 +122,7 @@ INDEX_HTML = """<!doctype html>
           <li>Thresholds are indicative. Joint doctrine (JP 3-59) names the parameters that matter but publishes no numeric limits, and real limits depend on the platform.</li>
           <li>Each point is read from a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
           <li>Visibility comes from GEFS alone, where it is a diagnosed field that often runs too low in fog and rain.</li>
-          <li>Forecasts are not yet scored against observations, so their calibration is unmeasured.</li>
+          <li>Only wind, visibility, heat and cold can be checked against METARs, and only at stations that report; the sample since 19 Nov 2026 is small, and “Measured skill” says where it is too small to read.</li>
         </ul>
         <p class="small"><b>Terms.</b> Provided as is, without warranty. Code under the GNU AGPL-3.0; data under its sources’ licences, below.</p>
       </div>
@@ -132,6 +132,7 @@ INDEX_HTML = """<!doctype html>
           <li><b>Ensemble forecasts:</b> <a href="https://open-meteo.com/en/docs/ensemble-api" rel="noopener">Open-Meteo Ensemble API</a>, CC BY 4.0, free for non-commercial use.</li>
           <li><b>NOAA NCEP GEFS</b> 0.25°, 31 members: US public domain.</li>
           <li><b>ECMWF IFS ensemble</b> 0.25°, 51 members: ECMWF open data, CC BY 4.0.</li>
+          <li><b>Observations for scoring:</b> METARs from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US public domain.</li>
           <li><b>Sun and moon:</b> computed by Vis from Jean Meeus, <i>Astronomical Algorithms</i>.</li>
           <li><b>Zones:</b> Watchfloor’s conflict zones. <b>Reference points:</b> chosen by Vis (<a href="https://github.com/metacog-osint/vis/blob/main/config/points.json" rel="noopener">list</a>).</li>
           <li><b>Fonts:</b> IBM Plex, SIL Open Font License.</li>
@@ -147,6 +148,8 @@ INDEX_HTML = """<!doctype html>
     <nav class="tic-data" aria-label="Data and downloads"><span class="tic-data-k">Data and downloads</span>
       <a href="data/feed.geojson">Feed (GeoJSON)</a>
       <a href="data/forecast.json">Forecast data (JSON)</a>
+      <a href="data/verification.json">Scores (JSON)</a>
+      <a href="https://github.com/metacog-osint/vis/tree/main/history" rel="noopener">Observations and scored forecasts</a>
       <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a></nav>
   </footer>
 
@@ -348,6 +351,9 @@ h1 .sub {
   font-size: 18px;
 }
 .small { font-size: 12.5px; color: var(--muted); margin: 0 0 8px; }
+table.skill { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 0 0 10px; }
+table.skill th, table.skill td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+table.skill tr.skill-all td { border-top: 2px solid var(--rule); font-weight: 500; }
 .thresh-list { margin: 0; padding-left: 18px; font-size: 13px; }
 .thresh-list li { margin-bottom: 6px; }
 .site-foot {
@@ -587,10 +593,60 @@ HEADERS = """/*
 """
 
 
-def build(forecast_doc: dict, out_dir: Path | None = None) -> dict[str, str]:
+HAZ_NAMES = {"wind": "Strong wind (gusts)", "vis": "Poor visibility", "heat": "Extreme heat", "cold": "Extreme cold"}
+
+
+def _num(v, fmt="{:.3f}"):
+    return "–" if v is None else fmt.format(v)
+
+
+def verification_html(doc: dict | None) -> str:
+    """The "Measured skill" card, rendered at build time from tools/verify.py's scores (escaped, no script)."""
+    from html import escape
+    head = ('<section class="method-grid" aria-label="Measured skill"><div class="card" id="skill">'
+            '<h2>Measured skill</h2>')
+    if not doc or not doc.get("scores"):
+        return head + '<p class="small">No forecast has been scored yet.</p></div></section>'
+    r = doc.get("rules", {})
+    out = [head, f'<p class="small">Each forecast since 19 Nov 2026 (nothing earlier was stored) is checked against the '
+           f'station’s METAR reports once its UTC day has ended: {escape(str(doc.get("first_day")))} to '
+           f'{escape(str(doc.get("last_day")))}, {doc.get("resolved", 0):,} forecasts resolved and '
+           f'{doc.get("unresolved", 0):,} unresolved (no reports from the station, too few reports, or a window '
+           f'too short for the two-step rule). One forecast per model run is counted. Lower Brier is better; skill '
+           f'is against the sample’s own observed frequency, so 0 means no better than always forecasting that '
+           f'rate. A row is marked too few to read unless it has {escape(str(r.get("readable_when", "")))}. '
+           f'Rain, snow, low cloud and icing are not scored: METARs do not measure them the way the forecast '
+           f'states them. Thresholds are indicative; not for flight planning.</p>',
+           '<div class="table-wrap"><table class="skill"><thead><tr><th>Hazard</th><th>Threshold</th>'
+           '<th>Lead (days)</th><th>Forecasts</th><th>Observed</th><th>Points (with events)</th><th>Brier</th>'
+           '<th>Skill</th><th>Read</th></tr></thead><tbody>']
+    for c in doc["scores"]:
+        thr = "" if c.get("threshold") is None else f'{"≤" if c["hazard"] in ("vis", "cold") else "≥"} {c["threshold"]:g} {c.get("unit") or ""}'
+        lead = "all" if c["lead_days"] == "all" else str(c["lead_days"])
+        read = "yes" if c.get("readable") else "too few to read"
+        cls = ' class="skill-all"' if lead == "all" else ""
+        out.append(f'<tr{cls}><td>{escape(HAZ_NAMES.get(c["hazard"], c["hazard"]))} '
+                   f'({escape(c["level"])})</td><td>{escape(thr)}</td><td>{lead}</td><td>{c["n"]}</td>'
+                   f'<td>{c["events"]}</td><td>{c.get("points", 0)} ({c.get("points_with_events", 0)})</td>'
+                   f'<td>{_num(c.get("brier"))}</td><td>{_num(c.get("brier_skill_vs_sample_climatology"), "{:+.2f}")}</td>'
+                   f'<td>{read}</td></tr>')
+    out.append('</tbody></table></div>')
+    rel = [c for c in doc["scores"] if c["lead_days"] == "all" and c.get("readable")]
+    for c in rel:
+        out.append(f'<p class="small"><b>Reliability, {escape(HAZ_NAMES.get(c["hazard"], c["hazard"]))} '
+                   f'({escape(c["level"])}), all leads:</b> ' + "; ".join(
+                       f'{escape(b["band"])}: forecast {b["mean_p"]:.0%}, observed {b["observed"]:.0%} (n {b["n"]})'
+                       for b in c.get("reliability", [])) + '.</p>')
+    out.append('<p class="small">Data: <a href="data/verification.json">scores (JSON)</a>; every observation and '
+               'scored forecast is kept in <a href="https://github.com/metacog-osint/vis/tree/main/history" '
+               'rel="noopener">history/</a>.</p></div></section>')
+    return "".join(out)
+
+
+def build(forecast_doc: dict, out_dir: Path | None = None, verification: dict | None = None) -> dict[str, str]:
     fc = feed_v2.build_feed(forecast_doc)
     files = {
-        "index.html": INDEX_HTML,
+        "index.html": INDEX_HTML.replace("<!--VIS-VERIFY-->", verification_html(verification)),
         "style.css": STYLE_CSS,
         "vis.js": VIS_JS,
         "_headers": HEADERS,
@@ -598,6 +654,8 @@ def build(forecast_doc: dict, out_dir: Path | None = None) -> dict[str, str]:
         "data/forecast.json": json.dumps(forecast_doc, ensure_ascii=False, indent=1) + "\n",
         "data/feed.geojson": json.dumps(fc, ensure_ascii=False, indent=1) + "\n",
     }
+    if verification is not None:
+        files["data/verification.json"] = json.dumps(verification, ensure_ascii=False, indent=1) + "\n"
     if out_dir is not None:
         for rel, content in files.items():
             p = out_dir / rel
@@ -610,10 +668,13 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--in", dest="inp", default=str(ROOT / "out" / "forecast.json"))
     ap.add_argument("--out", default=str(ROOT / "site"))
+    ap.add_argument("--verification", default=str(ROOT / "out" / "verification.json"))
     a = ap.parse_args(argv)
     doc = json.loads(Path(a.inp).read_text(encoding="utf-8"))
+    vp = Path(a.verification)
+    ver = json.loads(vp.read_text(encoding="utf-8")) if vp.exists() else None
     out_dir = Path(a.out)
-    files = build(doc, out_dir)
+    files = build(doc, out_dir, ver)
     print(f"built {len(files)} files in {out_dir}")
     return 0
 

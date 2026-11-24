@@ -64,6 +64,6 @@ another source.
 - W1 repo, kit vendored, points config, daily GitHub Actions run, site with the house design and tic-time, COP layer.
 - W2 feed contract v2 forecast items (probability, likelihood term, confidence from model agreement and lead time,
   alternatives, `resolution` rule and `valid_until`) so Verdict can score them from day one.
-- W3 verification: resolve each forecast against METARs (aviationweather.gov, public domain) at the points; Brier
+- W3 verification (built 24 Nov 2026, ideas#246; method in doctrine/method.md, "Verification"): resolve each forecast against METARs (aviationweather.gov, public domain) at the points; Brier
   score and reliability by hazard and lead time, published.
 - W4 illumination table page and a likelihood-by-impact matrix view per zone.

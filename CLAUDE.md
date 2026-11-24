@@ -50,6 +50,8 @@ Times: store UTC; the page shows the viewer's zone through the shared `tic-time.
 ## Rules
 - `doctrine/kit/` is vendored from `../tic-doctrine`; never edit it here.
 - Every threshold is indicative (JP 3-59 gives no numeric limits); say so wherever thresholds appear.
-- Don't claim verification that isn't built: scoring against METARs is plan step W3, not done.
+- Verification (W3, 24 Nov 2026): `tools/metar.py` and `tools/verify.py` score wind, visibility, heat and cold
+  against METARs (`doctrine/method.md`, "Verification"). Don't claim more: rain, snow, low cloud and icing are not
+  scored, and most rows are too few to read until the sample grows.
 - House bar and time files are copies of the hub's `site/shared/` files; keep the version lines.
 - Commit, push and deploy only with Tom's yes (a push to `main` deploys).

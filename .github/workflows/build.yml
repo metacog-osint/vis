@@ -62,13 +62,34 @@ jobs:
         run: python doctrine/kit/tic.py kitcheck
       - name: Forecast (Open-Meteo ensembles)
         run: python tools/forecast.py --days 7
+      # Plan step W3 (ideas#246): store METARs append-only, resolve every archived forecast whose UTC day has ended,
+      # and score them; the page's "Measured skill" card reads out/verification.json. A failure here leaves the card
+      # out of this build and never blocks the deploy. history/metar and history/verify are committed below.
+      - name: Verification (METARs, resolve, score)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Each store separately, so one that is missing never leaves the other to be rebuilt from scratch.
+          git fetch -q --depth=1 origin main
+          for d in history/metar history/verify; do
+            git checkout -q FETCH_HEAD -- "$d" 2>/dev/null || echo "No $d on main yet"
+          done
+          python tools/metar.py --hours 200 || echo "::warning::METAR fetch failed; scoring uses the stored reports"
+          mkdir -p "$RUNNER_TEMP/forecasts"
+          for t in $(gh release list --limit 4 --json tagName --jq '.[].tagName' | grep '^vis-data-' || true); do
+            gh release download "$t" -p '*.forecast.gen-*.json.gz' -D "$RUNNER_TEMP/forecasts" --skip-existing \
+              || echo "::warning::could not download $t"
+          done
+          python tools/verify.py resolve --forecasts "$RUNNER_TEMP/forecasts" && python tools/verify.py score \
+            || echo "::warning::verification failed this run"
       - name: Feed and site
         run: python tools/build_site.py
       # Contract 2.1: the kit's history log gives each subject its last_change. The log is append-only and lives in
       # history/ on main; a failure here leaves the feed without last_change and never blocks the deploy.
       - name: History (history/, site/data/ended.geojson, last_change in the feed)
         run: |
-          git fetch -q --depth=1 origin main && git checkout -q FETCH_HEAD -- history 2>/dev/null \
+          # Only the kit's own files: a checkout of all of history/ would undo this run's new METAR and score lines.
+          git fetch -q --depth=1 origin main && git checkout -q FETCH_HEAD -- history/log history/state.json 2>/dev/null \
             || echo "No history/ on main yet"
           python doctrine/kit/tic.py history site/data/feed.geojson --dir history --ended site/data/ended.geojson \
             --fill-last-change || echo "::warning::history step failed; this run is missing from history/"

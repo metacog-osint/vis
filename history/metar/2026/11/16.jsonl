@@ -1,0 +1,179 @@
+{"icao":"DRRN","obs_time":"2026-11-16T16:00:00Z","type":"METAR","temp_c":38,"wspd_kt":11,"wgst_kt":null,"visib":"6+","raw":"METAR DRRN 161600Z 07011KT CAVOK 38/M04 Q1011 NOSIG"}
+{"icao":"DRRN","obs_time":"2026-11-16T17:00:00Z","type":"METAR","temp_c":36,"wspd_kt":9,"wgst_kt":null,"visib":"6+","raw":"METAR DRRN 161700Z 08009KT CAVOK 36/M05 Q1011 NOSIG"}
+{"icao":"DRRN","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":32,"wspd_kt":5,"wgst_kt":null,"visib":4.97,"raw":"METAR DRRN 161800Z 07005KT 8000 NSC 32/M03 Q1012 NOSIG"}
+{"icao":"DRRN","obs_time":"2026-11-16T19:00:00Z","type":"METAR","temp_c":30,"wspd_kt":4,"wgst_kt":null,"visib":4.97,"raw":"METAR DRRN 161900Z 06004KT 8000 NSC 30/M03 Q1012 NOSIG"}
+{"icao":"DRRN","obs_time":"2026-11-16T20:00:00Z","type":"METAR","temp_c":29,"wspd_kt":6,"wgst_kt":null,"visib":4.97,"raw":"METAR DRRN 162000Z 06006KT 8000 NSC 29/M03 Q1013 NOSIG"}
+{"icao":"DRRN","obs_time":"2026-11-16T21:00:00Z","type":"METAR","temp_c":28,"wspd_kt":4,"wgst_kt":null,"visib":4.97,"raw":"METAR DRRN 162100Z 07004KT 8000 NSC 28/M03 Q1013 NOSIG"}
+{"icao":"DRRN","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":27,"wspd_kt":5,"wgst_kt":null,"visib":5.59,"raw":"METAR DRRN 162200Z 07005KT 9000 NSC 27/M03 Q1013"}
+{"icao":"DRRN","obs_time":"2026-11-16T23:00:00Z","type":"METAR","temp_c":26,"wspd_kt":3,"wgst_kt":null,"visib":5.59,"raw":"METAR DRRN 162300Z 35003KT 9000 NSC 26/M01 Q1013 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T15:50:00Z","type":"METAR","temp_c":1,"wspd_kt":12,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 161550Z 17012KT 9999 FEW013 01/M00 Q1005 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T16:20:00Z","type":"METAR","temp_c":2,"wspd_kt":15,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 161620Z 17015KT 9999 FEW012 02/M00 Q1005 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T16:50:00Z","type":"METAR","temp_c":2,"wspd_kt":15,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 161650Z 17015KT 9999 FEW011 02/00 Q1005 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T17:20:00Z","type":"METAR","temp_c":2,"wspd_kt":14,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 161720Z 17014KT 9999 FEW012 02/00 Q1005 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T17:50:00Z","type":"METAR","temp_c":2,"wspd_kt":15,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 161750Z 17015KT 9999 FEW012 02/00 Q1004 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T18:20:00Z","type":"METAR","temp_c":2,"wspd_kt":15,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 161820Z 17015KT CAVOK 02/00 Q1004 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T18:50:00Z","type":"METAR","temp_c":2,"wspd_kt":13,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 161850Z 17013KT 9999 FEW013 02/00 Q1004 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T19:20:00Z","type":"METAR","temp_c":3,"wspd_kt":12,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 161920Z 17012KT 9999 FEW013 SCT019 BKN033 03/01 Q1003 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T19:50:00Z","type":"METAR","temp_c":3,"wspd_kt":14,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 161950Z 18014KT 9999 BKN017 OVC025 03/01 Q1003 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T20:20:00Z","type":"METAR","temp_c":3,"wspd_kt":14,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 162020Z 17014KT 9999 BKN027 BKN040 03/01 Q1003 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T20:50:00Z","type":"METAR","temp_c":3,"wspd_kt":13,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 162050Z 17013KT 9999 SCT016 03/01 Q1002 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T21:20:00Z","type":"METAR","temp_c":3,"wspd_kt":13,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 162120Z 17013KT 9999 SCT015 BKN037 BKN044 03/01 Q1002 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T21:50:00Z","type":"METAR","temp_c":4,"wspd_kt":12,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 162150Z 17012KT 9999 FEW015 BKN037 04/02 Q1002 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T22:20:00Z","type":"METAR","temp_c":4,"wspd_kt":13,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 162220Z 17013KT 9999 SCT015 OVC039 04/02 Q1001 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T22:50:00Z","type":"METAR","temp_c":4,"wspd_kt":11,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 162250Z 17011KT 9999 BKN014 04/02 Q1001 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T23:20:00Z","type":"METAR","temp_c":4,"wspd_kt":12,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 162320Z 17012KT 9999 BKN013 04/02 Q1001 NOSIG"}
+{"icao":"EYVI","obs_time":"2026-11-16T23:50:00Z","type":"METAR","temp_c":3,"wspd_kt":12,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 162350Z 16012KT 9999 OVC010 03/02 Q1000 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T16:00:00Z","type":"METAR","temp_c":37,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR GABS 161600Z 15004KT 070V200 CAVOK 37/03 Q1011 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T16:30:00Z","type":"METAR","temp_c":37,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR GABS 161630Z 14005KT 090V230 CAVOK 37/03 Q1011 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T17:00:00Z","type":"METAR","temp_c":36,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR GABS 161700Z 15003KT 110V230 CAVOK 36/05 Q1012 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T17:30:00Z","type":"METAR","temp_c":35,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR GABS 161730Z 12004KT CAVOK 35/06 Q1012 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":32,"wspd_kt":4,"wgst_kt":null,"visib":5.59,"raw":"METAR GABS 161800Z 11004KT 9000 NSC 32/08 Q1012 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T18:30:00Z","type":"METAR","temp_c":29,"wspd_kt":4,"wgst_kt":null,"visib":4.97,"raw":"METAR GABS 161830Z 11004KT 8000 NSC 29/09 Q1012 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T19:00:00Z","type":"METAR","temp_c":26,"wspd_kt":4,"wgst_kt":null,"visib":3.73,"raw":"METAR GABS 161900Z 12004KT 6000 NSC 26/10 Q1013 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T19:30:00Z","type":"METAR","temp_c":26,"wspd_kt":4,"wgst_kt":null,"visib":3.73,"raw":"METAR GABS 161930Z 13004KT 6000 NSC 26/09 Q1013 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T20:00:00Z","type":"METAR","temp_c":24,"wspd_kt":1,"wgst_kt":null,"visib":3.73,"raw":"METAR GABS 162000Z VRB01KT 6000 NSC 24/13 Q1013 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T20:30:00Z","type":"METAR","temp_c":23,"wspd_kt":0,"wgst_kt":null,"visib":4.97,"raw":"METAR GABS 162030Z 00000KT 8000 NSC 23/13 Q1014 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T21:00:00Z","type":"METAR","temp_c":23,"wspd_kt":0,"wgst_kt":null,"visib":4.97,"raw":"METAR GABS 162100Z 00000KT 8000 NSC 23/13 Q1014 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":23,"wspd_kt":1,"wgst_kt":null,"visib":4.97,"raw":"METAR GABS 162200Z VRB01KT 8000 NSC 23/13 Q1014 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T22:30:00Z","type":"METAR","temp_c":22,"wspd_kt":0,"wgst_kt":null,"visib":3.73,"raw":"METAR GABS 162230Z 00000KT 6000 NSC 22/12 Q1014 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T23:00:00Z","type":"METAR","temp_c":22,"wspd_kt":0,"wgst_kt":null,"visib":3.73,"raw":"METAR GABS 162300Z 00000KT 6000 NSC 22/11 Q1014 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-16T23:30:00Z","type":"METAR","temp_c":21,"wspd_kt":0,"wgst_kt":null,"visib":3.73,"raw":"METAR GABS 162330Z 00000KT 6000 NSC 21/13 Q1014 NOSIG"}
+{"icao":"HAAB","obs_time":"2026-11-16T16:00:00Z","type":"METAR","temp_c":18,"wspd_kt":10,"wgst_kt":null,"visib":"6+","raw":"METAR HAAB 161600Z 05010KT 9999 FEW025 18/08 Q1027 NOSIG"}
+{"icao":"HAAB","obs_time":"2026-11-16T17:00:00Z","type":"METAR","temp_c":17,"wspd_kt":10,"wgst_kt":null,"visib":"6+","raw":"METAR HAAB 161700Z 03010KT 9999 FEW025 17/08 Q1028 NOSIG"}
+{"icao":"HAAB","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":17,"wspd_kt":9,"wgst_kt":null,"visib":"6+","raw":"METAR HAAB 161800Z 04009KT 9999 FEW025 17/08 Q1028 NOSIG"}
+{"icao":"HAAB","obs_time":"2026-11-16T19:00:00Z","type":"METAR","temp_c":16,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR HAAB 161900 04006KT 9999 FEW025 16/08 Q1029 NOSIG"}
+{"icao":"HAAB","obs_time":"2026-11-16T20:00:00Z","type":"METAR","temp_c":16,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR HAAB 162000Z 05006KT 9999 SCT025 16/07 Q1028 NOSIG"}
+{"icao":"HAAB","obs_time":"2026-11-16T21:00:00Z","type":"METAR","temp_c":15,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR HAAB 162100 05006KT 9999 SCT025 15/07 Q1028 NOSIG"}
+{"icao":"HAAB","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":16,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR HAAB 162200 04006KT 9999 SCT025 16/06 Q1027 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T16:30:00Z","type":"METAR","temp_c":22,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 161630Z 14005KT 9999 SCT023 22/17 Q1018 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T17:00:00Z","type":"METAR","temp_c":22,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 161700Z 16005KT 9999 SCT023 22/18 Q1020 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T17:30:00Z","type":"METAR","temp_c":21,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 161730Z 21005KT 9999 SCT023 21/19 Q1020 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":21,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 161800Z 24004KT 160V220 9999 SCT022 21/19 Q1021 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T18:30:00Z","type":"METAR","temp_c":20,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 161830Z 15005KT 9999 SCT022 20/19 Q1021 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T19:00:00Z","type":"METAR","temp_c":20,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 161900Z 21004KT 9999 SCT022 20/19 Q1021 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T19:30:00Z","type":"METAR","temp_c":20,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 161930Z 20003KT 9999 SCT022 20/19 Q1021 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T20:00:00Z","type":"METAR","temp_c":20,"wspd_kt":2,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 162000Z 23002KT 9999 SCT022 20/19 Q1021 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T20:30:00Z","type":"METAR","temp_c":20,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 162030Z 18003KT 9999 SCT022 20/19 Q1021 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T21:00:00Z","type":"METAR","temp_c":20,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 162100Z 21003KT 9999 SCT022 20/19 Q1021 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T21:30:00Z","type":"METAR","temp_c":20,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 162130Z 30003KT 260V330 9999 SCT022 20/18 Q1021 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":20,"wspd_kt":2,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 162200Z VRB02KT 9999 SCT022 20/19 Q1021 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T22:30:00Z","type":"METAR","temp_c":19,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 162230Z 02004KT 9999 SCT022 19/19 Q1020 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T23:00:00Z","type":"METAR","temp_c":19,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 162300Z 05004KT 9999 SCT022 19/19 Q1020 NOSIG"}
+{"icao":"HRYR","obs_time":"2026-11-16T23:30:00Z","type":"METAR","temp_c":19,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR HRYR 162330Z 04004KT 9999 SCT022 19/19 Q1020 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T15:50:00Z","type":"METAR","temp_c":22,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 161550Z 36005KT 9999 FEW030 22/15 Q1018 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T16:20:00Z","type":"METAR","temp_c":21,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 161620Z VRB03KT 9999 FEW030 21/15 Q1019 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T16:50:00Z","type":"METAR","temp_c":21,"wspd_kt":2,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 161650Z VRB02KT 9999 FEW030 21/15 Q1019 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T17:20:00Z","type":"METAR","temp_c":21,"wspd_kt":2,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 161720Z VRB02KT 9999 FEW030 21/15 Q1019 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T17:50:00Z","type":"METAR","temp_c":20,"wspd_kt":2,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 161750Z VRB02KT 9999 FEW030 20/15 Q1019 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T18:20:00Z","type":"METAR","temp_c":20,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 161820Z VRB03KT 9999 FEW030 20/15 Q1019 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T18:50:00Z","type":"METAR","temp_c":19,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 161850Z VRB03KT 9999 FEW030 19/15 Q1019 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T19:20:00Z","type":"METAR","temp_c":19,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 161920Z 13004KT 9999 FEW030 19/15 Q1019 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T19:50:00Z","type":"METAR","temp_c":19,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 161950Z 12004KT 9999 FEW030 19/15 Q1019 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T20:20:00Z","type":"METAR","temp_c":19,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 162020Z 12004KT 9999 FEW030 19/15 Q1019 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T20:50:00Z","type":"METAR","temp_c":18,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 162050Z VRB03KT 9999 FEW030 18/14 Q1019 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T21:20:00Z","type":"METAR","temp_c":18,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 162120Z VRB03KT 9999 FEW030 18/14 Q1018 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T21:50:00Z","type":"METAR","temp_c":18,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 162150Z VRB03KT 9999 FEW030 18/14 Q1018 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T22:20:00Z","type":"METAR","temp_c":18,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 162220Z VRB03KT 9999 FEW030 18/14 Q1018 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T22:50:00Z","type":"METAR","temp_c":17,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 162250Z VRB03KT 9999 FEW030 17/14 Q1018 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T23:20:00Z","type":"METAR","temp_c":18,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 162320Z VRB03KT 9999 FEW030 18/14 Q1017 NOSIG"}
+{"icao":"LLBG","obs_time":"2026-11-16T23:50:00Z","type":"METAR","temp_c":18,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 162350Z VRB03KT 9999 FEW027 18/14 Q1017 NOSIG"}
+{"icao":"MUHA","obs_time":"2026-11-16T15:50:00Z","type":"METAR","temp_c":27,"wspd_kt":11,"wgst_kt":null,"visib":5.59,"raw":"METAR MUHA 161550Z 08011KT 040V110 9000 SCT030 27/19 Q1020"}
+{"icao":"MUHA","obs_time":"2026-11-16T16:50:00Z","type":"METAR","temp_c":28,"wspd_kt":8,"wgst_kt":null,"visib":5.59,"raw":"METAR MUHA 161650Z 08008KT 040V130 9000 SCT030 28/20 Q1019"}
+{"icao":"MUHA","obs_time":"2026-11-16T17:50:00Z","type":"METAR","temp_c":28,"wspd_kt":7,"wgst_kt":null,"visib":5.59,"raw":"METAR MUHA 161750Z 06007KT 010V110 9000 BKN030 28/20 Q1018"}
+{"icao":"MUHA","obs_time":"2026-11-16T18:50:00Z","type":"METAR","temp_c":28,"wspd_kt":9,"wgst_kt":null,"visib":5.59,"raw":"METAR MUHA 161850Z 06009KT 030V100 9000 BKN030 28/19 Q1018"}
+{"icao":"MUHA","obs_time":"2026-11-16T19:50:00Z","type":"METAR","temp_c":28,"wspd_kt":10,"wgst_kt":null,"visib":5.59,"raw":"METAR MUHA 161950Z 05010KT 9000 SCT030 28/21 Q1018"}
+{"icao":"MUHA","obs_time":"2026-11-16T20:50:00Z","type":"METAR","temp_c":27,"wspd_kt":14,"wgst_kt":null,"visib":5.59,"raw":"METAR MUHA 162050Z 04014KT 9000 SCT030 27/21 Q1018"}
+{"icao":"MUHA","obs_time":"2026-11-16T21:50:00Z","type":"METAR","temp_c":26,"wspd_kt":12,"wgst_kt":null,"visib":5.59,"raw":"METAR MUHA 162150Z 06012KT 9000 SCT030 26/21 Q1018"}
+{"icao":"MUHA","obs_time":"2026-11-16T22:50:00Z","type":"METAR","temp_c":25,"wspd_kt":8,"wgst_kt":null,"visib":5.59,"raw":"METAR MUHA 162250Z 07008KT 9000 SCT030 SCT060 25/21 Q1019"}
+{"icao":"MUHA","obs_time":"2026-11-16T23:50:00Z","type":"METAR","temp_c":24,"wspd_kt":7,"wgst_kt":null,"visib":5.59,"raw":"METAR MUHA 162350Z 07007KT 9000 SCT030 SCT060 24/21 Q1019"}
+{"icao":"OPIS","obs_time":"2026-11-16T16:00:00Z","type":"METAR","temp_c":13,"wspd_kt":6,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 161600Z 27006KT 6000 NSC 13/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T16:30:00Z","type":"METAR","temp_c":12,"wspd_kt":6,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 161630Z 23006KT 6000 NSC 12/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T17:00:00Z","type":"METAR","temp_c":12,"wspd_kt":8,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 161700Z 27008KT 6000 NSC 12/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T17:30:00Z","type":"METAR","temp_c":12,"wspd_kt":6,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 161730Z 27006KT 6000 NSC 12/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":12,"wspd_kt":8,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 161800Z 27008KT 6000 NSC 12/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T18:30:00Z","type":"METAR","temp_c":11,"wspd_kt":6,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 161830Z 23006KT 6000 NSC 11/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T19:00:00Z","type":"METAR","temp_c":11,"wspd_kt":6,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 161900Z 23006KT 6000 NSC 11/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T19:30:00Z","type":"METAR","temp_c":11,"wspd_kt":6,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 161930Z 23006KT 6000 NSC 11/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T20:00:00Z","type":"METAR","temp_c":11,"wspd_kt":4,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 162000Z 23004KT 6000 NSC 11/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T20:30:00Z","type":"METAR","temp_c":11,"wspd_kt":6,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 162030Z 23006KT 6000 NSC 11/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T21:00:00Z","type":"METAR","temp_c":11,"wspd_kt":4,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 162100Z 27004KT 6000 NSC 11/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T21:30:00Z","type":"METAR","temp_c":10,"wspd_kt":0,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 162130Z 00000KT 6000 NSC 10/05 Q1013 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":10,"wspd_kt":0,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 162200Z 00000KT 6000 NSC 10/05 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T22:30:00Z","type":"METAR","temp_c":10,"wspd_kt":0,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 162230Z 00000KT 6000 NSC 10/06 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T23:00:00Z","type":"METAR","temp_c":9,"wspd_kt":0,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 162300Z 00000KT 6000 NSC 09/06 Q1014 NOSIG"}
+{"icao":"OPIS","obs_time":"2026-11-16T23:30:00Z","type":"METAR","temp_c":9,"wspd_kt":0,"wgst_kt":null,"visib":3.73,"raw":"METAR OPIS 162330Z 00000KT 6000 NSC 09/06 Q1014 NOSIG"}
+{"icao":"RCKH","obs_time":"2026-11-16T16:00:00Z","type":"METAR","temp_c":25,"wspd_kt":2,"wgst_kt":null,"visib":"6+","raw":"METAR RCKH 161600Z VRB02KT 9999 FEW014 SCT058 25/21 Q1014 NOSIG RMK A2997"}
+{"icao":"RCKH","obs_time":"2026-11-16T17:00:00Z","type":"METAR","temp_c":25,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR RCKH 161700Z 05003KT 9999 FEW016 SCT070 25/21 Q1014 NOSIG RMK A2996"}
+{"icao":"RCKH","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":24,"wspd_kt":3,"wgst_kt":null,"visib":5.59,"raw":"METAR RCKH 161800Z 02003KT 360V060 9000 FEW016 SCT070 24/21 Q1014 NOSIG RMK A2995"}
+{"icao":"RCKH","obs_time":"2026-11-16T19:00:00Z","type":"METAR","temp_c":24,"wspd_kt":2,"wgst_kt":null,"visib":5.59,"raw":"METAR RCKH 161900Z VRB02KT 9000 FEW016 24/21 Q1014 NOSIG RMK A2995"}
+{"icao":"RCKH","obs_time":"2026-11-16T20:00:00Z","type":"METAR","temp_c":24,"wspd_kt":4,"wgst_kt":null,"visib":4.97,"raw":"METAR RCKH 162000Z 36004KT 320V030 8000 FEW016 SCT042 24/21 Q1014 NOSIG RMK A2997"}
+{"icao":"RCKH","obs_time":"2026-11-16T21:00:00Z","type":"METAR","temp_c":24,"wspd_kt":3,"wgst_kt":null,"visib":4.35,"raw":"METAR RCKH 162100Z 01003KT 340V040 7000 FEW016 SCT040 BKN056 24/21 Q1015 NOSIG RMK A2998"}
+{"icao":"RCKH","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":24,"wspd_kt":4,"wgst_kt":null,"visib":4.35,"raw":"METAR RCKH 162200Z 35004KT 320V030 7000 FEW014 SCT040 BKN056 24/20 Q1015 NOSIG RMK A3000"}
+{"icao":"RCKH","obs_time":"2026-11-16T22:30:00Z","type":"METAR","temp_c":24,"wspd_kt":4,"wgst_kt":null,"visib":5.59,"raw":"METAR RCKH 162230Z 36004KT 330V030 9000 FEW014 SCT040 BKN200 24/20 Q1016 NOSIG RMK A3001"}
+{"icao":"RCKH","obs_time":"2026-11-16T23:00:00Z","type":"METAR","temp_c":25,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR RCKH 162300Z 36005KT 320V030 9999 FEW016 SCT040 BKN200 25/20 Q1016 NOSIG RMK A3001"}
+{"icao":"RCKH","obs_time":"2026-11-16T23:30:00Z","type":"METAR","temp_c":25,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR RCKH 162330Z 02006KT 340V070 9999 FEW016 BKN040 BKN200 25/20 Q1016 NOSIG RMK A3003"}
+{"icao":"RKSI","obs_time":"2026-11-16T16:00:00Z","type":"METAR","temp_c":13,"wspd_kt":7,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 161600Z 11007KT 070V140 9999 SCT045 13/08 Q1021 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T16:30:00Z","type":"METAR","temp_c":13,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 161630Z 11005KT 080V140 9999 BKN045 13/08 Q1021 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T17:00:00Z","type":"METAR","temp_c":13,"wspd_kt":7,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 161700Z 10007KT 360V100 9999 SCT045 BKN170 13/08 Q1021 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T17:30:00Z","type":"METAR","temp_c":13,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 161730Z 10006KT 050V140 9999 BKN045 BKN170 13/08 Q1021 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":13,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 161800Z 10006KT 9999 BKN040 BKN200 13/08 Q1021 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T18:30:00Z","type":"METAR","temp_c":13,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 161830Z 09005KT 9999 BKN035 BKN070 13/08 Q1021 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T19:00:00Z","type":"METAR","temp_c":13,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 161900Z 09005KT 9999 BKN035 BKN070 13/08 Q1021 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T19:30:00Z","type":"METAR","temp_c":13,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 161930Z 09005KT 060V120 9999 BKN035 13/08 Q1021 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T20:00:00Z","type":"METAR","temp_c":13,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 162000Z 11006KT 9999 BKN035 BKN170 13/08 Q1021 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T20:30:00Z","type":"METAR","temp_c":13,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 162030Z 10006KT 9999 SCT035 BKN170 13/08 Q1021 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T21:00:00Z","type":"METAR","temp_c":13,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 162100Z 10006KT 070V130 9999 FEW035 BKN180 13/08 Q1020 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T21:30:00Z","type":"METAR","temp_c":13,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 162130Z 09004KT 9999 FEW045 BKN180 13/08 Q1020 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":12,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 162200Z 06004KT 9999 FEW045 BKN170 12/09 Q1020 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T22:30:00Z","type":"METAR","temp_c":13,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 162230Z 10005KT 9999 FEW045 BKN180 13/08 Q1020 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T23:00:00Z","type":"METAR","temp_c":12,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 162300Z 08005KT 040V110 9999 FEW045 BKN180 12/08 Q1020 NOSIG"}
+{"icao":"RKSI","obs_time":"2026-11-16T23:30:00Z","type":"METAR","temp_c":12,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 162330Z 05004KT CAVOK 12/09 Q1020 NOSIG"}
+{"icao":"RPLB","obs_time":"2026-11-16T16:00:00Z","type":"METAR","temp_c":26,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR RPLB 161600Z 06004KT 9999 FEW020 26/22 Q1013 NOSIG RMK A2991"}
+{"icao":"RPLB","obs_time":"2026-11-16T17:00:00Z","type":"METAR","temp_c":25,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR RPLB 161700Z 06003KT 9999 FEW020 25/23 Q1013 NOSIG RMK A2991"}
+{"icao":"RPLB","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":26,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR RPLB 161800Z 04004KT 9999 FEW020 26/23 Q1013 NOSIG RMK A2991"}
+{"icao":"RPLB","obs_time":"2026-11-16T19:00:00Z","type":"METAR","temp_c":25,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR RPLB 161900Z 03003KT 9999 FEW020 25/23 Q1013 NOSIG RMK A2991"}
+{"icao":"RPLB","obs_time":"2026-11-16T20:00:00Z","type":"METAR","temp_c":25,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR RPLB 162000Z 01003KT 330V060 9999 FEW020 25/23 Q1013 NOSIG RMK A2991"}
+{"icao":"RPLB","obs_time":"2026-11-16T21:00:00Z","type":"METAR","temp_c":26,"wspd_kt":3,"wgst_kt":null,"visib":"6+","raw":"METAR RPLB 162100Z 35003KT 300V030 9999 FEW020 26/23 Q1013 NOSIG RMK A2991"}
+{"icao":"RPLB","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":26,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR RPLB 162200Z 04005KT 010V070 9999 FEW020 26/23 Q1014 NOSIG RMK A2994"}
+{"icao":"RPLB","obs_time":"2026-11-16T23:00:00Z","type":"METAR","temp_c":26,"wspd_kt":9,"wgst_kt":null,"visib":"6+","raw":"METAR RPLB 162300Z 05009KT 9999 FEW020 26/23 Q1014 NOSIG RMK A2994"}
+{"icao":"RPVP","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":27,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR RPVP 161800Z 27004KT 9999 FEW019 27/25 Q1011 RMK A2985"}
+{"icao":"RPVP","obs_time":"2026-11-16T21:00:00Z","type":"METAR","temp_c":25,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR RPVP 162100Z 27004KT 9999 FEW019 25/24 Q1010 RMK A2983"}
+{"icao":"RPVP","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":25,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR RPVP 162200Z 27006KT 9999 FEW019 25/24 Q1011 RMK A2985"}
+{"icao":"RPVP","obs_time":"2026-11-16T23:00:00Z","type":"METAR","temp_c":26,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR RPVP 162300Z 27006KT 9999 FEW019 SCT080 26/24 Q1012 RMK A2988"}
+{"icao":"SVMC","obs_time":"2026-11-16T15:50:00Z","type":"METAR","temp_c":null,"wspd_kt":null,"wgst_kt":null,"visib":null,"raw":"METAR SVMC 161550Z "}
+{"icao":"SVMC","obs_time":"2026-11-16T16:00:00Z","type":"METAR","temp_c":31,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":" SVMC 161600Z 18004KT 9999 FEW018 SCT090 31/26 Q1012"}
+{"icao":"SVMC","obs_time":"2026-11-16T16:50:00Z","type":"METAR","temp_c":null,"wspd_kt":null,"wgst_kt":null,"visib":null,"raw":"METAR SVMC 161650Z "}
+{"icao":"SVMC","obs_time":"2026-11-16T17:00:00Z","type":"METAR","temp_c":33,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":" SVMC 161700Z 18004KT 9999 BKN013 33/28 Q1012"}
+{"icao":"SVMC","obs_time":"2026-11-16T17:56:00Z","type":"METAR","temp_c":null,"wspd_kt":null,"wgst_kt":null,"visib":null,"raw":"METAR SVMC 161756Z "}
+{"icao":"SVMC","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":33,"wspd_kt":2,"wgst_kt":null,"visib":"6+","raw":" SVMC 161800Z 18002KT 9999 BKN013 33/28 Q1012"}
+{"icao":"SVMC","obs_time":"2026-11-16T19:00:00Z","type":"METAR","temp_c":33,"wspd_kt":2,"wgst_kt":null,"visib":"6+","raw":" SVMC 161900Z 18002KT 9999 BKN013 33/28 Q1012"}
+{"icao":"SVMC","obs_time":"2026-11-16T19:56:00Z","type":"METAR","temp_c":30,"wspd_kt":2,"wgst_kt":null,"visib":"6+","raw":"METAR SVMC 161956Z SVMC 1620300Z 18002KT 9999 BKN013 30/24 Q1010"}
+{"icao":"SVMC","obs_time":"2026-11-16T21:54:00Z","type":"METAR","temp_c":null,"wspd_kt":null,"wgst_kt":null,"visib":null,"raw":"METAR SVMC 162154Z "}
+{"icao":"SVMC","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":28,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":" SVMC 162200Z 18004KT 9999 BKN013 28/24 Q1010"}
+{"icao":"SVMI","obs_time":"2026-11-16T16:00:00Z","type":"METAR","temp_c":32,"wspd_kt":6,"wgst_kt":16,"visib":"6+","raw":"METAR SVMI 161600Z 09006G16KT 9999 FEW016 32/26 Q1015"}
+{"icao":"SVMI","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":32,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR SVMI 161800Z 11005KT 9999 FEW016 32/25 Q1012"}
+{"icao":"SVMI","obs_time":"2026-11-16T19:00:00Z","type":"METAR","temp_c":32,"wspd_kt":6,"wgst_kt":null,"visib":"6+","raw":"METAR SVMI 161900Z 11006KT 9999 FEW016 32/24 Q1011"}
+{"icao":"SVMI","obs_time":"2026-11-16T20:00:00Z","type":"METAR","temp_c":31,"wspd_kt":7,"wgst_kt":null,"visib":"6+","raw":"METAR SVMI 162000Z 09007KT 9999 FEW016 31/23 Q1011"}
+{"icao":"SVMI","obs_time":"2026-11-16T21:00:00Z","type":"METAR","temp_c":30,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR SVMI 162100Z 09005KT 9999 FEW016 30/23 Q1011"}
+{"icao":"SVMI","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":29,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR SVMI 162200Z 09005KT 9999 FEW016 29/23 Q1011"}
+{"icao":"SVMI","obs_time":"2026-11-16T23:00:00Z","type":"METAR","temp_c":28,"wspd_kt":5,"wgst_kt":null,"visib":"6+","raw":"METAR SVMI 162300Z 11005KT 9999 FEW016 28/24 Q1011"}
+{"icao":"VISR","obs_time":"2026-11-16T16:30:00Z","type":"METAR","temp_c":5,"wspd_kt":2,"wgst_kt":null,"visib":3.73,"raw":"METAR VISR 161630Z VRB02KT 6000 FEW025 05/M01 Q1023 NOSIG"}
+{"icao":"VISR","obs_time":"2026-11-16T17:30:00Z","type":"METAR","temp_c":4,"wspd_kt":2,"wgst_kt":null,"visib":3.73,"raw":"METAR VISR 161730Z VRB02KT 6000 SKC 04/M00 Q1023 NOSIG"}
+{"icao":"VISR","obs_time":"2026-11-16T19:30:00Z","type":"METAR","temp_c":2,"wspd_kt":2,"wgst_kt":null,"visib":3.73,"raw":"METAR VISR 161930Z VRB02KT 6000 SKC 02/M00 Q1023 NOSIG"}
+{"icao":"VISR","obs_time":"2026-11-16T20:30:00Z","type":"METAR","temp_c":1,"wspd_kt":3,"wgst_kt":null,"visib":3.73,"raw":"METAR VISR 162030Z 28003KT 6000 SKC 01/M03 Q1023 NOSIG"}
+{"icao":"VISR","obs_time":"2026-11-16T21:30:00Z","type":"METAR","temp_c":0,"wspd_kt":2,"wgst_kt":null,"visib":3.73,"raw":"METAR VISR 162130Z VRB02KT 6000 SKC 00/M02 Q1023 NOSIG"}
+{"icao":"VISR","obs_time":"2026-11-16T22:30:00Z","type":"METAR","temp_c":0,"wspd_kt":2,"wgst_kt":null,"visib":3.11,"raw":"METAR VISR 162230Z VRB02KT 5000 BR SKC M00/M02 Q1023 NOSIG"}
+{"icao":"VISR","obs_time":"2026-11-16T23:30:00Z","type":"METAR","temp_c":-1,"wspd_kt":2,"wgst_kt":null,"visib":2.8,"raw":"METAR VISR 162330Z VRB02KT 4500 BR SKC M01/M02 Q1024 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T16:00:00Z","type":"METAR","temp_c":27,"wspd_kt":0,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 161600Z 00000KT 7000 SCT020 FEW025CB BKN100 27/26 Q1012 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T17:30:00Z","type":"METAR","temp_c":27,"wspd_kt":2,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 161730Z 02002KT 7000 SCT020 FEW025CB BKN100 27/26 Q1011 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T18:00:00Z","type":"METAR","temp_c":27,"wspd_kt":0,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 161800Z 00000KT 7000 SCT020 FEW025CB BKN100 27/26 Q1011 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T18:30:00Z","type":"METAR","temp_c":26,"wspd_kt":0,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 161830Z 00000KT 7000 SCT020 FEW025CB BKN100 26/25 Q1011 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T19:00:00Z","type":"METAR","temp_c":26,"wspd_kt":2,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 161900Z 02002KT 7000 SCT020 FEW025CB BKN100 26/25 Q1010 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T20:00:00Z","type":"METAR","temp_c":26,"wspd_kt":2,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 162000Z 04002KT 7000 SCT020 FEW025CB BKN100 26/25 Q1010 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T20:30:00Z","type":"METAR","temp_c":26,"wspd_kt":2,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 162030Z 05002KT 7000 SCT020 FEW025CB BKN100 26/25 Q1010 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T21:00:00Z","type":"METAR","temp_c":26,"wspd_kt":0,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 162100Z 00000KT 7000 SCT020 FEW025CB BKN100 26/25 Q1010 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T21:30:00Z","type":"METAR","temp_c":26,"wspd_kt":2,"wgst_kt":null,"visib":3.73,"raw":"METAR VYYY 162130Z 01002KT 6000 SCT020 FEW025CB BKN100 26/25 Q1010 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T22:00:00Z","type":"METAR","temp_c":26,"wspd_kt":2,"wgst_kt":null,"visib":3.73,"raw":"METAR VYYY 162200Z 03002KT 6000 SCT020 FEW025CB BKN100 26/25 Q1010 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T22:30:00Z","type":"METAR","temp_c":26,"wspd_kt":2,"wgst_kt":null,"visib":3.73,"raw":"METAR VYYY 162230Z 02002KT 6000 SCT020 FEW025CB BKN100 26/25 Q1010 NOSIG"}
+{"icao":"VYYY","obs_time":"2026-11-16T23:00:00Z","type":"METAR","temp_c":26,"wspd_kt":0,"wgst_kt":null,"visib":3.73,"raw":"METAR VYYY 162300Z 00000KT 6000 SCT020 FEW025CB BKN100 26/25 Q1011 BECMG 5000 BR"}
+{"icao":"VYYY","obs_time":"2026-11-16T23:30:00Z","type":"METAR","temp_c":26,"wspd_kt":2,"wgst_kt":null,"visib":3.73,"raw":"METAR VYYY 162330Z 03002KT 6000 BKN020 FEW025CB BKN090 26/25 Q1011 BECMG 5000 BR"}
