@@ -672,3 +672,9 @@
 {"icao":"VYYY","obs_time":"2026-11-24T22:00:00Z","type":"METAR","temp_c":26,"wspd_kt":3,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 242200Z 33003KT 7000 NSC 26/25 Q1013 NOSIG"}
 {"icao":"VYYY","obs_time":"2026-11-24T22:30:00Z","type":"METAR","temp_c":25,"wspd_kt":0,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 242230Z 00000KT 7000 NSC 25/23 Q1013 NOSIG"}
 {"icao":"VYYY","obs_time":"2026-11-24T23:00:00Z","type":"METAR","temp_c":25,"wspd_kt":2,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 242300Z 34002KT 7000 NSC 25/23 Q1013 NOSIG"}
+{"icao":"GABS","obs_time":"2026-11-24T23:30:00Z","type":"METAR","temp_c":20,"wspd_kt":0,"wgst_kt":null,"visib":2.49,"raw":"METAR GABS 242330Z 00000KT 4000 DU NSC 20/11 Q1016 NOSIG"}
+{"icao":"RCKH","obs_time":"2026-11-24T23:30:00Z","type":"METAR","temp_c":19,"wspd_kt":3,"wgst_kt":null,"visib":4.97,"raw":"METAR RCKH 242330Z 03003KT 330V120 8000 FEW010 BKN025 BKN040 19/16 Q1019 NOSIG RMK A3010"}
+{"icao":"RCTP","obs_time":"2026-11-24T23:30:00Z","type":"METAR","temp_c":18,"wspd_kt":18,"wgst_kt":null,"visib":"6+","raw":"METAR RCTP 242330Z 05018KT 9999 FEW015 BKN040 18/12 Q1023 NOSIG RMK A3023"}
+{"icao":"RKSI","obs_time":"2026-11-24T23:30:00Z","type":"METAR","temp_c":0,"wspd_kt":7,"wgst_kt":null,"visib":"6+","raw":"METAR RKSI 242330Z 12007KT CAVOK 00/M07 Q1024 NOSIG"}
+{"icao":"UMKK","obs_time":"2026-11-24T23:30:00Z","type":"METAR","temp_c":3,"wspd_kt":4,"wgst_kt":null,"visib":4.97,"raw":"METAR UMKK 242330Z 06002MPS 020V100 8000 -SHRA BKN015CB 03/03 Q1019 R24/290056 NOSIG RMK QFE763/1017"}
+{"icao":"VYYY","obs_time":"2026-11-24T23:30:00Z","type":"METAR","temp_c":25,"wspd_kt":2,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 242330Z 33002KT 7000 NSC 25/23 Q1014 NOSIG"}
