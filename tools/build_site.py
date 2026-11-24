@@ -30,6 +30,7 @@ INDEX_HTML = """<!doctype html>
   <link rel="alternate" type="application/geo+json" title="Vis feed (GeoJSON)" href="data/feed.geojson">
 </head>
 <body>
+  <a class="skip" href="#main">Skip to content</a>
   <header class="site-head">
     <div class="wrap head-inner">
       <div>
@@ -61,7 +62,8 @@ INDEX_HTML = """<!doctype html>
     </div>
   </header>
 
-  <main class="wrap">
+  <main id="main" class="wrap">
+    <noscript><p class="noscript">This page needs JavaScript to draw its forecasts.</p></noscript>
     <p id="vis-stale" class="stale" role="status" hidden></p>
     <!-- Sections row (tic-tabs.js from the hub): one group at a time on a phone, a jumping row wider -->
     <div data-tic-tabs>
@@ -388,6 +390,10 @@ h1 .sub {
   white-space: nowrap;
   border: 0;
 }
+/* Skip link and noscript line (ideas#300) */
+.skip { position: absolute; left: -9999px; top: 8px; z-index: 100; background: var(--card); color: var(--accent); padding: 6px 10px; border: 1px solid var(--rule); border-radius: 4px; }
+.skip:focus { left: 8px; }
+.noscript { margin: 16px 0 0; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--card); }
 """
 
 VIS_JS = """import { likelihoodLabel } from "./vendor/tic-doctrine.js";
@@ -532,6 +538,44 @@ init().then(land, () => {});
 if (T) { T.mountSettings(document.getElementById("time-settings")); T.onChange(() => init()); }
 """
 
+NOT_FOUND_HTML = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not found · Vis</title>
+<meta name="description" content="Page not found.">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/tic-nav.css">
+<link rel="stylesheet" href="/tic-time.css">
+<link rel="stylesheet" href="/style.css">
+<script src="/tic-time.js"></script>
+<script src="/tic-nav.js" defer data-current="vis"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-head">
+  <div class="wrap head-inner">
+    <div>
+      <p class="eyebrow">The Intelligence Company · Physical Environment</p>
+      <h1>Vis <span class="sub">Operational weather &amp; illumination</span></h1>
+    </div>
+  </div>
+</header>
+<main id="main" class="wrap">
+  <section class="card">
+    <h2>Not found</h2>
+    <p class="lede">That page doesn't exist. It may have moved when the site grew.</p>
+    <p><a href="/">Vis home</a> · <a href="https://theintelligence.company/">The Intelligence Company</a></p>
+  </section>
+</main>
+<footer class="wrap site-foot">
+  <p>Vis, The Intelligence Company. Public information only, non-commercial.</p>
+</footer>
+</body>
+</html>
+"""
+
 HEADERS = """/*
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cop.theintelligence.company; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'
   X-Content-Type-Options: nosniff
@@ -550,6 +594,7 @@ def build(forecast_doc: dict, out_dir: Path | None = None) -> dict[str, str]:
         "style.css": STYLE_CSS,
         "vis.js": VIS_JS,
         "_headers": HEADERS,
+        "404.html": NOT_FOUND_HTML,
         "data/forecast.json": json.dumps(forecast_doc, ensure_ascii=False, indent=1) + "\n",
         "data/feed.geojson": json.dumps(fc, ensure_ascii=False, indent=1) + "\n",
     }
