@@ -27,6 +27,7 @@ INDEX_HTML = """<!doctype html>
   <link rel="stylesheet" href="tic-tabs.css">
   <link rel="stylesheet" href="tic-fold.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="alternate" type="application/geo+json" title="Vis feed (GeoJSON)" href="data/feed.geojson">
 </head>
 <body>
   <header class="site-head">
@@ -56,10 +57,6 @@ INDEX_HTML = """<!doctype html>
       <div class="meta-box">
         <div id="vis-stamp" class="stamp">Loading forecast…</div>
         <div><span id="time-settings"></span></div>
-        <div class="links">
-          <a href="data/feed.geojson">Feed (GeoJSON)</a> ·
-          <a href="data/forecast.json">Forecast data (JSON)</a>
-        </div>
       </div>
     </div>
   </header>
@@ -145,6 +142,10 @@ INDEX_HTML = """<!doctype html>
 
   <footer class="wrap site-foot">
     <p>A project of <a href="https://theintelligence.company">The Intelligence Company</a>. Forecast generated <span id="vis-asof">…</span>. <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a> (GNU AGPL-3.0). Weather data: <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> (CC BY 4.0), from NOAA GEFS and ECMWF IFS. <a href="#about">About and limits</a> · <a href="#sources">Sources</a>.</p>
+    <nav class="tic-data" aria-label="Data and downloads"><span class="tic-data-k">Data and downloads</span>
+      <a href="data/feed.geojson">Feed (GeoJSON)</a>
+      <a href="data/forecast.json">Forecast data (JSON)</a>
+      <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a></nav>
   </footer>
 
   <script src="tic-time.js"></script>
@@ -353,6 +354,13 @@ h1 .sub {
   color: var(--muted);
 }
 .site-foot a { color: var(--accent); }
+/* Footer row for data and code links (hub tic-shell.css v1.1, ideas#84), in Vis's colours */
+.tic-data { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 16px 0 8px; padding-top: 12px;
+  border-top: 1px solid var(--rule); font-size: 0.85rem; line-height: 1.4; }
+.tic-data-k { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.tic-data a { display: inline-flex; align-items: center; min-height: 24px; text-decoration: underline; text-underline-offset: 2px; }
+.tic-data a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+@media (max-width: 760px) { .tic-data { gap: 2px 14px; } .tic-data-k { flex-basis: 100%; } }
 .card a { color: var(--accent); }
 .stale {
   margin: 14px 0 0;
