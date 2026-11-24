@@ -35,6 +35,23 @@ INDEX_HTML = """<!doctype html>
         <p class="eyebrow">The Intelligence Company · Physical Environment</p>
         <h1>Vis <span class="sub">Operational weather &amp; illumination</span></h1>
         <p class="lede">How likely the next seven days’ weather is to degrade operations at a reference airfield or port in each conflict zone, from up to 82 ensemble members (NOAA GEFS 31, ECMWF IFS 51), and tonight’s light.</p>
+        <p class="caveat">These are forecasts with indicative thresholds, not an official forecast and not for flight planning. <a href="https://github.com/metacog-osint/vis/blob/main/doctrine/method.md" rel="noopener">How Vis reads them</a>.</p>
+        <details class="terms" id="terms">
+          <summary>Terms on this page</summary>
+          <dl>
+            <dt>Ensemble members</dt><dd>One model run many times from slightly different starting conditions. The share of members that reach a threshold is the percentage shown.</dd>
+            <dt>GEFS, ECMWF IFS</dt><dd>NOAA’s Global Ensemble Forecast System (31 members) and the European Centre for Medium-Range Weather Forecasts’ Integrated Forecasting System ensemble (51 members).</dd>
+            <dt>00Z, 12Z, UTC</dt><dd>Times in Coordinated Universal Time (Z, “Zulu”). Each day column is a UTC day.</dd>
+            <dt>ICD 203 term</dt><dd>The fixed likelihood words of the US intelligence community’s analytic standards (Intelligence Community Directive 203), such as “very unlikely” for 5 to 20%.</dd>
+            <dt>Green, Yellow, Amber, Red</dt><dd>The UK Met Office’s likelihood-by-impact colours: no significant impact, be aware, be prepared, take action.</dd>
+            <dt>ICAO code</dt><dd>The four-letter airport code from the International Civil Aviation Organization, as in UKBB for Kyiv Boryspil.</dd>
+            <dt>METAR</dt><dd>An airfield’s routine weather observation report.</dd>
+            <dt>ISR, UAS, VFR</dt><dd>Intelligence, surveillance and reconnaissance; uncrewed aircraft systems (drones); visual flight rules, flying by sight rather than instruments.</dd>
+            <dt>JP 3-59</dt><dd>US joint doctrine publication 3-59, Meteorological and Oceanographic Operations.</dd>
+            <dt>DRC, M23, NATO</dt><dd>The Democratic Republic of the Congo; the March 23 Movement, an armed group in its east; the North Atlantic Treaty Organization.</dd>
+            <dt>Civil dusk and dawn</dt><dd>When the sun is 6° below the horizon, the end and start of usable daylight.</dd>
+          </dl>
+        </details>
       </div>
       <div class="meta-box">
         <div id="vis-stamp" class="stamp">Loading forecast…</div>
@@ -206,6 +223,14 @@ h1 .sub {
   max-width: 780px;
   color: var(--muted);
 }
+/* Terms on this page (ideas#264): a tap target, so a phone reaches it; every number stays where it is. */
+.caveat { margin: 8px 0 0; max-width: 780px; font-size: 13px; color: var(--muted); }
+.caveat a, .terms a { color: var(--accent); }
+.terms { margin: 6px 0 0; max-width: 780px; font-size: 13px; }
+.terms summary { cursor: pointer; padding: 6px 0; min-height: 24px; color: var(--ink); }
+.terms dl { margin: 4px 0 0; }
+.terms dt { font-weight: 600; margin-top: 6px; color: var(--ink); }
+.terms dd { margin: 2px 0 0; color: var(--muted); }
 .meta-box {
   text-align: right;
   font-size: 12px;
