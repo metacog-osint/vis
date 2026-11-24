@@ -43,7 +43,8 @@ function dayCell(d, hz) {
     const [level, p] = shown(v);
     const lim = hz[k] ? ` ${limit(hz[k])(level)}` : "";
     const term = likelihoodLabel(Math.max(0.01, Math.min(0.99, p || 0.01)));
-    return `<div class="driver-line"><b>${esc(hz[k]?.name || k)}${esc(lim)}</b>: ${esc(term)} · <span class="mono">${Math.round(p * 100)}%</span></div>`;
+    const sev = level === "red" && v.colour !== "red" ? ' <span class="small" title="This colour comes from the chance of the severe (red) threshold. Yellow starts at 5%, Amber at 20%, Red at 45%.">(severe threshold)</span>' : "";
+    return `<div class="driver-line"><b>${esc(hz[k]?.name || k)}${esc(lim)}</b>: ${esc(term)} · <span class="mono">${Math.round(p * 100)}%</span>${sev}</div>`;
   });
   return `<td class="day-cell col-${esc(d.colour)}"><div class="day-head">${esc(d.colour.toUpperCase())}</div>${
     lines.join("") || '<div class="driver-line">All hazards below Yellow</div>'
