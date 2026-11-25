@@ -95,7 +95,7 @@ INDEX_HTML = """<!doctype html>
       <div class="card">
         <h2>Hazard thresholds</h2>
         <p class="small">Each day column is a UTC day. Times show in your own time zone (the Time button changes it).</p>
-        <p class="small">Both models step every 3 hours (Open-Meteo serves the hours between interpolated), so a hazard must hold on two consecutive 3-hourly steps in a UTC day; a brief shower or gust does not colour the whole day.</p>
+        <p class="small">Both models step every 3 hours (Open-Meteo serves the hours between interpolated), so a hazard must hold on two consecutive 3-hourly steps in a UTC day; a brief shower or gust does not colour the whole day. Thunderstorms need one step, because a storm at a point seldom lasts three hours.</p>
         <ul id="vis-thresholds" class="thresh-list"></ul>
       </div>
       <div class="card">
@@ -121,9 +121,9 @@ INDEX_HTML = """<!doctype html>
         <ul class="thresh-list" id="vis-limits">
           <li>Not an official forecast, and not for flight planning or go/no-go decisions. Use your weather unit or the national meteorological service.</li>
           <li>Thresholds are indicative. Joint doctrine (JP 3-59) names the parameters that matter but publishes no numeric limits, and real limits depend on the platform.</li>
-          <li>Each point is read from a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
+          <li>Each point is read from a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. The thunderstorm hazard reads the conditions for storms (CAPE with rain), so it gives the chance of storm weather around the point, not of a storm over the runway; it is on trial and shown at most Yellow until a week of its scores is read.</li>
           <li>Visibility comes from GEFS alone, where it is a diagnosed field that often runs too low in fog and rain.</li>
-          <li>Only wind, visibility, heat and cold can be checked against METARs, and only at stations that report; the sample since 19 Nov 2026 is small, and “Measured skill” says where it is too small to read.</li>
+          <li>Only wind, visibility, thunderstorms, heat and cold can be checked against METARs, and only at stations that report; the sample since 19 Nov 2026 is small, and “Measured skill” says where it is too small to read.</li>
         </ul>
         <p class="small"><b>Terms.</b> Provided as is, without warranty. Code under the GNU AGPL-3.0; data under its sources’ licences, below.</p>
       </div>
@@ -449,7 +449,8 @@ function dayCell(d, hz) {
     const lim = hz[k] ? ` ${limit(hz[k])(level)}` : "";
     const term = likelihoodLabel(Math.max(0.01, Math.min(0.99, p || 0.01)));
     const sev = level === "red" && v.colour !== "red" ? ' <span class="small" title="This colour comes from the chance of the severe (red) threshold. Yellow starts at 5%, Amber at 20%, Red at 45%.">(severe threshold)</span>' : "";
-    return `<div class="driver-line"><b>${esc(hz[k]?.name || k)}${esc(lim)}</b>: ${esc(term)} · <span class="mono">${Math.round(p * 100)}%</span>${sev}</div>`;
+    const trial = v.capped_from && hz[k]?.trial ? ` <span class="small" title="This hazard is on trial and shown at most ${esc(v.colour)} until a week of its scores is read; without the cap this cell would be ${esc(v.capped_from)}.">(on trial: ${esc(v.capped_from)} without the cap)</span>` : "";
+    return `<div class="driver-line"><b>${esc(hz[k]?.name || k)}${esc(lim)}</b>: ${esc(term)} · <span class="mono">${Math.round(p * 100)}%</span>${sev}${trial}</div>`;
   });
   return `<td class="day-cell col-${esc(d.colour)}"><div class="day-head">${esc(d.colour.toUpperCase())}</div>${
     lines.join("") || '<div class="driver-line">All hazards below Yellow</div>'
@@ -473,8 +474,9 @@ function rowHead(z) {
 
 function limit(h) {                               // "≥ 65 km/h", "≤ 3000 m", "≤ 0 C with ≥ 1 mm/h"
   const op = (dir) => (dir === "above" ? "≥ " : "≤ ");
+  const [u1, u2] = String(h.unit || "").split(" + ");   // a joint hazard's unit: "C + mm/h", "J/kg + mm/h"
   return (level) => (h.with
-    ? `${op(h.dir)}${+h[level]} C with ${op(h.with.dir)}${+h.with[level]} mm/h`
+    ? `${h.var === "cape" ? "CAPE " : ""}${op(h.dir)}${+h[level]} ${u1 || "C"} with ${op(h.with.dir)}${+h.with[level]} ${u2 || "mm/h"}`
     : `${op(h.dir)}${+h[level]} ${h.unit}`);
 }
 
@@ -595,7 +597,10 @@ HEADERS = """/*
 """
 
 
-HAZ_NAMES = {"wind": "Strong wind (gusts)", "vis": "Poor visibility", "heat": "Extreme heat", "cold": "Extreme cold"}
+HAZ_NAMES = {"wind": "Strong wind (gusts)", "vis": "Poor visibility", "heat": "Extreme heat", "cold": "Extreme cold",
+             "tstorm": "Thunderstorms"}
+# What a thunderstorm row resolves on (tools/verify.py TS_CRITERION, vis-verify/2), short enough for the table.
+TS_SHORT = {"amber": "TS, VCTS or RETS reported", "red": "+TS, TS with hail, or gust ≥ 65 km/h"}
 
 
 def _num(v, fmt="{:.3f}"):
@@ -617,6 +622,8 @@ def verification_html(doc: dict | None) -> str:
            f'too short for the two-step rule). One forecast per model run is counted. Lower Brier is better; skill '
            f'is against the sample’s own observed frequency, so 0 means no better than always forecasting that '
            f'rate. A row is marked too few to read unless it has {escape(str(r.get("readable_when", "")))}. '
+           f'Thunderstorms (on trial) count as observed when any report in the window has TS, VCTS or RETS; '
+           f'cumulonimbus cloud alone does not count, and a missing report is never a no. '
            f'Rain, snow, low cloud and icing are not scored: METARs do not measure them the way the forecast '
            f'states them. Thresholds are indicative; not for flight planning.</p>',
            '<div class="table-wrap"><table class="skill"><thead><tr><th>Hazard</th><th>Threshold</th>'
@@ -624,6 +631,8 @@ def verification_html(doc: dict | None) -> str:
            '<th>Skill</th><th>Read</th></tr></thead><tbody>']
     for c in doc["scores"]:
         thr = "" if c.get("threshold") is None else f'{"≤" if c["hazard"] in ("vis", "cold") else "≥"} {c["threshold"]:g} {c.get("unit") or ""}'
+        if c["hazard"] == "tstorm":
+            thr = TS_SHORT.get(c["level"], "")
         lead = "all" if c["lead_days"] == "all" else str(c["lead_days"])
         read = "yes" if c.get("readable") else "too few to read"
         cls = ' class="skill-all"' if lead == "all" else ""

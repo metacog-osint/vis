@@ -44,7 +44,8 @@ function dayCell(d, hz) {
     const lim = hz[k] ? ` ${limit(hz[k])(level)}` : "";
     const term = likelihoodLabel(Math.max(0.01, Math.min(0.99, p || 0.01)));
     const sev = level === "red" && v.colour !== "red" ? ' <span class="small" title="This colour comes from the chance of the severe (red) threshold. Yellow starts at 5%, Amber at 20%, Red at 45%.">(severe threshold)</span>' : "";
-    return `<div class="driver-line"><b>${esc(hz[k]?.name || k)}${esc(lim)}</b>: ${esc(term)} · <span class="mono">${Math.round(p * 100)}%</span>${sev}</div>`;
+    const trial = v.capped_from && hz[k]?.trial ? ` <span class="small" title="This hazard is on trial and shown at most ${esc(v.colour)} until a week of its scores is read; without the cap this cell would be ${esc(v.capped_from)}.">(on trial: ${esc(v.capped_from)} without the cap)</span>` : "";
+    return `<div class="driver-line"><b>${esc(hz[k]?.name || k)}${esc(lim)}</b>: ${esc(term)} · <span class="mono">${Math.round(p * 100)}%</span>${sev}${trial}</div>`;
   });
   return `<td class="day-cell col-${esc(d.colour)}"><div class="day-head">${esc(d.colour.toUpperCase())}</div>${
     lines.join("") || '<div class="driver-line">All hazards below Yellow</div>'
@@ -68,8 +69,9 @@ function rowHead(z) {
 
 function limit(h) {                               // "≥ 65 km/h", "≤ 3000 m", "≤ 0 C with ≥ 1 mm/h"
   const op = (dir) => (dir === "above" ? "≥ " : "≤ ");
+  const [u1, u2] = String(h.unit || "").split(" + ");   // a joint hazard's unit: "C + mm/h", "J/kg + mm/h"
   return (level) => (h.with
-    ? `${op(h.dir)}${+h[level]} C with ${op(h.with.dir)}${+h.with[level]} mm/h`
+    ? `${h.var === "cape" ? "CAPE " : ""}${op(h.dir)}${+h[level]} ${u1 || "C"} with ${op(h.with.dir)}${+h.with[level]} ${u2 || "mm/h"}`
     : `${op(h.dir)}${+h[level]} ${h.unit}`);
 }
 
