@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT / "doctrine" / "kit" / "python"))
 from tic_doctrine import CONTRACT, __version__ as KIT_VERSION, confidence, contract, likelihood, registers, vocab  # noqa: E402
 
 SITE = "https://vis.theintelligence.company"
-METHOD = "vis-ensemble-1.1"
+METHOD = "vis-ensemble-1.2"  # 1.2 (25 Nov 2026): the thunderstorm hazard, on trial
 LANGUAGE_KEY = "https://github.com/metacog-osint/tic-doctrine/blob/main/docs/language-key.md"
 DOCTRINE = ROOT / "doctrine"
 CONTRACT_REV = "2.1"  # feed contract revision 2.1; last_change is filled by the kit's history step
@@ -76,10 +76,30 @@ def _ncf_for_hazard(hid: str) -> list[str]:
     return []
 
 
+def _limit_text(hdef: dict, level: str) -> str:
+    """A hazard's line at one level in words: "65.0 km/h", or for thunderstorms "CAPE >= 1000 J/kg with
+    precipitation >= 1 mm/h at the same 3-hourly model step"."""
+    if hdef["id"] == "tstorm":
+        w = hdef["with"]
+        return (f"CAPE >= {hdef[level]:g} J/kg with precipitation >= {w[level]:g} mm/h at the same 3-hourly "
+                f"model step")
+    return f"{hdef[level]} {hdef['unit']}"
+
+
 def _resolution_rule(station: str, icao: str, hdef: dict, level: str, day_str: str) -> str:
     thr = hdef[level]
     unit = hdef["unit"]
     min_h = hdef.get("min_hours", 1)
+    if hdef["id"] == "tstorm":
+        # Method vis-verify/2 (doctrine/method.md, "Verification"): what the report says, not a measured value.
+        what = ("a strong thunderstorm: heavy (+TS), with hail (TS with GR) or with a gust of 65 km/h or more"
+                if level == "red" else
+                "a thunderstorm: TS in present weather with any intensity or precipitation (TS, -TSRA, TSGR ...), "
+                "VCTS in the vicinity, or RETS as recent weather")
+        return (f"Yes if any METAR or SPECI from {icao} ({station}) timed from the forecast's first 3-hourly step to "
+                f"the end of {day_str} UTC reports {what}. Cumulonimbus cloud or lightning remarks alone, trend "
+                f"groups (TEMPO, BECMG) and reports marked TSNO do not count. No needs a report within 60 minutes of "
+                f"at least 75% of the 3-hourly steps; a missing report is not a no.")
     if hdef["id"] == "lowcloud":
         # METARs give cloud in oktas, not percent: 80% is about broken (5-7 oktas), 95% about overcast; 3 km is about
         # 10,000 ft.
@@ -229,9 +249,10 @@ def build_feed(forecast_doc: dict) -> dict:
         title = (f"{z['name']} ({where}): {col_72h.upper()} 72h weather window — "
                  f"{hdef['name'].lower()} {term['term'].lower()} ({round(prob * 100)}%) on {peak_day}; "
                  f"tonight {dark_h:.1f} h low-light dark")
-        summary = (f"Across {best_hval['members']} ensemble members, {hdef['name'].lower()} at {station} ({icao}) is "
+        verb = "are" if best_hid == "tstorm" else "is"   # "thunderstorms ... are"
+        summary = (f"Across {best_hval['members']} ensemble members, {hdef['name'].lower()} at {station} ({icao}) {verb} "
                    f"{term['term'].lower()} ({term['band_label']}) to reach the {level} threshold "
-                   f"({hdef[level]} {hdef['unit']}) on {peak_day} UTC (72-hour stoplight: {col_72h.title()}). "
+                   f"({_limit_text(hdef, level)}) on {peak_day} UTC (72-hour stoplight: {col_72h.title()}). "
                    f"Tonight's lunar illumination is {round((tonight.get('moon_lit') or 0) * 100)}% with "
                    f"{dark_h:.1f} hours of nautical darkness under low moon.")
         per = best_hval.get("by_model") or {}
@@ -240,6 +261,9 @@ def build_feed(forecast_doc: dict) -> dict:
             hits = "red_hits" if level == "red" else "amber_hits"
             summary += (" By model: " + ", ".join(f"{names.get(k, k)} {v[hits]} of {v['members']}" for k, v in per.items())
                         + (", weighted equally." if len(per) > 1 else "."))
+        if hdef.get("trial") and best_hval.get("capped_from"):
+            summary += (f" {hdef['name']} are on trial, so this {best_hval['capped_from'].title()} shows as "
+                        f"{hdef['max_colour'].title()} until a week of their scores is read.")
         if held:
             summary += f" Not sent to COP as a warning: {'; '.join(held)}."
 
@@ -279,7 +303,9 @@ def build_feed(forecast_doc: dict) -> dict:
             "alternatives": [
                 {
                     "hypothesis": "Weather remains below the operational threshold or passes in brief (< 3 h) local showers",
-                    "tell_apart": f"Subsequent 00Z/12Z ensemble runs drop below 20% member agreement or METAR at {icao} stays under {hdef[level]} {hdef['unit']}",
+                    "tell_apart": (f"Subsequent 00Z/12Z ensemble runs drop below 20% member agreement or METARs at {icao} report no thunderstorm"
+                                   if best_hid == "tstorm" else
+                                   f"Subsequent 00Z/12Z ensemble runs drop below 20% member agreement or METAR at {icao} stays under {hdef[level]} {hdef['unit']}"),
                 },
                 {
                     "hypothesis": "Single-model bias between NOAA GEFS and ECMWF IFS inflates the tail probability",

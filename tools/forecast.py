@@ -38,7 +38,7 @@ META_DATASET = {"ncep_gefs025": "ncep_gefs025", "ecmwf_ifs025": "ecmwf_ifs025_en
 # 17 h old. A run older than this is left out of the pool rather than mixed in unseen (review 15 Nov 2026: a 38-hour-old
 # ECMWF run was pooled while the page said 82 members; on 16 Nov the newest ECMWF run on Open-Meteo was 66 h old).
 MAX_RUN_AGE_HOURS = 24.0
-VARS = "wind_gusts_10m,precipitation,temperature_2m,snowfall,visibility,cloud_cover_low"
+VARS = "wind_gusts_10m,precipitation,temperature_2m,snowfall,visibility,cloud_cover_low,cape"
 # Both ensembles are 3-hourly on Open-Meteo (metadata `temporal_resolution_seconds` 10800, checked 15 Nov 2026); the
 # hourly series between steps are interpolated. Persistence is therefore counted on the model's own steps, at 00, 03,
 # ... 21 UTC: a hazard must hold on `min_steps` consecutive steps (Tom's yes 16 Nov 2026, from the 15 Nov review: under
@@ -79,6 +79,20 @@ HAZARDS = [
      "with": {"var": "precipitation", "dir": "above", "amber": 1.0, "red": 3.0},
      "why": "2 m temperature <= 0 C with precipitation >= 1 / 3 mm/h at the same 3-hourly step, on two consecutive "
             "steps; airframe and road icing"},
+    # Thunderstorms (method 1.2, 25 Nov 2026; back once tested on a week of runs). Both ensembles carry
+    # CAPE. CAPE alone was Amber across the tropics every day in the 1 Nov prototype run, so rain is required at the
+    # same 3-hourly step. One step is enough, unlike the other transient hazards: a storm at a point lasts an hour or
+    # two (the METAR store's thunderstorm episodes, 17-24 Nov 2026, lasted at most 2.5 hours), so two steps would ask
+    # for six hours of storm weather. Shown at most Yellow while on trial: the cap goes when a week of its scores
+    # (tools/verify.py) and the trial (tools/tstorm_trial.py) have been read (doctrine/method.md, "Thunderstorms").
+    {"id": "tstorm", "name": "Thunderstorms", "var": "cape", "agg": "joint", "dir": "above", "min_steps": 1,
+     "amber": 1000.0, "red": 2500.0, "unit": "J/kg + mm/h",
+     "with": {"var": "precipitation", "dir": "above", "amber": 1.0, "red": 2.5},
+     "max_colour": "yellow", "trial": True,
+     "why": "Convective available potential energy (CAPE) >= 1000 / 2500 J/kg with precipitation >= 1 / 2.5 mm/h at "
+            "the same 3-hourly model step (one step is enough: storms are short-lived); lightning, hail, downbursts "
+            "and turbulence for air and UAS operations, lightning holds on fuelling and munitions handling. On trial, "
+            "so shown at most Yellow until its first week of scores is read"},
     {"id": "heat", "name": "Extreme heat", "var": "temperature_2m", "agg": "max", "dir": "above", "min_steps": 2,
      "amber": 40.0, "red": 45.0, "unit": "C",
      "why": "2 m air temperature >= 40 / 45 C on two consecutive 3-hourly steps; heat-casualty risk and high density altitude for rotary-wing lift"},
@@ -101,29 +115,31 @@ def matrix_colour(p_amber, p_red):
     return "green"
 
 
-def fetch_model(zones, model, days, wait=time.sleep, opener=None):
+def fetch_model(zones, model, days, wait=time.sleep, opener=None, hourly=VARS, extra=None):
     """One call per cell selection (land, sea, nearest) for all points that use it, answers back in the points'
     order. Open-Meteo weights ensemble calls by location, so splitting the points costs no more. A refused call
     (HTTP 429) or one with no answer (a URLError, timeout or dropped connection) waits a minute and tries again,
-    twice. Other HTTP errors are raised at once."""
+    twice. Other HTTP errors are raised at once. `hourly` and `extra` (more query parameters, such as past_days) let
+    tools/tstorm_trial.py ask for other series with the same retries."""
     groups = {}
     for i, z in enumerate(zones):
         groups.setdefault(z.get("cell") or "land", []).append(i)
     out = [None] * len(zones)
     for cell, idx in groups.items():
-        got = _fetch_cells([zones[i] for i in idx], model, days, cell, wait, opener)
+        got = _fetch_cells([zones[i] for i in idx], model, days, cell, wait, opener, hourly, extra)
         for i, r in zip(idx, got):
             out[i] = r
     return out
 
 
-def _fetch_cells(zones, model, days, cell, wait=time.sleep, opener=None):
+def _fetch_cells(zones, model, days, cell, wait=time.sleep, opener=None, hourly=VARS, extra=None):
     opener = opener or urllib.request.urlopen
     params = {
         "latitude": ",".join(f"{z['lat']:.4f}" for z in zones),
         "longitude": ",".join(f"{z['lon']:.4f}" for z in zones),
-        "hourly": VARS, "models": model, "forecast_days": days, "timezone": "UTC",
+        "hourly": hourly, "models": model, "forecast_days": days, "timezone": "UTC",
     }
+    params.update(extra or {})
     if cell != "land":   # land is Open-Meteo's default; leaving it out keeps the land points' call as before
         params["cell_selection"] = cell
     q = urllib.parse.urlencode(params)
@@ -349,8 +365,9 @@ def score_zone_days(zone_models, days, now=None, model_ids=None):
             pr = sum(v["red_hits"] / v["members"] for v in per_model.values()) / len(per_model)
             col = matrix_colour(pa, pr)
             cap = h.get("max_colour")
+            capped_from = None
             if cap and COLOUR_RANK[col] > COLOUR_RANK[cap]:
-                col = cap
+                col, capped_from = cap, col
             if COLOUR_RANK[col] > COLOUR_RANK[worst]:
                 worst = col
             stat_vals.sort()
@@ -366,6 +383,8 @@ def score_zone_days(zone_models, days, now=None, model_ids=None):
                 "median": med, "p90": p90, "colour": col,
                 "models": len(hazard_models), "by_model": per_model,
             }
+            if capped_from:   # the matrix colour before the hazard's cap (low cloud; thunderstorms on trial)
+                hazards_out[h["id"]]["capped_from"] = capped_from
         out.append({"day": day_str, "from": times[i0][:13] + ":00Z", "hours": i1 - i0, "colour": worst,
                     "models_present": len(models_contributing), "hazards": hazards_out})
     return out

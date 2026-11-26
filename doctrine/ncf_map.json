@@ -18,6 +18,10 @@
       "ncf": ["transport_by_air"]
     },
     {
+      "match": {"hazard": "tstorm"},
+      "ncf": ["transport_by_air", "transport_by_vessel"]
+    },
+    {
       "match": {"hazard": "rain"},
       "ncf": ["transport_by_road", "maintain_supply_chains"]
     },

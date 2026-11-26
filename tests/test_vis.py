@@ -20,7 +20,7 @@ import verify  # noqa: E402
 from tic_doctrine import contract, registers  # noqa: E402
 
 
-def _synthetic_model(hours=72, members=4, gust=40.0, cloud=50.0, vis=10000.0, rain=0.0, temp=18.0, snow=0.0):
+def _synthetic_model(hours=72, members=4, gust=40.0, cloud=50.0, vis=10000.0, rain=0.0, temp=18.0, snow=0.0, cape=0.0):
     t0 = datetime(2026, 11, 1, 0, tzinfo=timezone.utc)
     times = [(t0.replace(day=1 + h // 24, hour=h % 24)).strftime("%Y-%m-%dT%H:%M") for h in range(hours)]
     hourly = {"time": times}
@@ -32,6 +32,7 @@ def _synthetic_model(hours=72, members=4, gust=40.0, cloud=50.0, vis=10000.0, ra
         hourly["precipitation" + sfx] = [rain] * hours
         hourly["temperature_2m" + sfx] = [temp] * hours
         hourly["snowfall" + sfx] = [snow] * hours
+        hourly["cape" + sfx] = [cape] * hours
     return {"hourly": hourly}
 
 
@@ -435,6 +436,215 @@ class VerifyTests(unittest.TestCase):
         self.assertIn("too few to read", html)
         self.assertIn("indicative", html)
         self.assertNotIn("<script", html)
+
+
+FIXTURES = ROOT / "tests" / "fixtures"
+
+
+class ThunderstormTests(unittest.TestCase):
+    """Method vis-ensemble-1.2 and vis-verify/2: the thunderstorm hazard, its scoring and its trial. The METAR lines
+    in tests/fixtures/metar_tstorm.jsonl are cut from history/metar: Kigali (HRYR) 17 Nov 2026 with -TSRA, Incheon
+    (RKSI) 23 Nov with TSRA, Kaliningrad (UMKK) 22 Nov with cumulonimbus but no thunder, and Mandalay (VYMD) 20 Nov,
+    which reports by day only."""
+    import tstorm_trial  # noqa: E402  (here, so the module's import block stays as it is)
+
+    HZ = {h["id"]: h for h in forecast.HAZARDS}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.reports = {}
+        for line in (FIXTURES / "metar_tstorm.jsonl").read_text(encoding="utf-8").splitlines():
+            r = json.loads(line)
+            cls.reports.setdefault(r["icao"], []).append(r)
+
+    def test_hazard_is_cape_with_rain_at_one_step_and_on_trial(self):
+        h = self.HZ["tstorm"]
+        self.assertEqual((h["var"], h["with"]["var"], h["agg"], h["min_steps"]), ("cape", "precipitation", "joint", 1))
+        self.assertEqual((h["amber"], h["red"], h["with"]["amber"], h["with"]["red"]), (1000.0, 2500.0, 1.0, 2.5))
+        self.assertEqual((h["max_colour"], h["trial"]), ("yellow", True))
+        self.assertIn("cape", forecast.VARS.split(","))
+
+    def _model(self, cape_at, rain_at, members=4):
+        """24 h of quiet weather, with CAPE and rain set at the given hours (all members)."""
+        m = _synthetic_model(hours=24, members=members)
+        for k in m["hourly"]:
+            if k.startswith("cape"):
+                m["hourly"][k] = [cape_at.get(h, 100.0) for h in range(24)]
+            if k.startswith("precipitation"):
+                m["hourly"][k] = [rain_at.get(h, 0.0) for h in range(24)]
+        return m
+
+    def test_one_native_step_with_both_fires_and_either_alone_does_not(self):
+        both = self._model({12: 1500.0}, {12: 2.0})
+        d = forecast.score_zone_days([both, both], days=1)[0]["hazards"]["tstorm"]
+        self.assertEqual((d["p_amber"], d["p_red"]), (1.0, 0.0))
+        self.assertEqual((d["colour"], d["capped_from"]), ("yellow", "amber"))   # Amber, shown Yellow on trial
+        self.assertEqual(forecast.score_zone_days([both, both], days=1)[0]["colour"], "yellow")
+        cape_only = self._model({12: 3000.0}, {})
+        self.assertEqual(forecast.score_zone_days([cape_only, cape_only], days=1)[0]["hazards"]["tstorm"]["p_amber"], 0.0)
+        rain_only = self._model({}, {12: 5.0})
+        self.assertEqual(forecast.score_zone_days([rain_only, rain_only], days=1)[0]["hazards"]["tstorm"]["p_amber"], 0.0)
+        # CAPE and rain in the same interpolated hour between steps is not a model step: no hit
+        between = self._model({13: 3000.0}, {13: 5.0})
+        self.assertEqual(forecast.score_zone_days([between, between], days=1)[0]["hazards"]["tstorm"]["p_amber"], 0.0)
+        severe = self._model({9: 3000.0}, {9: 3.0})
+        d = forecast.score_zone_days([severe, severe], days=1)[0]["hazards"]["tstorm"]
+        self.assertEqual((d["p_red"], d["colour"], d["capped_from"]), (1.0, "yellow", "red"))
+        self.assertNotIn("capped_from", forecast.score_zone_days([cape_only, cape_only], days=1)[0]["hazards"]["tstorm"])
+
+    def test_thunder_codes_count_only_observed_thunder(self):
+        th = verify.thunder
+        line = {r["obs_time"][11:16]: r for r in self.reports["HRYR"]}
+        self.assertTrue(th(line["11:30"])["ts"])                          # -TSRA
+        tempo = th(line["10:30"])                                         # "... TEMPO TS": a forecast, not seen
+        self.assertEqual((tempo["ts"], tempo["cb"]), (False, True))
+        self.assertTrue(all(not th(r)["ts"] and th(r)["known"] for r in self.reports["UMKK"]))   # CB, no thunder
+        self.assertTrue(any(th(r)["cb"] for r in self.reports["UMKK"]))
+        rep = lambda raw, g=None: {"raw": raw, "wspd_kt": 10, "wgst_kt": g}  # noqa: E731
+        self.assertTrue(th(rep("METAR XXXX 231200Z 18010KT 9999 VCTS SCT030CB 30/20 Q1010"))["ts"])
+        self.assertTrue(th(rep("METAR XXXX 231200Z 18010KT 9999 -RA SCT030 25/20 Q1010 RETSRA"))["ts"])
+        self.assertTrue(th(rep("METAR XXXX 231200Z 18010KT 2000 +TSRA SCT030CB 25/20 Q1010"))["strong"])
+        self.assertTrue(th(rep("METAR XXXX 231200Z 18010KT 2000 TSRAGR SCT030CB 25/20 Q1010"))["strong"])
+        self.assertTrue(th(rep("METAR XXXX 231200Z 18020G40KT 9999 TSRA 25/20 Q1010", 40))["strong"])
+        self.assertFalse(th(rep("METAR XXXX 231200Z 18010KT 9999 TSRA 25/20 Q1010"))["strong"])
+        self.assertFalse(th(rep("METAR XXXX 231200Z 18010KT 9999 VCSH 25/20 Q1010 RMK OCNL LTG W"))["ts"])
+        self.assertFalse(th(rep("METAR KXXX 231200Z AUTO 18010KT 10SM CLR 25/20 A3000 RMK AO2 TSNO"))["known"])
+
+    def test_resolution_on_real_reports_and_missing_is_never_a_no(self):
+        st = lambda day: verify.steps_for(day, None)  # noqa: E731
+        self.assertEqual(verify.resolve_tstorm("amber", st("2026-11-17"), self.reports["HRYR"])[0], 1)
+        self.assertEqual(verify.resolve_tstorm("red", st("2026-11-17"), self.reports["HRYR"])[0], 0)
+        self.assertEqual(verify.resolve_tstorm("amber", st("2026-11-23"), self.reports["RKSI"])[0], 1)
+        o, seen, _, why = verify.resolve_tstorm("amber", st("2026-11-22"), self.reports["UMKK"])
+        self.assertEqual((o, why), (0, None))                            # CB all day, no thunder: a no
+        o, seen, _, why = verify.resolve_tstorm("amber", st("2026-11-20"), self.reports["VYMD"])
+        self.assertEqual((o, why), (None, "too few reports in the window"))   # no night reports: unresolved
+        self.assertEqual(verify.resolve_tstorm("amber", st("2026-11-20"), [])[3], "no reports from the station")
+        # The window starts at the forecast's first step: the 11:30 storm is outside a window from 15:00
+        late = verify.steps_for("2026-11-17", "2026-11-17T15:00Z")
+        self.assertEqual(verify.resolve_tstorm("amber", late, self.reports["HRYR"])[0], 0)
+
+    def _doc(self, cape=1500.0, rain=2.0):
+        zones = forecast.load_zones()[:1]
+        m = _synthetic_model(hours=72, members=4, cape=cape, rain=rain)
+        ok = {"cell": "land", "lat": 50.25, "lon": 31.0, "cell_elevation_m": 120.0, "station_elevation_m": 127.0,
+              "diff_m": -7.0, "ok": True}
+        return forecast.build_forecast_doc(zones, {"ncep_gefs025": [m], "ecmwf_ifs025": [m]}, days=3,
+                                           generated_at="2026-10-31T18:00:00Z", grids=[ok])
+
+    def test_feed_item_passes_the_linter_with_a_metar_rule_and_no_warning_on_trial(self):
+        # rain 2 mm/h all day also reaches nothing else (heavy rain needs 25 mm in 24 h: 48 mm does)
+        doc = self._doc(rain=0.9)
+        self.assertEqual(doc["zones"][0]["days"][1]["hazards"]["tstorm"]["p_amber"], 0.0)  # under the rain line
+        doc = self._doc(rain=1.0)
+        fc = feed_v2.build_feed(doc)
+        self.assertEqual(fc["dropped"], [])
+        regs = registers.ids(ROOT / "doctrine")
+        p = fc["features"][1]["properties"]
+        self.assertEqual([e for e in contract.check(fc["features"][1], regs) if e[1] == "error"], [])
+        self.assertEqual((p["measures"]["driver_hazard"], p["tier"], p["method_version"]),
+                         ("tstorm", "routine", "vis-ensemble-1.2"))
+        self.assertIn("CAPE >= 1000 J/kg with precipitation >= 1 mm/h", p["summary"])
+        self.assertIn("on trial, so this Amber shows as Yellow", p["summary"])
+        rule = p["resolution"]["rule"]
+        for needle in ("UKBB", "VCTS", "RETS", "TSNO", "missing report is not a no", "75%"):
+            self.assertIn(needle, rule)
+        self.assertIn("METARs at UKBB report no thunderstorm", p["alternatives"][0]["tell_apart"])
+        red = feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", self.HZ["tstorm"], "red", "2026-11-09")
+        self.assertIn("+TS", red)
+        self.assertEqual(feed_v2._ncf_for_hazard("tstorm"), ["transport_by_air", "transport_by_vessel"])
+
+    def test_verify_resolves_supplements_and_scores_thunderstorms(self):
+        import gzip
+        import tempfile
+        doc = self._doc()
+        # One forecast for 23 Nov at the Incheon point, issued the day before
+        doc["generated_at"] = "2026-11-22T08:25:00Z"
+        z = dict(doc["zones"][0], id="13_Korea", icao="RKSI", station="Incheon")
+        z["days"] = [dict(z["days"][1], day="2026-11-23", **{"from": "2026-11-23T00:00Z"})]
+        doc["zones"] = [z]
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            metar.append(d / "metar", self.reports["RKSI"])
+            (d / "fc").mkdir()
+            name = "20261122T0000Z.forecast.gen-20261122T082500Z.json.gz"
+            (d / "fc" / name).write_bytes(gzip.compress(json.dumps(doc).encode()))
+            # A window first observed by vis-verify/1, before thunderstorms were scored
+            old = {"method": "vis-verify/1", "zone": "13_Korea", "icao": "RKSI", "day": "2026-11-23",
+                   "start": "2026-11-23T00:00Z", "steps": 8, "reports": 48,
+                   "obs": {"wind": {"amber": {"outcome": 0, "threshold": 65.0, "why": None},
+                                    "red": {"outcome": 0, "threshold": 90.0, "why": None},
+                                    "steps_seen": 8, "extreme": 35.2}}}
+            verify._append(d / "v" / "observed.jsonl", [old])
+            before = (d / "v" / "observed.jsonl").read_bytes()
+            now = datetime(2026, 11, 25, 12, tzinfo=timezone.utc)
+            obs, pairs = verify.resolve(d / "fc", d / "metar", d / "v", now=now)
+            self.assertTrue((d / "v" / "observed.jsonl").read_bytes().startswith(before))   # append-only
+            self.assertEqual(len(obs), 1)
+            self.assertTrue(obs[0]["supplement"])
+            self.assertNotIn("wind", obs[0]["obs"])                       # the stored wind line is kept as it was
+            self.assertEqual(obs[0]["obs"]["tstorm"]["amber"]["outcome"], 1)
+            self.assertEqual(obs[0]["obs"]["tstorm"]["thunder_reports"], 2)
+            self.assertEqual(pairs[0]["p"]["tstorm"][:2], [1.0, 0.0])
+            self.assertEqual(verify.resolve(d / "fc", d / "metar", d / "v", now=now), ([], []))   # nothing twice
+            rows = verify.joined(d / "v")
+            ts = {r["level"]: r for r in rows if r["hazard"] == "tstorm"}
+            self.assertEqual((ts["amber"]["outcome"], ts["red"]["outcome"]), (1, 0))
+            self.assertEqual({r["outcome"] for r in rows if r["hazard"] == "wind"}, {0})
+            sc = verify.score(rows, now=now)
+            cell = next(c for c in sc["scores"] if c["hazard"] == "tstorm" and c["level"] == "amber"
+                        and c["lead_days"] == 1)
+            self.assertEqual((cell["n"], cell["events"], cell["brier"]), (1, 1, 0.0))
+            self.assertIn("TS, VCTS or RETS", cell["criterion"])
+            self.assertEqual(sc["method"], "vis-verify/2")
+            html = build_site.verification_html(sc)
+            self.assertIn("Thunderstorms (amber)", html)
+            self.assertIn("TS, VCTS or RETS reported", html)
+            self.assertIn("a missing report is never a no", html)
+
+    def test_trial_measures_rules_against_the_stations(self):
+        import tempfile
+        tt = self.tstorm_trial
+        points = [{"id": "13_Korea", "icao": "RKSI"}, {"id": "20_DRC-HRYR", "icao": "HRYR"}]
+
+        def answer(cape, rain, days=("2026-11-22", "2026-11-23")):
+            times = [f"{day}T{h:02d}:00" for day in days for h in range(24)]
+            hourly = {"time": times}
+            for k in range(1, 4):
+                hourly[f"cape_member{k:02d}"] = [cape] * len(times)
+                hourly[f"precipitation_member{k:02d}"] = [rain] * len(times)
+            return {"hourly": hourly}
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            metar.append(d / "metar", self.reports["RKSI"] + self.reports["HRYR"])
+            for model in tt.MODELS:
+                (d / f"{model}.json").write_text(json.dumps({
+                    "model": model, "fetched_at": "2026-11-24T09:00:00Z", "past_days": 2, "points": [p["id"] for p in points],
+                    "answers": [answer(1200.0, 1.5), answer(200.0, 0.0)]}), encoding="utf-8")
+            rep = tt.measure(d, d / "metar", points)
+            chosen = next(r for r in rep["rules"] if r["chosen"])
+            self.assertEqual((chosen["cape_j_kg"], chosen["rain_mm_h"], chosen["steps"]), (1000.0, 1.0, 1))
+            self.assertEqual(chosen["point_days"], 4)
+            self.assertEqual(chosen["share_amber_or_more"], 0.5)          # Incheon both days, Kigali never
+            # Resolved: Incheon 23 Nov (thunder) and 22 Nov (no reports in the fixture: unresolved); Kigali none
+            self.assertEqual((chosen["resolved"], chosen["events"], chosen["hits_at_45"]), (1, 1, 1))
+            high = next(r for r in rep["rules"] if r["cape_j_kg"] == 1500.0 and r["rain_mm_h"] == 1.0 and r["steps"] == 1)
+            self.assertEqual(high["share_amber_or_more"], 0.0)
+            self.assertEqual(rep["points"]["13_Korea"]["p_chosen"], [1.0, 1.0])
+            summary = tt.metar_summary(d / "metar", "2026-11-17", "2026-11-23", points)
+            st = {r["icao"]: r for r in summary["stations"]}
+            self.assertEqual(st["HRYR"]["days_thunder"], ["2026-11-17"])
+            self.assertEqual(st["RKSI"]["days_thunder"], ["2026-11-23"])
+            self.assertEqual(st["RKSI"]["episodes"][0][2], 30)             # 06:00 to 06:30 UTC
+
+    def test_page_shows_the_hazard_and_its_trial(self):
+        self.assertIn('split(" + ")', build_site.VIS_JS)                 # J/kg + mm/h, not "C with"
+        self.assertIn("on trial:", build_site.VIS_JS)
+        self.assertNotIn("There is no thunderstorm hazard yet", build_site.INDEX_HTML)
+        self.assertIn("Only wind, visibility, thunderstorms, heat and cold", build_site.INDEX_HTML)
+        files = build_site.build(self._doc())
+        hz = {h["id"]: h for h in json.loads(files["data/forecast.json"])["hazards"]}
+        self.assertEqual(hz["tstorm"]["unit"], "J/kg + mm/h")
 
 
 if __name__ == "__main__":

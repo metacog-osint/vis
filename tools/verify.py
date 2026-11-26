@@ -6,11 +6,18 @@
 Input forecasts are the per-build `*.forecast.gen-*.json.gz` assets of the `vis-data-YYYY-MM` releases (kept since
 19 Nov 2026; nothing earlier was stored). Observations come from `tools/metar.py`'s append-only store.
 
-What METARs can resolve, and how (method `vis-verify/1`):
+What METARs can resolve, and how (method `vis-verify/2`; `vis-verify/1` without thunderstorms, 24 Nov 2026):
 - wind (gusts), vis (visibility), heat and cold (2 m temperature). Each of the model's 3-hourly steps (00, 03 ... 21
   UTC) inside the forecast's window for that UTC day takes the station report nearest the step, within 60 minutes;
   wind uses the larger of the mean wind and the gust. The hazard is observed when the same test the forecast used
   (`forecast.hit`) holds on `min_steps` consecutive steps, as in the forecast.
+- tstorm (thunderstorms, since vis-verify/2, 25 Nov 2026): observed (amber) when any report timed from the window's
+  first 3-hourly step to the end of the UTC day carries a thunderstorm: TS in present weather, alone or with
+  precipitation and with any intensity (TS, -TSRA, +TSRA, TSGR ...), VCTS (in the vicinity), or RETS as recent weather.
+  CB cloud and lightning remarks alone do not count, nor do TEMPO or BECMG trend groups, and a report whose remarks say
+  TSNO (thunderstorm sensor off) counts as missing. The red level is a strong thunderstorm: a heavy one (+TS...),
+  hail with thunder (TS with GR), or a thunderstorm report with a gust of 65 km/h or more (the wind hazard's amber
+  line). A yes needs only one such report; "not observed" needs the coverage below, with no further condition.
 - An event is "not observed" only when at least 75% of the steps have a report and no hit sits next to a missing step.
   Otherwise the forecast is stored as unresolved, with the reason, and counted; a missing report is never filled.
 - Not resolvable from METARs and counted as such: heavy rain and heavy snow (24 h totals, which most of these stations
@@ -34,8 +41,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 import forecast  # noqa: E402
 import metar  # noqa: E402
 
-METHOD = "vis-verify/1"
-SCORED = ("wind", "vis", "heat", "cold")
+METHOD = "vis-verify/2"
+SCORED = ("wind", "vis", "heat", "cold", "tstorm")
 NOT_RESOLVABLE = {
     "rain": "24-hour rainfall: most of these stations report no precipitation amount in METARs",
     "snow": "24-hour snowfall: METARs carry no snowfall amount",
@@ -56,7 +63,15 @@ BINS = [(0.0, 0.05, "Almost no chance"), (0.05, 0.20, "Very unlikely"), (0.20, 0
         (0.95, 1.0001, "Almost certain")]
 NAME_RE = re.compile(r"^(\d{8}T\d{4}Z)\.forecast\.gen-(\d{8}T\d{6}Z)\.json\.gz$")
 SM_M = 1609.344
-UNITS = {"wind": "km/h", "vis": "m", "heat": "C", "cold": "C"}
+UNITS = {"wind": "km/h", "vis": "m", "heat": "C", "cold": "C", "tstorm": None}
+# Thunderstorm codes (vis-verify/2). Present weather: optional intensity or VC, then TS with any precipitation types.
+TS_WX = re.compile(r"^(?:[+-]|VC)?TS(?:RA|SN|GR|GS|PL|UP|DZ)*$")
+TS_RE = re.compile(r"^RETS(?:RA|SN|GR|GS|PL|UP|DZ)*$")   # recent weather: a thunderstorm in the last hour
+TS_STRONG_GUST_KMH = 65.0
+TS_CRITERION = {
+    "amber": "a thunderstorm reported (TS, VCTS or RETS)",
+    "red": "a strong thunderstorm reported (+TS, hail with thunder, or a gust >= 65 km/h with it)",
+}
 
 
 def _t(iso):
@@ -93,6 +108,50 @@ def visib_m(rep):
         return total * SM_M
     except (ValueError, ZeroDivisionError):
         return None
+
+
+def thunder(rep):
+    """What one report says about thunder: {"known", "ts", "strong", "cb"}.
+
+    Only the report's body counts: the text before RMK and before any trend group (TEMPO, BECMG, NOSIG, PROBnn, FM),
+    after the station and time groups. known is False when the remarks say TSNO (the station's thunderstorm sensor is
+    off). cb (cumulonimbus cloud, or CB or lightning in the remarks) is kept for the record, never scored."""
+    raw = rep.get("raw") or ""
+    rmk = raw.split(" RMK ", 1)[1] if " RMK " in raw else ""
+    body = re.split(r" (?:RMK|TEMPO|BECMG|NOSIG|PROB\d\d|FM\d{6}|INTER)\b", raw)[0].split()
+    k = next((i for i, t in enumerate(body) if re.match(r"^\d{6}Z$", t)), 1)
+    wx = body[k + 1:]
+    ts_tokens = [t for t in wx if TS_WX.match(t) or TS_RE.match(t)]
+    gust = [x for x in (rep.get("wspd_kt"), rep.get("wgst_kt")) if isinstance(x, (int, float))]
+    strong = bool(ts_tokens) and (any(t.startswith("+") for t in ts_tokens)
+                                  or any("GR" in t for t in ts_tokens if not t.startswith("RE"))
+                                  or (bool(gust) and max(gust) * 1.852 >= TS_STRONG_GUST_KMH))
+    cb = bool(re.search(r"\d{3}CB\b", " ".join(wx))) or bool(re.search(r"\bCB\b|LTG", rmk))
+    return {"known": "TSNO" not in rmk.split(), "ts": bool(ts_tokens), "strong": strong, "cb": cb}
+
+
+def resolve_tstorm(level, steps, reports):
+    """(outcome 1/0/None, steps seen, reports with thunder, why) for the thunderstorm hazard: any report in the window
+    with a thunderstorm (the strong kind for red) is a yes; "not observed" needs a report within NEAR_MIN of at least
+    MIN_COVERAGE of the steps. A missing report is never a no."""
+    if not steps:
+        return None, 0, 0, "window shorter than the persistence rule"
+    if not reports:
+        return None, 0, 0, "no reports from the station"
+    w0, w1 = steps[0], _t(steps[0].strftime("%Y-%m-%d") + "T00:00") + timedelta(days=1)
+    inside = []
+    for r in reports:
+        t = _t(r["obs_time"])
+        th = thunder(r)
+        if th["known"]:
+            inside.append((t, th))
+    hits = [x for t, x in inside if w0 <= t < w1 and (x["strong"] if level == "red" else x["ts"])]
+    seen = sum(1 for s in steps if any(abs((t - s).total_seconds()) <= NEAR_MIN * 60 for t, _ in inside))
+    if hits:
+        return 1, seen, len(hits), None
+    if seen < MIN_COVERAGE * len(steps):
+        return None, seen, 0, "too few reports in the window"
+    return 0, seen, 0, None
 
 
 def value(hazard, rep):
@@ -168,17 +227,26 @@ def _append(path, rows):
                 fh.write(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
-def observe(hazards, zone, day, steps, obs_base):
-    """One observation line for a point, UTC day and window start (shared by every forecast with that window)."""
+def observe(hazards, zone, day, steps, obs_base, only=None):
+    """One observation line for a point, UTC day and window start (shared by every forecast with that window). With
+    `only`, just those hazards: a supplement for a window first observed before a hazard was scored."""
     d0 = _t(day + "T00:00")
     reps = metar.load_range(obs_base, [(d0 + timedelta(days=k)).strftime("%Y-%m-%d") for k in (-1, 0, 1)])
     reports = reps.get(zone.get("icao"), [])
     obs = {}
-    for hid in SCORED:
+    for hid in (only or SCORED):
         hz = hazards.get(hid)
         if not hz:
             continue
         obs[hid] = {}
+        if hid == "tstorm":
+            seen = n = 0
+            for lvl in ("amber", "red"):
+                o, seen, k, why = resolve_tstorm(lvl, steps, reports)
+                obs[hid][lvl] = {"outcome": o, "threshold": None, "criterion": TS_CRITERION[lvl], "why": why}
+                n = k if lvl == "amber" else n
+            obs[hid]["steps_seen"], obs[hid]["extreme"], obs[hid]["thunder_reports"] = seen, None, n
+            continue
         seen = ext = None
         for lvl in ("amber", "red"):
             o, seen, ext, why = resolve_level(hz, hz[lvl], steps, reports)
@@ -198,7 +266,9 @@ def resolve(forecast_dir, obs_base, verify_dir, now=None):
     """
     now = now or datetime.now(timezone.utc)
     vdir = Path(verify_dir)
-    have_obs = {(r["zone"], r["day"], r["start"]) for r in load_jsonl(vdir / "observed.jsonl")}
+    have_obs = {}   # (point, day, window start) -> hazards already observed there
+    for r in load_jsonl(vdir / "observed.jsonl"):
+        have_obs.setdefault((r["zone"], r["day"], r["start"]), set()).update((r.get("obs") or {}).keys())
     have_pair = {(r["forecast"], r["zone"], r["day"]) for r in load_jsonl(vdir / "pairs.jsonl")}
     new_obs, new_pairs = [], []
     stamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -215,11 +285,23 @@ def resolve(forecast_dir, obs_base, verify_dir, now=None):
                     continue
                 steps = steps_for(day, d.get("from"))
                 start = steps[0].strftime("%Y-%m-%dT%H:%MZ") if steps else None
-                if (z["id"], day, start) not in have_obs:
+                okey = (z["id"], day, start)
+                if okey not in have_obs:
                     row = observe(hazards, z, day, steps, obs_base)
                     row["resolved_at"] = stamp
                     new_obs.append(row)
-                    have_obs.add((z["id"], day, start))
+                    have_obs[okey] = set(row["obs"])
+                else:
+                    # A window observed before a hazard was scored (thunderstorms, vis-verify/2) gets a supplement
+                    # line for that hazard alone; the stored line is never rewritten.
+                    want = {hid for hid in SCORED if hid in hazards and hid in (d.get("hazards") or {})}
+                    missing = sorted(want - have_obs[okey])
+                    if missing:
+                        row = observe(hazards, z, day, steps, obs_base, only=missing)
+                        row["resolved_at"] = stamp
+                        row["supplement"] = True
+                        new_obs.append(row)
+                        have_obs[okey].update(row["obs"])
                 p = {}
                 for hid in SCORED:
                     fc = (d.get("hazards") or {}).get(hid)
@@ -237,7 +319,12 @@ def resolve(forecast_dir, obs_base, verify_dir, now=None):
 def joined(verify_dir):
     """Rows of (forecast, point, day, hazard, level, p, outcome) built from the two stores."""
     vdir = Path(verify_dir)
-    obs = {(r["zone"], r["day"], r["start"]): r for r in load_jsonl(vdir / "observed.jsonl")}
+    obs = {}
+    for r in load_jsonl(vdir / "observed.jsonl"):
+        # Supplement lines add hazards to a window; a hazard already stored for it keeps its first line.
+        o = obs.setdefault((r["zone"], r["day"], r["start"]), {"obs": {}})
+        for hid, v in (r.get("obs") or {}).items():
+            o["obs"].setdefault(hid, v)
     rows = []
     for pr in load_jsonl(vdir / "pairs.jsonl"):
         o = obs.get((pr["zone"], pr["day"], pr["start"]))
@@ -248,7 +335,8 @@ def joined(verify_dir):
                              "zone": pr["zone"], "day": pr["day"], "lead_days": pr["lead_days"], "hazard": hid,
                              "level": lvl, "p": p, "outcome": ob.get("outcome") if o else None,
                              "why": ob.get("why") if o else "no observation line",
-                             "threshold": ob.get("threshold"), "unit": UNITS.get(hid)})
+                             "threshold": ob.get("threshold"), "criterion": ob.get("criterion"),
+                             "unit": UNITS.get(hid)})
     return rows
 
 
@@ -300,11 +388,14 @@ def score(rows, now=None):
                 cells.append({"hazard": hid, "level": lvl, "lead_days": "all", **_cell([])})
                 continue
             thr = sub[0].get("threshold")
+            # Thunderstorms resolve on what the report says, not on a measured value: the criterion names it.
+            crit = {"criterion": sub[0]["criterion"]} if sub[0].get("criterion") else {}
             cells.append({"hazard": hid, "level": lvl, "lead_days": "all", "threshold": thr,
-                          "unit": sub[0].get("unit"), **_cell(sub)})
+                          "unit": sub[0].get("unit"), **crit, **_cell(sub)})
             for lead in sorted({r["lead_days"] for r in sub}):
                 cells.append({"hazard": hid, "level": lvl, "lead_days": lead, "threshold": thr,
-                              "unit": sub[0].get("unit"), **_cell([r for r in sub if r["lead_days"] == lead])})
+                              "unit": sub[0].get("unit"), **crit,
+                              **_cell([r for r in sub if r["lead_days"] == lead])})
     days = sorted({r["day"] for r in use})
     return {
         "program": "vis", "method": METHOD, "generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -318,6 +409,10 @@ def score(rows, now=None):
             "steps": f"{STEP_H}-hourly model steps, nearest report within {NEAR_MIN} min",
             "not_observed_needs": f"{int(MIN_COVERAGE * 100)}% of steps with a report",
             "thresholds": "indicative (JP 3-59 gives no numeric limits); not for flight planning",
+            "thunderstorms": ("observed when any report from the window's first 3-hourly step to the end of the UTC "
+                              "day has TS in present weather (TS, -TSRA, +TSRA, TSGR ...), VCTS or RETS; CB cloud, "
+                              "lightning remarks and TEMPO or BECMG groups do not count; red needs +TS, hail with "
+                              "thunder or a gust >= 65 km/h with it; a missing report is never a no"),
         },
         "observations": "METARs from the NOAA Aviation Weather Center (aviationweather.gov), US public domain",
         "scores": cells,
