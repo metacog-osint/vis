@@ -44,6 +44,105 @@
    "grade": "A1",
    "independence_group": "noaa-awc",
    "descriptor": "Station observations used to score Vis's forecasts (plan step W3); stored append-only in history/metar."
+  },
+  {
+   "id": "nasa-gibs",
+   "name": "NASA Global Imagery Browse Services (GIBS) WMTS, EPSG:3857",
+   "publisher": "NASA ESDIS",
+   "url": "https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api",
+   "licence": "NASA data CC0; acknowledgement requested (data use guidance, read 22 Nov 2026)",
+   "use": "visual",
+   "grade": "A1",
+   "independence_group": "nasa",
+   "descriptor": "Weather map tiles shown in the viewer's browser: GOES-East, GOES-West and Himawari imagery, GPM IMERG precipitation and GOES GLM lightning. Not ingested or scored."
+  },
+  {
+   "id": "eumetsat-eumetview",
+   "name": "EUMETSAT EUMETView WMS (Meteosat MTG 0 deg, MSG 0 deg and MSG Indian Ocean)",
+   "publisher": "EUMETSAT",
+   "url": "https://view.eumetsat.int/",
+   "licence": "CC BY 4.0, 'Contains modified EUMETSAT Meteosat data <year>' (EUMETSAT data policy as reported by the WMS capabilities and developer write-ups, 22 Nov 2026; to be checked against the policy text)",
+   "use": "visual",
+   "grade": "A1",
+   "independence_group": "eumetsat",
+   "descriptor": "Weather map tiles shown in the viewer's browser: Meteosat infrared, water vapour, air mass and GeoColor imagery and MTG Lightning Imager flash area, covering Europe, Africa, the Middle East and South Asia, with H SAF rain rate, rapidly developing thunderstorm cells, and dust and fog RGBs. Not ingested or scored."
+  },
+  {
+   "id": "natural-earth",
+   "name": "Natural Earth 1:110m land and 1:50m land borders",
+   "publisher": "Natural Earth",
+   "url": "https://www.naturalearthdata.com/",
+   "licence": "Public domain",
+   "use": "visual",
+   "grade": "A1",
+   "independence_group": "natural-earth",
+   "descriptor": "Coastlines and borders on the weather map (site/geo/outlines.json, built by tools/outlines.py)."
+  },
+  {
+   "id": "rainviewer",
+   "name": "RainViewer Weather Maps API (radar mosaic)",
+   "publisher": "RainViewer",
+   "url": "https://www.rainviewer.com/api.html",
+   "licence": "Free tier 'for personal and educational use only' (api.html, read 22 Nov 2026); attribution with a link required",
+   "use": "excluded",
+   "grade": "B2",
+   "independence_group": "rainviewer",
+   "descriptor": "Global radar tiles, past 2 hours at 10-minute steps, zoom 7 at most. Left out until it is clear whether Vis's use fits its terms or RainViewer agrees."
+  },
+  {
+   "id": "noaa-mrms-opengeo",
+   "name": "NOAA NCEP opengeo GeoServer WMS: MRMS base reflectivity mosaics",
+   "publisher": "NOAA NCEP",
+   "url": "https://opengeo.ncep.noaa.gov/",
+   "licence": "US government work, public domain (NWS disclaimer, weather.gov/disclaimer, read 22 Nov 2026); no endorsement implied",
+   "use": "visual",
+   "grade": "A1",
+   "independence_group": "noaa",
+   "descriptor": "Weather map radar tiles shown in the viewer's browser: lower 48, Alaska, Hawaii, Puerto Rico and Guam, about every 2 minutes. Not ingested or scored."
+  },
+  {
+   "id": "eccc-geomet",
+   "name": "Environment and Climate Change Canada MSC GeoMet WMS: radar composite and lightning density",
+   "publisher": "Environment and Climate Change Canada",
+   "url": "https://eccc-msc.github.io/open-data/licence/readme_en/",
+   "licence": "ECCC Data Server End-use Licence: free use including commercial, credited 'Data Source: Environment and Climate Change Canada' (read 22 Nov 2026)",
+   "use": "visual",
+   "grade": "A1",
+   "independence_group": "eccc",
+   "descriptor": "Weather map tiles shown in the viewer's browser: Canada's radar rain and snow rates every 6 minutes and lightning flash density every 10 minutes. Not ingested or scored."
+  },
+  {
+   "id": "noaa-gfs-nomads",
+   "name": "NOAA GFS 1-degree GRIB2 through the NOMADS grib filter",
+   "publisher": "NOAA NCEP",
+   "url": "https://nomads.ncep.noaa.gov/",
+   "licence": "US government work, public domain",
+   "use": "visual",
+   "grade": "A1",
+   "independence_group": "noaa",
+   "descriptor": "250 hPa winds (jet stream streaks) and surface snow depth for the weather map, from the newest run at the build. Model values, not observations; not scored."
+  },
+  {
+   "id": "noaa-spc-reports",
+   "name": "NOAA Storm Prediction Center preliminary local storm reports (hail CSV)",
+   "publisher": "NOAA SPC",
+   "url": "https://www.spc.noaa.gov/climo/reports/",
+   "licence": "US government work, public domain",
+   "use": "visual",
+   "grade": "B2",
+   "independence_group": "noaa",
+   "descriptor": "US hail reports for today's and yesterday's convective days, drawn as points on the weather map. Preliminary and unverified; not scored."
+  },
+  {
+   "id": "noaa-hms-smoke",
+   "name": "NOAA NESDIS Hazard Mapping System smoke polygons (KML)",
+   "publisher": "NOAA NESDIS",
+   "url": "https://www.ospo.noaa.gov/products/land/hms.html",
+   "licence": "US government work, public domain",
+   "use": "visual",
+   "grade": "B1",
+   "independence_group": "noaa",
+   "descriptor": "Analysts' daily smoke analysis over North America (light, medium, heavy), drawn on the weather map. Not scored."
   }
  ]
 }

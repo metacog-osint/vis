@@ -93,6 +93,18 @@ jobs:
             || echo "No history/ on main yet"
           python doctrine/kit/tic.py history site/data/feed.geojson --dir history --ended site/data/ended.geojson \
             --fill-last-change || echo "::warning::history step failed; this run is missing from history/"
+      # The weather map's layer list (tools/wxmap.py): reads NASA GIBS and EUMETView capabilities and writes
+      # site/data/wxmap.json. It never fails the build; with neither service it writes ok=false and the map says so.
+      - name: Weather map layers (NASA GIBS, EUMETView, NOAA MRMS, ECCC GeoMet)
+        run: python tools/wxmap.py
+      # GRIB decoding for the jet stream and snow layers. If the install fails, tools/gfs.py writes "unavailable"
+      # files and the map hides those two layers; the build goes on.
+      - name: Jet stream and snow depth (NOAA GFS)
+        run: |
+          python -m pip install --quiet eccodes==2.50.1 || echo "eccodes not installed"
+          python tools/gfs.py
+      - name: Hail reports and smoke (NOAA SPC, NESDIS HMS)
+        run: python tools/wxobs.py
       - name: Lint the feed
         run: python doctrine/kit/tic.py lint site/data/feed.geojson
       - uses: actions/setup-node@v7

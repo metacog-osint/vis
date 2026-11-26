@@ -17,6 +17,9 @@ import feed_v2  # noqa: E402
 import forecast  # noqa: E402
 import metar  # noqa: E402
 import verify  # noqa: E402
+import gfs  # noqa: E402
+import wxmap  # noqa: E402
+import wxobs  # noqa: E402
 from tic_doctrine import contract, registers  # noqa: E402
 
 
@@ -435,6 +438,222 @@ class VerifyTests(unittest.TestCase):
         self.assertIn("too few to read", html)
         self.assertIn("indicative", html)
         self.assertNotIn("<script", html)
+
+
+GIBS_CAPS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<Capabilities xmlns="http://www.opengis.net/wmts/1.0" xmlns:ows="http://www.opengis.net/ows/1.1" version="1.0.0">
+ <Contents>
+  <Layer>
+   <ows:Identifier>GOES-East_ABI_Band13_Clean_Infrared</ows:Identifier>
+   <Format>image/png</Format>
+   <Dimension><ows:Identifier>Time</ows:Identifier><Default>2026-11-22T01:50:00Z</Default>
+    <Value>2026-11-21T00:00:00Z/2026-11-22T01:50:00Z/PT10M</Value></Dimension>
+   <TileMatrixSetLink><TileMatrixSet>GoogleMapsCompatible_Level7</TileMatrixSet></TileMatrixSetLink>
+   <ResourceURL format="image/png" resourceType="tile" template="https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_Band13_Clean_Infrared/default/{Time}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png"/>
+  </Layer>
+  <Layer>
+   <ows:Identifier>GOES-East_ABI_Band8_6.2um_Upper_Level_Water_Vapor</ows:Identifier>
+   <Dimension><ows:Identifier>Time</ows:Identifier><Value>2026-11-22T00:00:00Z/2026-11-22T02:00:00Z/PT10M</Value></Dimension>
+   <TileMatrixSetLink><TileMatrixSet>GoogleMapsCompatible_Level7</TileMatrixSet></TileMatrixSetLink>
+   <ResourceURL format="image/png" resourceType="tile" template="https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/WV/default/{Time}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png"/>
+  </Layer>
+  <Layer>
+   <ows:Identifier>BlueMarble_NextGeneration</ows:Identifier>
+   <TileMatrixSetLink><TileMatrixSet>GoogleMapsCompatible_Level7</TileMatrixSet></TileMatrixSetLink>
+   <ResourceURL format="image/jpeg" resourceType="tile" template="https://example.invalid/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.jpg"/>
+  </Layer>
+  <TileMatrixSet><ows:Identifier>GoogleMapsCompatible_Level7</ows:Identifier>
+   <TileMatrix><ows:Identifier>0</ows:Identifier></TileMatrix><TileMatrix><ows:Identifier>7</ows:Identifier></TileMatrix>
+  </TileMatrixSet>
+ </Contents>
+</Capabilities>"""
+
+EUMETVIEW_CAPS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities xmlns="http://www.opengis.net/wms" version="1.3.0"><Capability><Layer>
+ <Layer><Name>ir105_hrfi</Name><Dimension name="time" default="2026-11-22T02:00:00Z" units="ISO8601">2024-09-23T00:00:00.000Z/2026-11-22T02:00:00.000Z/PT10M</Dimension></Layer>
+ <Layer><Name>li_afa</Name><Dimension name="time" units="ISO8601">2026-11-22T01:50:00.000Z,2026-11-22T01:55:00.000Z,2026-11-22T02:00:00.000Z</Dimension></Layer>
+ <Layer><Name>rgb_airmass</Name></Layer>
+</Layer></Capability></WMS_Capabilities>"""
+
+
+NCEP_CAPS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms"><Capability><Layer><Title>conus</Title>
+<Layer queryable="1"><Name>conus_bref_qcd</Name><Title>radar_reflectivity</Title>
+<Dimension name="time" default="2026-11-22T02:20:04Z" units="ISO8601" nearestValue="1">2026-11-22T02:16:10.000Z,2026-11-22T02:18:06.000Z,2026-11-22T02:20:04.000Z</Dimension>
+</Layer></Layer></Capability></WMS_Capabilities>"""
+
+GEOMET_CAPS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms"><Capability><Layer><Title>MSC GeoMet</Title>
+<Layer><Name>RADAR</Name><Title>Radar</Title>
+<Layer queryable="1"><Name>RADAR_1KM_RRAI</Name><Title>Radar precipitation rate for rain</Title>
+<Dimension name="time" units="ISO8601" default="2026-11-22T02:24:00Z" nearestValue="0">2026-11-21T23:24:00Z/2026-11-22T02:24:00Z/PT6M</Dimension>
+</Layer></Layer></Layer></Capability></WMS_Capabilities>"""
+
+
+class GfsTests(unittest.TestCase):
+    NOW = datetime(2026, 11, 22, 3, 0, tzinfo=timezone.utc)
+
+    @staticmethod
+    def field(short, level, fn, ni=360, nj=181):
+        return {"short": short, "level": level, "ni": ni, "nj": nj, "lat0": 90.0, "lon0": 0.0, "dlat": -1.0,
+                "dlon": 1.0, "values": [float(fn(90 - j, i)) for j in range(nj) for i in range(ni)]}
+
+    def test_candidates_try_the_newest_run_first_at_the_nearest_three_hours(self):
+        got = list(gfs.candidates(self.NOW))[:3]
+        self.assertEqual([(c.hour, f) for c, f in got], [(0, 3), (18, 9), (12, 15)])
+
+    def test_grid_thins_to_two_degrees_and_rounds_to_whole_metres_per_second(self):
+        msgs = [self.field("u", 250, lambda la, lo: 40.4 if la == 40 else 5.0),
+                self.field("v", 250, lambda la, lo: -3.6), self.field("u", 500, lambda la, lo: 99)]
+        g = gfs.grid(msgs)
+        self.assertEqual((g["nx"], g["ny"], g["dlat"], g["dlon"]), (180, 91, -2.0, 2.0))
+        self.assertEqual(g["u"][25 * 180], 40)     # row 25 is 40 N
+        self.assertEqual(g["u"][0], 5)
+        self.assertEqual(set(g["v"]), {-4})
+        with self.assertRaises(ValueError):
+            gfs.grid(msgs[:1])
+
+    def test_build_tries_older_runs_and_writes_snow_depth_in_centimetres(self):
+        msgs = [self.field("u", 250, lambda la, lo: 30), self.field("v", 250, lambda la, lo: 0),
+                self.field("sde", 0, lambda la, lo: 0.42 if la > 60 else 0.0)]
+        msgs[2]["values"][-1] = None                  # masked (sea) point
+        calls = []
+
+        def get(url):
+            calls.append(url)
+            if "gfs.20261122/00" in url:
+                raise OSError("not yet published")
+            return b":UGRD:250 mb:\n:VGRD:250 mb:" if url.endswith(".idx") else b"GRIB"
+        wind, snow = gfs.build(self.NOW, get=get, decoder=lambda raw: msgs, log=lambda *_: None)
+        self.assertTrue(wind["ok"] and snow["ok"])
+        self.assertEqual((wind["run"], wind["lead_h"], wind["valid"]), ("2026-11-21T18:00:00Z", 9, "2026-11-22T03:00:00Z"))
+        self.assertIn("var_SNOD=on", calls[-1])
+        self.assertEqual(max(snow["cm"]), 42)
+        self.assertEqual(snow["cm"][-1], 0)
+
+    def test_build_without_a_decoder_says_so_and_does_not_raise(self):
+        def no_decoder(raw):
+            raise ModuleNotFoundError("No module named 'eccodes'")
+        wind, snow = gfs.build(self.NOW, get=lambda url: b":UGRD:250 mb:\n:VGRD:250 mb:", decoder=no_decoder,
+                               log=lambda *_: None)
+        self.assertFalse(wind["ok"] or snow["ok"])
+        self.assertIn("eccodes", wind["error"])
+
+
+SMOKE_KML = b"""<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>HMS Smoke Mapping-20261121</name>
+<Folder><name>Smoke (Light)</name>
+<Placemark><description><![CDATA[Start Time: 2026325 1300UTC<br>Density: Light<br>Satellite: GOES-WEST]]></description>
+<styleUrl>#Smoke_Light_style</styleUrl><Polygon><outerBoundaryIs><LinearRing><coordinates>
+-64.615070,42.945717,0 -67.484865,45.230924,0 -70.354662,47.037833,0 -64.615070,42.945717,0
+</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
+<Folder><name>Smoke (Heavy)</name><Placemark><styleUrl>#Smoke_Heavy_style</styleUrl><Polygon><outerBoundaryIs><LinearRing>
+<coordinates>-120,40,0 -121,41,0 -119,41,0 -120,40,0</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
+</Document></kml>"""
+
+
+class WxObsTests(unittest.TestCase):
+    def test_hail_reports_carry_inches_and_times_across_midnight(self):
+        day = wxobs.convective_day(datetime(2026, 5, 21, 3, 0, tzinfo=timezone.utc), 0)
+        self.assertEqual(wxobs.iso(day), "2026-05-20T12:00:00Z")
+        rows = wxobs.parse_hail("Time,Size,Location,County,State,Lat,Lon,Comments\n"
+                                "1824,200,JACKSONVILLE,Morgan,IL,39.73,-90.23,(ILX)\n"
+                                "0105,125,South Jacksonville,Morgan,IL,39.71,-90.23,Largest stone 1.18 in\n"
+                                "bad,row\n", day)
+        self.assertEqual([(r["in"], r["time"], r["place"]) for r in rows],
+                         [(2.0, "2026-05-20T18:24:00Z", "Jacksonville, IL"), (1.25, "2026-05-21T01:05:00Z", "South Jacksonville, IL")])
+
+    def test_smoke_polygons_by_density(self):
+        polys = wxobs.parse_smoke(SMOKE_KML)
+        self.assertEqual([p["density"] for p in polys], ["Light", "Heavy"])
+        self.assertEqual(polys[0]["ring"][0], [-64.62, 42.95])
+
+    def test_smoke_falls_back_to_yesterday(self):
+        def get(url):
+            if "20261122" in url:
+                raise OSError("404")
+            return SMOKE_KML
+        doc = wxobs.smoke(datetime(2026, 11, 22, 3, tzinfo=timezone.utc), get=get, log=lambda *_: None)
+        self.assertEqual((doc["ok"], doc["date"], len(doc["polygons"])), (True, "2026-11-21", 2))
+
+
+class WxMapTests(unittest.TestCase):
+    NOW = datetime(2026, 11, 22, 2, 30, tzinfo=timezone.utc)
+
+    def test_durations_and_time_extents(self):
+        self.assertEqual(wxmap.duration_s("PT10M"), 600)
+        self.assertEqual(wxmap.duration_s("PT1H30M"), 5400)
+        self.assertEqual(wxmap.duration_s("P1D"), 86400)
+        self.assertIsNone(wxmap.duration_s(""))
+        latest, step = wxmap.time_extent(["2026-11-20T00:00:00Z/2026-11-21T00:00:00Z/PT30M",
+                                          "2026-11-21T06:00:00Z/2026-11-22T01:30:00Z/PT30M"])
+        self.assertEqual((wxmap.iso(latest), step), ("2026-11-22T01:30:00Z", 1800))
+        latest, step = wxmap.time_extent(["2026-11-22T01:50:00Z,2026-11-22T01:55:00Z"])
+        self.assertEqual((wxmap.iso(latest), step), ("2026-11-22T01:55:00Z", 300))
+
+    def test_manifest_resolves_layers_and_names_what_it_left_out(self):
+        doc = wxmap.build_manifest(wxmap.gibs_layers(GIBS_CAPS), wxmap.wms_layers(EUMETVIEW_CAPS), now=self.NOW)
+        self.assertTrue(doc["ok"])
+        ir = next(p for p in doc["products"] if p["id"] == "ir")
+        by = {l["sector"]: l for l in ir["layers"]}
+        self.assertEqual(sorted(by), ["goes_east", "meteosat"])   # GOES-West and Himawari absent from the fixture
+        ge = by["goes_east"]
+        self.assertEqual(ge["url"], "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_Band13_Clean_Infrared"
+                                    "/default/{time}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png")
+        self.assertEqual((ge["max_zoom"], ge["step_s"], ge["lag_s"]), (7, 600, 2400))
+        self.assertEqual((by["meteosat"]["layer"], by["meteosat"]["lag_s"]), ("mtg_fd:ir105_hrfi", 1800))
+        wv = next(p for p in doc["products"] if p["id"] == "wv")
+        self.assertEqual(wv["layers"][0]["name"], "GOES-East_ABI_Band8_6.2um_Upper_Level_Water_Vapor")  # by pattern
+        lt = next(p for p in doc["products"] if p["id"] == "lightning")
+        self.assertEqual([(l["sector"], l["step_s"]) for l in lt["layers"]], [("meteosat", 300)])
+        why = {(d["product"], d["sector"]): d["why"] for d in doc["dropped"]}
+        self.assertIn("no usable time dimension", why[("airmass", "meteosat")])   # listed, but no time
+        self.assertEqual(why[("ir", "himawari")], "no gibs layer matched")
+        self.assertEqual(why[("ir", "iodc")], "no eumetview layer matched")
+        self.assertIn("Contains modified EUMETSAT Meteosat data 2026", [c["text"] for c in doc["credits"]])
+
+    def test_manifest_without_services_is_not_ok_and_never_raises(self):
+        doc = wxmap.build_manifest(None, None, now=self.NOW)
+        self.assertFalse(doc["ok"])
+        self.assertEqual(doc["products"], [])
+        self.assertTrue(all("capabilities not read" in d["why"] for d in doc["dropped"]))
+
+    def test_radar_from_noaa_and_eccc_takes_their_bounds_server_and_credit(self):
+        ncep = wxmap.wms_layers(NCEP_CAPS, "conus")
+        geomet = wxmap.wms_layers(GEOMET_CAPS, "geomet", qualify=False)
+        self.assertIn("RADAR_1KM_RRAI", geomet)
+        doc = wxmap.build_manifest(None, None, now=self.NOW, ncep=ncep, geomet=geomet)
+        radar = next(p for p in doc["products"] if p["id"] == "radar")
+        by = {l["sector"]: l for l in radar["layers"]}
+        self.assertEqual(sorted(by), ["canada", "conus"])
+        self.assertEqual((by["conus"]["wms"], by["conus"]["layer"]), (wxmap.NCEP_WMS, "conus:conus_bref_qcd"))
+        self.assertEqual((by["conus"]["south"], by["conus"]["north"]), (20, 55))
+        self.assertEqual(by["conus"]["step_s"], 118)      # irregular scans: the gap between the last two
+        self.assertEqual((by["canada"]["wms"], by["canada"]["layer"], by["canada"]["step_s"]),
+                         (wxmap.GEOMET_WMS, "RADAR_1KM_RRAI", 360))
+        texts = [c["text"] for c in doc["credits"]]
+        self.assertIn("Data Source: Environment and Climate Change Canada", texts)
+        self.assertIn("Radar: NOAA MRMS", texts)
+        self.assertIsNone(radar["frames"])
+
+    def test_site_has_map_above_the_table_and_csp_allows_only_the_tile_hosts(self):
+        doc = forecast.build_forecast_doc(forecast.load_zones()[:1], {
+            "ncep_gefs025": [_synthetic_model(hours=72)], "ecmwf_ifs025": [_synthetic_model(hours=72)]},
+            days=3, generated_at="2026-10-31T18:00:00Z")
+        files = build_site.build(doc)
+        html = files["index.html"]
+        self.assertLess(html.index('id="wx-map"'), html.index('id="vis-table"'))
+        self.assertIn('src="wxmap.js"', html)
+        csp = next(l for l in files["_headers"].splitlines() if "Content-Security-Policy" in l)
+        self.assertIn("img-src 'self' data: https://gibs.earthdata.nasa.gov https://view.eumetsat.int "
+                      "https://opengeo.ncep.noaa.gov https://geo.weather.gc.ca;", csp)
+        self.assertIn('id="wx-overlays"', html)
+        self.assertIn("script-src 'self';", csp)
+        self.assertTrue((ROOT / "site" / "wxmap.js").exists())
+        self.assertTrue((ROOT / "site" / "vendor" / "leaflet" / "leaflet.js").exists())
+        outlines = json.loads((ROOT / "site" / "geo" / "outlines.json").read_text(encoding="utf-8"))
+        self.assertGreater(len(outlines["land"]), 50)
+        self.assertGreater(len(outlines["borders"]), 100)
 
 
 if __name__ == "__main__":

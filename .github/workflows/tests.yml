@@ -23,3 +23,14 @@ jobs:
         run: python tests/test_vis.py
       - name: Doctrine and kit copy
         run: python doctrine/kit/tic.py kitcheck
+      # Live check of the weather map's layer lookup: prints which layers NASA GIBS and EUMETView list today and
+      # which were left out. Informational; it never fails.
+      - name: Weather map layers (live, informational)
+        run: python tools/wxmap.py --out "$RUNNER_TEMP/wxmap.json" --probe
+      # Live check of the jet stream, snow, hail and smoke downloads: prints the GFS run found and what was decoded,
+      # and how many hail reports and smoke polygons came back. Informational; it never fails.
+      - name: Jet stream, snow, hail and smoke (live, informational)
+        run: |
+          python -m pip install --quiet eccodes==2.50.1 || echo "eccodes not installed"
+          python tools/gfs.py --out "$RUNNER_TEMP/wind250.json" --snow-out "$RUNNER_TEMP/snow.json"
+          python tools/wxobs.py --dir "$RUNNER_TEMP"
