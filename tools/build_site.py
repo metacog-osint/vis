@@ -104,7 +104,7 @@ INDEX_HTML = """<!doctype html>
           <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let each forecast be checked against the station’s METAR reports (see “Measured skill” below).</li>
           <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, each model weighted equally (its own share is shown beside it), given with its ICD 203 term. Most hazards use both models; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
           <li><b>What sets a cell’s colour:</b> each hazard has an amber and a more severe red threshold, and the colour comes from the chance of reaching either one. Yellow: at least 20% for the amber threshold, or at least 5% for the red one. Amber: at least 45% for amber, or 20% for red. Red: at least 45% for red. A severe outcome therefore colours a cell at a low chance, and the line names the threshold behind the colour. Example: “Low cloud cover ≥ 95 %: Very unlikely · 6% (severe threshold)” is Yellow, because 6% is above the 5% needed for the severe threshold. The day’s colour is its worst hazard. Low cloud cover never goes above Yellow.</li>
-          <li><b>Tonight’s light:</b> civil dusk and dawn, the moon’s lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit.</li>
+          <li><b>Tonight’s light:</b> civil dusk and dawn, the moon’s lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit. Dusk and dawn show the point’s local time, then yours.</li>
         </ul>
       </div>
     </section>
@@ -329,6 +329,7 @@ h1 .sub {
   font-size: 12px;
 }
 .mono { font-family: "IBM Plex Mono", monospace; }
+.also { color: #5A6B80; }
 /* Sections row (tic-tabs.css) in Vis's colours */
 .tic-tabs-nav { --panel: var(--card); --line: var(--rule); --link: var(--accent); }
 /* Long-table window and its "Show all" button (tic-fold.css) in Vis's colours */
@@ -428,6 +429,23 @@ function hm(iso) {                                // the viewer's zone, named; U
   return { text: T ? T.format(iso.replace("Z", ":00Z"), { date: false }) : utc, utc };
 }
 const timeSpan = (iso) => { const t = hm(iso); return `<span class="mono" title="${esc(t.utc)}">${esc(t.text)}</span>`; };
+// The point's own clock (its IANA zone from config/points.json), zone named, on the viewer's 12- or 24-hour setting.
+function placeTime(iso, tz) {
+  if (!iso || !tz) return null;
+  try {
+    const o = { timeZone: tz, hour: "numeric", minute: "2-digit", timeZoneName: "short" };
+    o.hourCycle = T && !T.hour12() ? "h23" : "h12";
+    return new Intl.DateTimeFormat(undefined, o).format(new Date(iso.replace("Z", ":00Z")));
+  } catch (e) { return null; }
+}
+// Local time at the point, then the viewer's; one time only when the two read the same.
+function timePair(iso, tz) {
+  const local = placeTime(iso, tz), t = hm(iso);
+  if (!local) return timeSpan(iso);
+  const there = `<span class="mono" title="${esc("Local time at the point (" + tz + "); " + t.utc)}">${esc(local)}</span>`;
+  if (local === t.text) return there;
+  return `${there} local <span class="also">· <span class="mono" title="${esc(t.utc)}">${esc(t.text)}</span> yours</span>`;
+}
 const when = (g) => (T ? T.format(g, { year: true }) : g.replace("T", " ").slice(0, 16) + " UTC");
 
 const RANK = { green: 0, yellow: 1, amber: 2, red: 3 };
@@ -456,11 +474,12 @@ function dayCell(d, hz) {
   }</td>`;
 }
 
-function nightCell(n) {
+function nightCell(n, tz) {
   const lowH = Math.floor((n.dark_low_light_min || 0) / 60);
   const lowM = (n.dark_low_light_min || 0) % 60;
   return `<td class="night-cell"><div><b>Moon ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
-    <div>Civil dusk ${timeSpan(n.civil_dusk)} · dawn ${timeSpan(n.civil_dawn)}</div></td>`;
+    <div>Civil dusk ${timePair(n.civil_dusk, tz)}</div>
+    <div>Civil dawn ${timePair(n.civil_dawn, tz)}</div></td>`;
 }
 
 function rowHead(z) {
@@ -518,7 +537,7 @@ async function init() {
     .map((z) => `<tr id="zone-${esc(z.id)}" class="${z.role === "alternate" ? "alt-row" : "ref-row"}">
         ${rowHead(z)}
         ${(z.days || []).map((d) => dayCell(d, hz)).join("")}
-        ${nightCell(z.days?.[0]?.night || {})}
+        ${nightCell(z.days?.[0]?.night || {}, z.tz)}
       </tr>`)
     .join("");
 

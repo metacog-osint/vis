@@ -232,7 +232,7 @@ def expand_points(zones):
             rows.append({
                 "id": f"{z['id']}-{a['icao']}", "zone_id": z["id"], "role": "alternate", "name": z["name"],
                 "warning_problem_id": z.get("warning_problem_id"), "station": a["station"], "icao": a["icao"],
-                "lat": a["lat"], "lon": a["lon"], "cell": a.get("cell"),
+                "lat": a["lat"], "lon": a["lon"], "cell": a.get("cell"), "tz": a.get("tz"),
                 "countries": [a["country"]] if a.get("country") else list(z.get("countries", [])),
             })
     return rows
@@ -403,7 +403,7 @@ def build_forecast_doc(zones, by_model, days=7, generated_at=None, runs=None, gr
             "warning_problem_id": z.get("warning_problem_id") or f"WF-WP-Z{zone_id[:2]}",
             "station": z.get("station", z["name"]), "icao": z.get("icao", "ZZZZ"),
             "countries": z.get("countries", []),
-            "lat": z["lat"], "lon": z["lon"],
+            "lat": z["lat"], "lon": z["lon"], "tz": z.get("tz"),
             "grid": (grids[i] if grids else None),
             "days": z_days,
         })
