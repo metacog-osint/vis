@@ -2,12 +2,17 @@
 site/) lands in the private archive (tools/tic_archive.py, metacog-osint/tic-archive) and restores byte for byte. A
 file that a later run removes or replaces stays restorable from the snapshot that held it.
 
-The test makes a real offline run in a temporary folder: the repository's committed history/, a forecast built from
-synthetic ensemble members and written as tools/forecast.py writes it, the verification score, the location detail
-(network replaced by a stand-in), the site build, the kit's history log and the public release step's
-tools/archive.py call, each as build.yml gives it. It then runs the private archive step's own commands, read from
-build.yml, against a local DirStore. Nothing reaches GitHub: GhStore is replaced by the DirStore, and any subprocess
-call during an archive command fails the test.
+The test makes a real offline run in a temporary folder: a history/ left by an earlier offline run (see
+fixture_history), a forecast built from synthetic ensemble members and written as tools/forecast.py writes it, the
+verification score, the location detail (network replaced by a stand-in), the site build, the kit's history log and
+the public release step's tools/archive.py call, each as build.yml gives it. It then runs the private archive step's
+own commands, read from build.yml, against a local DirStore. Nothing reaches GitHub: GhStore is replaced by the
+DirStore, and any subprocess call during an archive command fails the test.
+
+The repository's committed history/ is never read: the build rewrites it on every run, so a damaged line there, or a
+later cap on what the public tree keeps, must not fail these tests (the workflow treats both as warnings that never
+block the deploy). The fixture is written by the program's own code (tools/metar.py, tools/verify.py and the kit's
+history command), so it keeps their current formats.
 
 out/climate.json is not a file the build makes: build.yml downloads it from release vis-climate, where climate.yml
 keeps a dated copy of every upload. The offline run has none."""
@@ -24,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
@@ -34,6 +40,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 import archive  # noqa: E402
 import forecast  # noqa: E402
 import locations  # noqa: E402
+import metar  # noqa: E402
 import tic_archive as ta  # noqa: E402
 from test_vis import _fake_open_meteo_and_awc, _synthetic_model  # noqa: E402
 
@@ -46,7 +53,13 @@ PUBLIC_STEP = "Archive forecast.json and locations.json to release vis-data-YYYY
 RUN_OUTPUTS = ("out", "archive", "history", "site")   # what a run writes beside the tracked code
 RUN_INPUTS = ("tools", "doctrine", "config")          # tracked code the offline run is given
 FIRST, SECOND = "20261127T080000Z", "20261127T200000Z"
+BUILD_0 = "2026-10-30T20:25:00Z"   # the earlier run that leaves the fixture history (a UTC day before BUILD_1)
 BUILD_1, BUILD_2 = "2026-10-31T18:00:00Z", "2026-10-31T20:25:00Z"
+METAR_DAYS = ("2026-11-01", "2026-11-02")   # days the synthetic forecasts cover, so verify.py resolve scores them
+# history/ after the offline run: the earlier run's log day, closed (gzipped) by this run, and this run's open day
+# (the earlier run forecast lower gusts, so this run logs changes).
+HISTORY_FILES = {"state.json", "log/2026/10/30.jsonl.gz", "log/2026/10/31.jsonl", "metar/2026/11/01.jsonl",
+                 "metar/2026/11/02.jsonl", "verify/pairs.jsonl", "verify/observed.jsonl"}
 
 
 def steps() -> dict[str, str]:
@@ -136,13 +149,18 @@ def private_step(root: Path, store: Path, stamp: str, runner_temp: Path) -> dict
     return {arg(c, "--lane")[0]: run_archive(expand(c, runner_temp, root), root, store, stamp) for c in put_calls()}
 
 
-def write_forecast(root: Path, generated_at: str, gust: float = 70.0) -> None:
+def zones3() -> list[dict]:
+    return forecast.expand_points(forecast.load_zones())[:3]
+
+
+def write_forecast(root: Path, generated_at: str, gust: float = 70.0, run_time: str = "2026-10-31T12:00Z",
+                   available_at: str = "2026-10-31T17:40Z") -> None:
     """out/forecast.json for three points from synthetic members, written the way tools/forecast.py writes it."""
-    zones = forecast.expand_points(forecast.load_zones())[:3]
+    zones = zones3()
     hot = _synthetic_model(hours=72, members=4, gust=gust, cloud=85.0)
     quiet = _synthetic_model(hours=72, members=4, gust=25.0, cloud=20.0)
     by_model = {"ncep_gefs025": [hot, quiet, quiet], "ecmwf_ifs025": [hot, quiet, quiet]}
-    runs = {m: {"id": m, "run_time": "2026-10-31T12:00Z", "available_at": "2026-10-31T17:40Z", "age_hours": 6.0,
+    runs = {m: {"id": m, "run_time": run_time, "available_at": available_at, "age_hours": 6.0,
                 "state": "used"} for m in by_model}
     ok = {"cell": "land", "lat": 50.25, "lon": 31.0, "cell_elevation_m": 120.0, "station_elevation_m": 127.0,
           "diff_m": -7.0, "ok": True}
@@ -159,6 +177,12 @@ def run_tool(root: Path, argv: list[str]) -> None:
         raise RuntimeError(f"{' '.join(argv[:2])} failed: {r.stderr[-600:]}")
 
 
+def kit_history(root: Path) -> None:
+    """The History step's kit call, as build.yml gives it (the run's time is the feed's generated_at)."""
+    (kit,) = re.findall(r"python (doctrine/kit/tic\.py history [^|;\n]*)", flat(step("History")))
+    run_tool(root, shlex.split(kit))
+
+
 def build_run(root: Path, generated_at: str) -> None:
     """The build steps that write files, in build.yml's order, offline."""
     write_forecast(root, generated_at)
@@ -168,14 +192,52 @@ def build_run(root: Path, generated_at: str) -> None:
                                str(root / "out/climate.json"), "--out", str(root / "out/locations.json"),
                                "--metar", str(root / "history/metar")]) in (0, None)
     run_tool(root, ["tools/build_site.py"])
-    (kit,) = re.findall(r"python (doctrine/kit/tic\.py history [^|;\n]*)", flat(step("History")))
-    run_tool(root, shlex.split(kit))
+    kit_history(root)
     (pub,) = script_calls(STEPS[PUBLIC_STEP], "archive.py", "prepare")
     in_dir(root, archive.main, expand(pub, root / "unused", root))
 
 
+def new_tree(root: Path) -> None:
+    """A run's starting folder: the tracked code it is given and the tracked site files, no history/."""
+    for d in RUN_INPUTS:
+        shutil.copytree(ROOT / d, root / d, ignore=shutil.ignore_patterns("__pycache__"))
+    # The tracked site files only: site/data/ is what the build writes (git-ignored).
+    shutil.copytree(ROOT / "site", root / "site", ignore=lambda d, names: ["data"] if Path(d) == ROOT / "site"
+                    else [n for n in names if n == "__pycache__"])
+
+
+def fixture_history(dest: Path) -> None:
+    """history/ as an earlier offline run (BUILD_0, a UTC day before BUILD_1) leaves it, never the repository's own:
+    METARs for the forecast days stored by tools/metar.py, that run's forecast resolved by the Verification step's
+    `verify.py resolve` command from the asset the public release step packs, and the kit's history log and state."""
+    with tempfile.TemporaryDirectory(prefix="vis-earlier-") as td:
+        prev, runner = Path(td) / "run", Path(td) / "runner"
+        new_tree(prev)
+        reports = []
+        for day in METAR_DAYS:
+            for h in range(24):
+                t = datetime.fromisoformat(f"{day}T{h:02d}:00:00+00:00")
+                for z in zones3():
+                    reports.append(metar.norm({
+                        "icaoId": z["icao"], "obsTime": int(t.timestamp()), "metarType": "METAR", "temp": 15,
+                        "dewp": 5, "wdir": 270, "wspd": 8 + h % 5, "wgst": None, "visib": "6+", "altim": 1013,
+                        "rawOb": f"METAR {z['icao']} {t:%d%H}00Z 27008KT 9999 FEW030 15/05 Q1013"}))
+        assert metar.append(prev / "history" / "metar", reports) == len(reports)
+        write_forecast(prev, BUILD_0, gust=50.0, run_time="2026-10-30T12:00Z", available_at="2026-10-30T17:40Z")
+        (pub,) = script_calls(STEPS[PUBLIC_STEP], "archive.py", "prepare")
+        in_dir(prev, archive.main, expand(pub, runner, prev))
+        (res,) = script_calls(step("Verification"), "verify.py", "resolve")
+        res = expand(res, runner, prev)
+        (forecasts,) = arg(res, "--forecasts")
+        shutil.copytree(prev / "archive", forecasts)      # the step downloads the release's forecast assets here
+        run_tool(prev, ["tools/verify.py", *res])
+        run_tool(prev, ["tools/build_site.py"])
+        kit_history(prev)
+        shutil.copytree(prev / "history", dest)
+
+
 class RunTree:
-    """A real offline run, made once."""
+    """A real offline run, made once, on a fixture history."""
     tmp: Path | None = None
 
     @classmethod
@@ -183,11 +245,8 @@ class RunTree:
         if cls.tmp is not None:
             return cls.tmp
         tmp = Path(tempfile.mkdtemp(prefix="vis-lanes-"))
-        for d in ("tools", "doctrine", "config", "history"):
-            shutil.copytree(ROOT / d, tmp / d, ignore=shutil.ignore_patterns("__pycache__"))
-        # The tracked site files only: site/data/ is what the build writes (git-ignored).
-        shutil.copytree(ROOT / "site", tmp / "site", ignore=lambda d, names: ["data"] if Path(d) == ROOT / "site"
-                        else [n for n in names if n == "__pycache__"])
+        new_tree(tmp)
+        fixture_history(tmp / "history")
         build_run(tmp, BUILD_1)
         cls.tmp = tmp
         return tmp
@@ -230,7 +289,7 @@ class TestWorkflowLanes(unittest.TestCase):
         text = STEPS[PRIVATE_STEP]
         self.assertIn("FORECAST: ${{ steps.forecast.outcome }}", text)
         self.assertIn("HISTORY: ${{ steps.history.outcome }}", text)
-        self.assertIn("DEPLOYED: ${{ steps.deploy.outcome }}", text)
+        self.assertIn("DEPLOYED: ${{ steps.deploy.outputs.deployed }}", text)
         self.assertIn("id: forecast", step("Forecast"))
         self.assertIn("id: history", step("History"))
         self.assertIn("id: deploy", STEPS["Deploy site/ to Cloudflare Pages"])
@@ -240,8 +299,20 @@ class TestWorkflowLanes(unittest.TestCase):
         self.assertRegex(f, r'if \[ "\$FORECAST" = "success" \] && \[ -f out/forecast\.json \]; then\s+extra=.*\s+'
                             r'python tools/archive\.py prepare .*&& python tools/tic_archive\.py put '
                             r'--program vis --lane data ')
-        self.assertRegex(f, r'if \[ "\$DEPLOYED" = "success" \]; then\s+python tools/tic_archive\.py put '
+        self.assertRegex(f, r'if \[ "\$DEPLOYED" = "true" \]; then\s+python tools/tic_archive\.py put '
                             r'--program vis --lane site ')
+
+    def test_site_lane_needs_a_real_deploy(self):
+        # The deploy step ends "success" when it skips the deploy for want of Cloudflare secrets, so the site lane
+        # reads an output that only a wrangler deploy that succeeded writes.
+        dep = STEPS["Deploy site/ to Cloudflare Pages"]
+        self.assertEqual(dep.count("deployed=true"), 1)
+        self.assertRegex(flat(dep), r'npx --yes wrangler@\S+ pages deploy site [^\n]*; then\s+'
+                                    r'echo "deployed=true" >> "\$GITHUB_OUTPUT"[^\n]*\s+exit 0')
+        skip = dep.split("skipping deploy", 1)
+        self.assertEqual(len(skip), 2)
+        self.assertNotIn("deployed=true", skip[0])
+        self.assertTrue(skip[1].lstrip().startswith('"; exit 0'), skip[1][:40])
 
     def test_data_lane_packs_with_the_public_release_steps_command(self):
         (pub,) = script_calls(STEPS[PUBLIC_STEP], "archive.py", "prepare")
@@ -309,10 +380,23 @@ class TestEveryRunFileIsArchived(unittest.TestCase):
         for p in ("data/feed.geojson", "data/ended.geojson", "data/forecast.json", "data/locations.json",
                   "data/verification.json", "index.html", "vis.js"):
             self.assertIn(p, self.before["site"])
-        for p in ("state.json", "verify/pairs.jsonl", "verify/observed.jsonl"):
-            self.assertIn(p, self.before["history"])
-        self.assertTrue([p for p in self.before["history"] if p.startswith("metar/")])
-        self.assertTrue([p for p in self.before["history"] if p.startswith("log/")])
+        # Every kind of file history/ holds: the kit's state and log (a closed day and an open one), the METAR store
+        # and both verification stores.
+        self.assertEqual(set(self.before["history"]), HISTORY_FILES)
+
+    def test_history_is_the_fixture_not_the_repositorys(self):
+        # Only what the earlier offline run wrote: its forecast's days, its METARs, its log day.
+        h = self.run_root / "history"
+        for p in ("verify/pairs.jsonl", "verify/observed.jsonl"):
+            rows = metar.load_day(h / p)
+            self.assertTrue(rows, p)
+            self.assertTrue(all(r["day"] in METAR_DAYS + ("2026-11-03",) for r in rows), p)
+        pairs = metar.load_day(h / "verify/pairs.jsonl")
+        self.assertTrue(all(r["generated_at"].startswith("2026-10-30T") for r in pairs))
+        self.assertEqual({r["obs_time"][:10] for d in METAR_DAYS
+                          for r in metar.load_day(metar.day_path(h / "metar", d))}, set(METAR_DAYS))
+        with gzip.open(h / "log/2026/10/30.jsonl.gz", "rt", encoding="utf-8") as fh:
+            self.assertTrue(all(json.loads(s)["at"].startswith("2026-10-30") for s in fh if s.strip()))
 
     def test_data_lane_holds_the_public_release_assets_exactly(self):
         with tempfile.TemporaryDirectory() as td:

@@ -154,6 +154,7 @@ jobs:
             if [ "$wait" != 0 ]; then echo "::warning::Cloudflare deploy failed; trying again in ${wait} s"; sleep "$wait"; fi
             if npx --yes wrangler@4.151.3 pages deploy site --project-name vis --branch main \
                  --commit-hash "$GITHUB_SHA" --commit-message "build $GITHUB_SHA" --commit-dirty=true; then
+              echo "deployed=true" >> "$GITHUB_OUTPUT"   # the private archive's site lane reads it
               exit 0
             fi
           done
@@ -200,7 +201,8 @@ jobs:
       #            vis-data-YYYY-MM. Packed again here rather than taken from that step, so a build whose deploy
       #            failed is kept as well. Only when the forecast step wrote a forecast.
       #   site     site/ as deployed: the page, feed.geojson, ended.geojson, forecast.json, the location files and
-      #            verification.json, each replaced by the next deploy. Only when the deploy step succeeded.
+      #            verification.json, each replaced by the next deploy. Only when wrangler deployed it (the deploy
+      #            step's output deployed=true), not when that step skipped the deploy for want of Cloudflare secrets.
       # These files are all public already, so nothing is redacted and the archived bytes match the public copy.
       # Each lane is tried even if another failed; a missing token or any failed lane turns the run red after the live
       # site is updated. Token: TIC_ARCHIVE_TOKEN, contents:write on tic-archive only.
@@ -210,7 +212,7 @@ jobs:
           GH_TOKEN: ${{ secrets.TIC_ARCHIVE_TOKEN }}
           FORECAST: ${{ steps.forecast.outcome }}
           HISTORY: ${{ steps.history.outcome }}
-          DEPLOYED: ${{ steps.deploy.outcome }}
+          DEPLOYED: ${{ steps.deploy.outputs.deployed }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
             echo "::error::secret TIC_ARCHIVE_TOKEN is not set, so history/, this build's forecast and site/ did not reach the private archive"; exit 1
@@ -228,7 +230,7 @@ jobs:
           else
             echo "data: the forecast step wrote no forecast this run, so there was nothing to archive"
           fi
-          if [ "$DEPLOYED" = "success" ]; then
+          if [ "$DEPLOYED" = "true" ]; then
             python tools/tic_archive.py put --program vis --lane site --src site || failed=1
           else
             echo "site: not deployed this run, so not archived"
