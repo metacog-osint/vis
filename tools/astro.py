@@ -71,6 +71,39 @@ def moon_alt(t, lat, lon):
     return h - math.degrees(math.asin(6378.14 / dist)) * math.cos(math.radians(h))
 
 
+def sun_lon(t):
+    """Sun's apparent ecliptic longitude, degrees (the same terms as sun_radec)."""
+    T = (jd(t) - 2451545.0) / 36525.0
+    L0 = (280.46646 + 36000.76983 * T) % 360
+    M = math.radians((357.52911 + 35999.05029 * T) % 360)
+    C = (1.914602 - 0.004817 * T) * math.sin(M) + 0.019993 * math.sin(2 * M) + 0.000289 * math.sin(3 * M)
+    om = math.radians(125.04 - 1934.136 * T)
+    return (L0 + C - 0.00569 - 0.00478 * math.sin(om)) % 360
+
+
+def moon_lon(t):
+    """Moon's ecliptic longitude, degrees (the same main terms as moon_radec)."""
+    d = jd(t) - 2451545.0
+    L = 218.316 + 13.176396 * d
+    M = math.radians(134.963 + 13.064993 * d)
+    F = math.radians(93.272 + 13.229350 * d)
+    D = math.radians(297.850 + 12.190749 * d)
+    S = math.radians(357.529 + 0.98560028 * d)
+    return (L + 6.289 * math.sin(M) + 1.274 * math.sin(2 * D - M) + 0.658 * math.sin(2 * D)
+            + 0.214 * math.sin(2 * M) - 0.186 * math.sin(S) - 0.114 * math.sin(2 * F)) % 360
+
+
+PHASES = ["New moon", "Waxing crescent", "First quarter", "Waxing gibbous",
+          "Full moon", "Waning gibbous", "Last quarter", "Waning crescent"]
+
+
+def moon_phase(t):
+    """The moon's phase at t: {"angle": elongation east of the sun 0-360 deg (0 new, 90 first quarter, 180 full,
+    270 last quarter), "name": one of PHASES (each name covers 45 deg centred on its point), "waxing": bool}."""
+    a = (moon_lon(t) - sun_lon(t)) % 360
+    return {"angle": round(a, 1), "name": PHASES[int(((a + 22.5) % 360) // 45)], "waxing": a < 180}
+
+
 def moon_fraction(t):
     """Lit fraction of the moon's disc, 0 to 1."""
     sra, sdec, sdist = sun_radec(t)
@@ -122,6 +155,9 @@ def night(lat, lon, day):
     out["moonset"] = [x[0].strftime("%Y-%m-%dT%H:%MZ") for x in mc if not x[1]]
     midnight = noon + timedelta(hours=12)
     out["moon_lit"] = round(moon_fraction(midnight), 3)
+    ph = moon_phase(midnight)
+    out["moon_phase"] = ph["name"]
+    out["moon_waxing"] = ph["waxing"]
     dark = dark_low = 0
     t = noon
     while t < end:
@@ -132,4 +168,39 @@ def night(lat, lon, day):
         t += timedelta(minutes=5)
     out["dark_min"] = dark
     out["dark_low_light_min"] = dark_low
+    return out
+
+
+def sun_day(lat, lon, day):
+    """Sunrise, sunset, solar noon and day length for the local solar day of `day` (a UTC date): the 24 hours from
+    local solar midnight, lon/15 hours off UTC midnight. Rise and set use the -0.833 deg standard altitude
+    (refraction and the sun's semi-diameter). When the sun never rises or never sets, `polar` says which."""
+    start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc) - timedelta(hours=lon / 15.0)
+    end = start + timedelta(days=1)
+    s = lambda t: sun_alt(t, lat, lon)  # noqa: E731
+    c = crossings(s, start, end, -0.833)
+    rise = next((x[0] for x in c if x[1]), None)
+    sset = next((x[0] for x in c if not x[1] and (rise is None or x[0] > rise)), None)
+    t, best, best_t = start, -99.0, start
+    while t < end:                    # solar noon: the highest sun, to 5 minutes, then refined by golden-section
+        a = s(t)
+        if a > best:
+            best, best_t = a, t
+        t += timedelta(minutes=5)
+    lo, hi = best_t - timedelta(minutes=5), best_t + timedelta(minutes=5)
+    for _ in range(12):
+        m1, m2 = lo + (hi - lo) / 3, hi - (hi - lo) / 3
+        if s(m1) < s(m2):
+            lo = m1
+        else:
+            hi = m2
+    noon = lo + (hi - lo) / 2
+    fmt = lambda x: x.strftime("%Y-%m-%dT%H:%MZ") if x else None  # noqa: E731
+    out = {"day": day.strftime("%Y-%m-%d"), "sunrise": fmt(rise), "sunset": fmt(sset), "solar_noon": fmt(noon),
+           "noon_altitude_deg": round(s(noon), 1), "day_length_min": None, "polar": None}
+    if rise and sset:
+        out["day_length_min"] = round((sset - rise).total_seconds() / 60)
+    elif not c:
+        out["polar"] = "midnight_sun" if s(noon) > -0.833 else "polar_night"
+        out["day_length_min"] = 1440 if out["polar"] == "midnight_sun" else 0
     return out

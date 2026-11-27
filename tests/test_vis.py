@@ -15,7 +15,11 @@ import archive  # noqa: E402
 import build_site  # noqa: E402
 import feed_v2  # noqa: E402
 import forecast  # noqa: E402
+import climate  # noqa: E402
+import history  # noqa: E402
+import locations  # noqa: E402
 import metar  # noqa: E402
+import release_cache  # noqa: E402
 import verify  # noqa: E402
 from tic_doctrine import contract, registers  # noqa: E402
 
@@ -452,6 +456,366 @@ class VerifyTests(unittest.TestCase):
         self.assertIn("too few to read", html)
         self.assertIn("indicative", html)
         self.assertNotIn("<script", html)
+
+
+class _Resp:
+    status = 200
+
+    def __init__(self, body):
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self):
+        return self.body
+
+
+def _fake_open_meteo_and_awc(req, timeout=0):
+    """A stand-in for Open-Meteo's forecast API and AWC: 2 days back, 2 ahead, hourly, for each requested point."""
+    import urllib.parse
+    u = urllib.parse.urlparse(req.full_url)
+    q = dict(urllib.parse.parse_qsl(u.query))
+    t0 = int(datetime(2026, 11, 20, 0, tzinfo=timezone.utc).timestamp())
+    if u.path.endswith("/forecast"):
+        out = []
+        for la, lo in zip(q["latitude"].split(","), q["longitude"].split(",")):
+            hourly = {"time": [t0 + 3600 * i for i in range(96)]}
+            for k in locations.HOURLY:
+                hourly[k] = [5.0 + (i % 24) / 4 for i in range(96)]
+            daily = {"time": [t0 + 86400 * d for d in range(4)]}
+            for k in locations.DAILY:
+                daily[k] = [1.0, 2.0, 3.0, 4.0]
+            daily["temperature_2m_max"] = [12.0, 30.0, 11.0, 10.0]  # the 21st breaks the record below
+            cur = {"time": t0 + 2 * 86400 + 4 * 3600, **{k: 1.0 for k in locations.CURRENT}}
+            out.append({"latitude": float(la), "longitude": float(lo), "elevation": 120.0, "timezone": "UTC",
+                        "timezone_abbreviation": "UTC", "utc_offset_seconds": 0, "hourly": hourly, "daily": daily,
+                        "current": cur})
+        return _Resp(json.dumps(out if len(out) > 1 else out[0]).encode())
+    if "metar" in u.path:
+        raise AssertionError("the pop-up reads METARs from history/metar, never from AWC directly")
+    if "taf" in u.path:
+        ids = q["ids"].split(",")
+        rows = []
+        for n, i in enumerate(ids):
+            # every station's last TAF of 9 Nov, long expired (AWC still answers with it) ...
+            rows.append({"icaoId": i, "issueTime": "2026-11-09T23:00:00.000Z", "validTimeFrom": t0 - 10 * 86400,
+                         "validTimeTo": t0 - 9 * 86400, "rawTAF": f"TAF {i} 092300Z 1000/1024 13009KT 9999"})
+            if n == 0:   # ... and, for the first station only, a current one: 22 Nov 00Z to 23 Nov 06Z
+                rows.append({"icaoId": i, "issueTime": "2026-11-21T23:00:00.000Z", "validTimeFrom": t0 + 2 * 86400,
+                             "validTimeTo": t0 + 3 * 86400 + 6 * 3600, "rawTAF": f"TAF {i} 212300Z 2200/2306 25012KT 9999"})
+        return _Resp(json.dumps(rows).encode())
+    raise AssertionError(req.full_url)
+
+
+def _awc_metar(icao, t, **kw):
+    """An AWC JSON METAR as the API gives it."""
+    r = {"icaoId": icao, "obsTime": int(t.timestamp()), "metarType": "METAR", "temp": 8, "dewp": 4, "wdir": 250,
+         "wspd": 12, "wgst": 22, "visib": "6+", "altim": 1012, "fltCat": "MVFR", "wxString": "-RA",
+         "rawOb": f"METAR {icao} {t:%d%H%M}Z 25012G22KT 9999 -RA FEW012 BKN025 08/04 Q1012",
+         "clouds": [{"cover": "FEW", "base": 1200}, {"cover": "BKN", "base": 2500}]}
+    r.update(kw)
+    return r
+
+
+def _fake_climate(lat=50.0):
+    from datetime import date, timedelta
+    import math
+    daily = {"time": [], "temperature_2m_max": [], "temperature_2m_min": [], "precipitation_sum": []}
+    d = date(1991, 1, 1)
+    while d <= date(2020, 12, 31):
+        doy = d.timetuple().tm_yday
+        base = 10 - 12 * math.cos(2 * math.pi * (doy - 15) / 365)
+        daily["time"].append(d.isoformat())
+        daily["temperature_2m_max"].append(base + 5 + (d.year % 5))
+        daily["temperature_2m_min"].append(base - 5 - (d.year % 3))
+        daily["precipitation_sum"].append(2.0 if d.day % 3 == 0 else 0.0)
+        d += timedelta(1)
+    return climate.summarise(daily, 1991, 2020, lat)
+
+
+class LocationTests(unittest.TestCase):
+    """The location pop-up's data (22 Nov 2026): sun and moon, climate summary, the per-point file and its history."""
+
+    def test_sunrise_and_sunset_match_the_almanac_within_three_minutes(self):
+        # USNO for Kyiv (50.45 N, 30.52 E), 22 Nov 2026: sunrise 05:21 UTC, sunset 14:03 UTC
+        s = astro.sun_day(50.45, 30.52, datetime(2026, 11, 22, tzinfo=timezone.utc))
+        rise = datetime.fromisoformat(s["sunrise"].replace("Z", "+00:00"))
+        sset = datetime.fromisoformat(s["sunset"].replace("Z", "+00:00"))
+        self.assertLess(abs((rise - datetime(2026, 11, 22, 5, 21, tzinfo=timezone.utc)).total_seconds()), 180)
+        self.assertLess(abs((sset - datetime(2026, 11, 22, 14, 3, tzinfo=timezone.utc)).total_seconds()), 180)
+        self.assertIsNone(s["polar"])
+
+    def test_polar_night_has_no_sunrise(self):
+        s = astro.sun_day(78.2, 15.6, datetime(2026, 12, 21, tzinfo=timezone.utc))  # Svalbard
+        self.assertEqual((s["polar"], s["sunrise"], s["sunset"]), ("polar_night", None, None))
+
+    def test_moon_phase_names_the_full_moon(self):
+        p = astro.moon_phase(datetime(2026, 11, 24, 15, tzinfo=timezone.utc))
+        self.assertEqual(p["name"], "Full moon")
+
+    def test_koppen_classes(self):
+        # Kyiv-like: cold winter, warm summer, no dry season -> Dfb; a hot desert -> BWh
+        self.assertEqual(climate.koppen([-4, -3, 2, 9, 15, 18, 20, 19, 14, 8, 2, -2],
+                                        [40, 40, 40, 45, 55, 70, 75, 60, 50, 40, 45, 45], 50.4), "Dfb")
+        self.assertEqual(climate.koppen([20, 22, 25, 29, 33, 35, 35, 35, 33, 29, 25, 21],
+                                        [5, 3, 2, 1, 0, 0, 0, 0, 0, 1, 2, 4], 25.0), "BWh")
+
+    def test_climate_summary_has_normals_and_dated_records_for_every_day(self):
+        c = _fake_climate()
+        self.assertEqual(len(c["daily"]["normal_tmax_c"]), 366)
+        i = climate.MD_INDEX["07-15"]
+        self.assertGreater(c["daily"]["normal_tmax_c"][i], c["daily"]["normal_tmin_c"][i])
+        self.assertGreaterEqual(c["daily"]["record_tmax_c"][i], c["daily"]["normal_tmax_c"][i])
+        self.assertIn(c["daily"]["record_tmax_year"][i], range(1991, 2021))
+        self.assertEqual(len(c["monthly"]["tmax_c"]), 12)
+
+    def _doc(self):
+        zones = forecast.load_zones()[:2]
+        m = [_synthetic_model(hours=72, gust=70.0), _synthetic_model(hours=72)]
+        ok = {"cell": "land", "lat": 50.25, "lon": 31.0, "cell_elevation_m": 120.0, "station_elevation_m": 127.0,
+              "diff_m": -7.0, "ok": True}
+        return forecast.build_forecast_doc(zones, {"ncep_gefs025": m, "ecmwf_ifs025": m}, days=3,
+                                           generated_at="2026-10-31T18:00:00Z", grids=[ok, ok])
+
+    def _store(self, d, icaos):
+        """A METAR store with two reports per station before `now` (22 Nov 04:30Z) and one after it."""
+        reps = []
+        for i in icaos:
+            for t in (datetime(2026, 11, 22, 2, 30, tzinfo=timezone.utc), datetime(2026, 11, 22, 3, 0, tzinfo=timezone.utc),
+                      datetime(2026, 11, 22, 5, 0, tzinfo=timezone.utc)):
+                reps.append(metar.norm(_awc_metar(i, t)))
+        metar.append(d, reps)
+        return d
+
+    def test_location_file_joins_forecast_metar_store_and_climate_and_never_raises(self):
+        import tempfile
+        doc = self._doc()
+        clim = {"points": {doc["zones"][0]["id"]: _fake_climate()}, "updated_at": "2026-11-22T00:00:00Z"}
+        now = datetime(2026, 11, 22, 4, 30, tzinfo=timezone.utc)
+        icaos = [z["icao"] for z in doc["zones"]]
+        with tempfile.TemporaryDirectory() as d:
+            store = self._store(d, icaos)
+            loc = locations.build(doc, clim, now=now, opener=_fake_open_meteo_and_awc, wait=lambda s: None,
+                                  metar_dir=store)
+            empty = tempfile.mkdtemp(dir=d)
+
+            def broken(req, timeout=0):
+                raise ConnectionError("down")
+            bad = locations.build(doc, None, now=now, opener=broken, wait=lambda s: None, metar_dir=empty)
+        self.assertEqual(loc["schema"], "vis-locations/1")
+        p0, p1 = loc["points"]
+        self.assertEqual(p0["schema"], "vis-location/1")
+        m = p0["now"]["metar"]
+        # the newest stored report at or before the build, not the 05:00 one, and no age frozen into the file
+        self.assertEqual((m["obs_time"], m["flight_category"], m["ceiling_ft"], m["dewpoint_c"], m["weather"]),
+                         ("2026-11-22T03:00:00Z", "MVFR", 2500, 4, "-RA"))
+        self.assertNotIn("age_min", m)
+        self.assertEqual(p0["today"]["date"], "2026-11-22")
+        self.assertIsNotNone(p0["today"]["normal_tmax_c"])
+        self.assertIn("2026-11-21", p0["trends"]["past_7_days"]["above_record_high"])
+        self.assertEqual(len(p0["hourly"]["time"]), 96)
+        self.assertIsNone(p0["site"]["biome"])
+        self.assertEqual(p0["errors"], [])
+        self.assertTrue(any(e.startswith("climate:") for e in p1["errors"]))  # not built yet for point 2
+        era5 = [x for x in loc["sources"] if x["id"] == "open-meteo-era5"][0]
+        self.assertIn("Copernicus Climate Change Service information 2026", era5["attribution"])
+        self.assertIn("Neither the European Commission nor ECMWF", era5["disclaimer"])
+        self.assertTrue(all(p["now"]["metar"] is None and p["errors"] for p in bad["points"]))
+
+        files = build_site.location_files(loc)
+        self.assertIn(f"data/locations/{p0['id']}.json", files)
+        index = json.loads(files["data/locations.json"])
+        self.assertEqual((index["schema"], len(index["points"])), ("vis-locations-index/1", 2))
+        self.assertEqual(index["points"][0]["flight_category"], "MVFR")
+
+        con = None
+        with tempfile.TemporaryDirectory() as d:
+            try:
+                con = history.connect(Path(d) / "h.sqlite")
+                raw = json.dumps(loc).encode()
+                self.assertEqual(history.load_asset(con, "20261122T0000Z.locations.gen-x.json", raw), "8 daily rows")
+                self.assertEqual(history.load_asset(con, "20261122T0000Z.locations.gen-x.json", raw), "already loaded")
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM taf").fetchone()[0], 1)
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM metar").fetchone()[0], 0)  # not from this file
+                history.load_asset(con, "20261122T0000Z.forecast.gen-x.json", json.dumps(doc).encode())
+                self.assertGreater(con.execute("SELECT COUNT(*) FROM ensemble").fetchone()[0], 0)
+            finally:
+                if con is not None:
+                    con.close()   # an open handle stops Windows removing the folder
+
+    def test_an_expired_taf_is_never_shown_and_a_current_one_carries_its_times(self):
+        doc = self._doc()
+        now = datetime(2026, 11, 22, 4, 30, tzinfo=timezone.utc)
+        icaos = [z["icao"] for z in doc["zones"]]
+        tafs = metar.fetch_tafs(icaos, now, opener=_fake_open_meteo_and_awc, wait=lambda s: None)
+        self.assertEqual(list(tafs), [icaos[0]])   # the second station's only TAF ended on 11 Nov
+        t = tafs[icaos[0]]
+        self.assertEqual((t["issued"], t["valid_from"], t["valid_to"]),
+                         ("2026-11-21T23:00:00Z", "2026-11-22T00:00:00Z", "2026-11-23T06:00:00Z"))
+        self.assertEqual(locations.taf_view(t, now)["issued"], "2026-11-21T23:00:00Z")
+        # the same TAF read after its validity ended (the build checks against its own clock too)
+        self.assertIsNone(locations.taf_view(t, datetime(2026, 11, 23, 6, 0, tzinfo=timezone.utc)))
+        self.assertIsNone(locations.taf_view(None, now))
+
+    def test_newest_metar_comes_from_the_store_within_the_lookback(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            self._store(d, ["AAAA"])
+            now = datetime(2026, 11, 22, 4, 30, tzinfo=timezone.utc)
+            self.assertEqual(metar.newest(d, ["AAAA"], now)["AAAA"]["obs_time"], "2026-11-22T03:00:00Z")
+            self.assertEqual(metar.newest(d, ["BBBB"], now), {})
+            later = datetime(2026, 11, 25, 4, 30, tzinfo=timezone.utc)   # 3 days on: nothing within 48 hours
+            self.assertEqual(metar.newest(d, ["AAAA"], later), {})
+            row = metar.load_day(metar.day_path(d, "2026-11-22T"))[0]
+            self.assertEqual((row["dewp_c"], row["wdir"], row["altim_hpa"], row["flt_cat"], row["clouds"][1]["base_ft"]),
+                             (4, 250, 1012, "MVFR", 2500))
+
+    def test_history_loads_metars_from_the_store_and_counts_local_lead_days(self):
+        import tempfile
+        con = None
+        with tempfile.TemporaryDirectory() as d:
+            try:
+                self._store(d, ["AAAA", "BBBB"])
+                con = history.connect(Path(d) / "h.sqlite")
+                self.assertEqual(history.load_metars(con, d), 6)
+                self.assertEqual(history.load_metars(con, d), 0)   # loading again changes nothing
+                self.assertEqual(con.execute("SELECT ceiling_ft, flight_category FROM metar LIMIT 1").fetchone(),
+                                 (2500.0, "MVFR"))
+            finally:
+                if con is not None:
+                    con.close()
+        # A 22:08Z build: in Kyiv (UTC+2) it is already the 27th, so the 27th is lead 0 and the 26th is past.
+        g = "2026-11-26T22:08:00Z"
+        self.assertEqual((history._lead("2026-11-27", g, 7200), history._lead("2026-11-26", g, 7200)), (0, -1))
+        self.assertEqual(history._lead("2026-11-26", g, -4 * 3600), 0)   # Caracas: still the 26th
+        self.assertEqual(history._lead("2026-11-27", g), 1)              # UTC days, for the ensemble
+        self.assertIsNone(history._lead("2026-11-27", g, None))
+
+    def test_feed_points_carry_sun_moon_and_the_detail_links(self):
+        fc = feed_v2.build_feed(self._doc())
+        ms = fc["features"][1]["properties"]["measures"]
+        for k in ("sunrise", "sunset", "day_length_min", "moon_phase", "detail_url", "detail_page"):
+            self.assertIn(k, ms)
+        self.assertTrue(ms["detail_url"].endswith(".json"))
+        self.assertIn("#loc-", ms["detail_page"])
+
+    def test_archive_packs_the_location_file_under_the_forecast_stamps(self):
+        import gzip
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d) / "forecast.json"
+            src.write_text(json.dumps(ArchiveTests.DOC), encoding="utf-8")
+            extra = Path(d) / "locations.json"
+            extra.write_text('{"schema": "vis-locations/1"}', encoding="utf-8")
+            name, p = archive.prepare_extra(src, extra, Path(d) / "a")
+            self.assertEqual(name, "20261118T1200Z.locations.gen-20261118T202512Z.json.gz")
+            self.assertEqual(gzip.decompress(p.read_bytes()), extra.read_bytes())
+            self.assertIsNone(archive.prepare_extra(src, Path(d) / "missing.json", Path(d) / "a"))
+
+
+
+class _HTTPErr:
+    @staticmethod
+    def make(url, code):
+        import urllib.error
+        return urllib.error.HTTPError(url, code, "x", {}, None)
+
+
+class ClimateCacheTests(unittest.TestCase):
+    """A failed or cut-short download never starts the climate cache afresh, and an upload never drops points."""
+
+    @staticmethod
+    def cache(n):
+        return {"schema": climate.SCHEMA, "points": {f"p{i}": {"method": climate.METHOD} for i in range(n)},
+                "updated_at": "2026-11-26T14:10:00Z"}
+
+    def opener(self, body, size=None, release=200, download=None):
+        import urllib.error
+
+        def op(req, timeout=0):
+            if "api.github.com" in req.full_url:
+                if release != 200:
+                    raise _HTTPErr.make(req.full_url, release)
+                return _Resp(json.dumps({"assets": [{"name": "climate.json", "size": len(body) if size is None else size,
+                                                     "browser_download_url": "https://example.test/climate.json"}]}).encode())
+            if download:
+                raise download
+            return _Resp(body)
+        return op
+
+    def test_download_failures_raise_and_only_a_missing_release_means_none(self):
+        import urllib.error
+        good = json.dumps(self.cache(31)).encode()
+        self.assertEqual(release_cache.get("o/r", "vis-climate", "climate.json", climate.SCHEMA,
+                                           opener=self.opener(good))[0], "ok")
+        self.assertEqual(release_cache.get("o/r", "vis-climate", "climate.json", opener=self.opener(good, release=404)),
+                         ("none", None))
+        cases = {
+            "cut short": self.opener(good[: len(good) // 2], size=len(good)),
+            "cut short and listed so": self.opener(good[: len(good) // 2]),     # sizes agree, the JSON does not parse
+            "download dropped": self.opener(good, download=urllib.error.URLError("TLS handshake timeout")),
+            "release listing failed": self.opener(good, release=502),
+            "another schema": self.opener(json.dumps({"schema": "x"}).encode()),
+        }
+        for why, op in cases.items():
+            with self.subTest(why), self.assertRaises(release_cache.CacheError):
+                release_cache.get("o/r", "vis-climate", "climate.json", climate.SCHEMA, opener=op)
+
+    def test_climate_py_stops_on_a_missing_or_broken_cache_unless_told_to_start_fresh(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            missing = str(Path(d) / "none.json")
+            with self.assertRaises(release_cache.CacheError):
+                climate.load_cache(missing)
+            self.assertEqual(climate.load_cache(missing, fresh=True)["points"], {})
+            cut = Path(d) / "climate.json"
+            whole = json.dumps(self.cache(31))
+            cut.write_text(whole[: len(whole) // 2], encoding="utf-8")
+            with self.assertRaises(release_cache.CacheError):
+                climate.load_cache(str(cut), fresh=True)       # a broken file is never taken for an empty one
+            before = cut.read_bytes()
+            self.assertEqual(climate.main(["--cache", str(cut), "--max-points", "0"]), 1)
+            self.assertEqual(cut.read_bytes(), before)           # nothing written over it
+
+    def test_an_upload_never_has_fewer_points_than_the_live_cache(self):
+        live = self.cache(31)
+        with self.assertRaises(release_cache.CacheError):
+            release_cache.check(self.cache(4), live)
+        lost = self.cache(32)
+        del lost["points"]["p3"]                                  # as many points, but one of the live ones gone
+        with self.assertRaises(release_cache.CacheError):
+            release_cache.check(lost, live)
+        self.assertEqual(release_cache.check(self.cache(31), live)[0], False)   # unchanged: no upload
+        self.assertEqual(release_cache.check(self.cache(33), live)[0], True)
+        self.assertEqual(release_cache.check(self.cache(4), None)[0], True)     # the first upload
+        self.assertEqual(release_cache.stamp(live), "20261126T1410Z")
+
+
+class PopupPageTests(unittest.TestCase):
+    """The pop-up's view-time checks (site/locdetail.js), run in Node when it is installed, and its labels."""
+    JS = ROOT / "site" / "locdetail.js"
+
+    def test_labels_say_indicative_and_not_for_flight_planning(self):
+        js = self.JS.read_text(encoding="utf-8")
+        self.assertIn("not for flight planning", js)
+        self.assertIn("(indicative)", js)
+        self.assertIn("Latest METAR", js)
+        self.assertNotIn("Observed now", js)
+        self.assertNotIn("age_min", js)
+
+    def test_metar_age_and_taf_validity_are_worked_out_when_the_page_is_read(self):
+        import shutil
+        import subprocess
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not installed")
+        r = subprocess.run([node, str(ROOT / "tests" / "locdetail_check.mjs")], capture_output=True, text=True,
+                           timeout=60)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
 if __name__ == "__main__":

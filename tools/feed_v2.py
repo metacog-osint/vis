@@ -205,6 +205,7 @@ def build_feed(forecast_doc: dict) -> dict:
         valid_until = f"{peak_day}T23:59:59Z"
         resolve_dt = (datetime.strptime(peak_day, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%dT12:00:00Z")
         tonight = days_72h[0].get("night") or {}
+        sun0 = days_72h[0].get("sun") or {}
         dark_h = (tonight.get("dark_low_light_min") or 0) / 60.0
 
         # Amber or Red goes to COP as a warning only when two models supply the hazard and the point's grid cell was
@@ -311,6 +312,16 @@ def build_feed(forecast_doc: dict) -> dict:
                 "p90": best_hval["p90"],
                 "moon_lit": tonight.get("moon_lit"),
                 "dark_low_light_min": tonight.get("dark_low_light_min"),
+                # Sun and moon for the point's local solar day 0 (Vis's own computation, like the moon fields), the
+                # station elevation from the grid check, and where the full location detail lives (22 Nov 2026):
+                # data/locations/<id>.json, schema vis-location/1 (docs/location-data.md).
+                "moon_phase": tonight.get("moon_phase"),
+                "sunrise": sun0.get("sunrise"),
+                "sunset": sun0.get("sunset"),
+                "day_length_min": sun0.get("day_length_min"),
+                "station_elevation_m": (z.get("grid") or {}).get("station_elevation_m"),
+                "detail_url": f"{SITE}/data/locations/{z['id']}.json",
+                "detail_page": f"{SITE}/#loc-{z['id']}",
             },
             "visual": {"type": "table", "url": f"{SITE}/#zone-{z['id']}"},
             "link": f"{SITE}/#zone-{z['id']}",

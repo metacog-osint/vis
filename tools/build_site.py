@@ -1,6 +1,9 @@
-"""Build Vis's static site (site/index.html, site/style.css, site/vis.js, site/data/forecast.json, site/data/feed.geojson).
+"""Build Vis's static site (site/index.html, site/style.css, site/vis.js, site/data/forecast.json, site/data/feed.geojson,
+and, when out/locations.json exists, site/data/locations.json and site/data/locations/<point id>.json).
 
-    python tools/build_site.py [--in out/forecast.json] [--out site]
+    python tools/build_site.py [--in out/forecast.json] [--out site] [--locations out/locations.json]
+
+site/locdetail.js and site/locdetail.css (the point pop-up) are plain files, not generated: edit them in place.
 """
 from __future__ import annotations
 
@@ -12,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import feed_v2  # noqa: E402
+import locations  # noqa: E402
 
 INDEX_HTML = """<!doctype html>
 <html lang="en">
@@ -29,6 +33,7 @@ INDEX_HTML = """<!doctype html>
   <link rel="stylesheet" href="tic-fold.css">
   <link rel="stylesheet" href="style.css">
   <link rel="alternate" type="application/geo+json" title="Vis feed (GeoJSON)" href="data/feed.geojson">
+  <link rel="stylesheet" href="locdetail.css">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -77,7 +82,8 @@ INDEX_HTML = """<!doctype html>
         <span class="pill col-red"><b>Red</b> · Take action</span>
       </div>
       <div class="chips-note">
-        <span class="chip chip-conf" title="Set by rule from the forecast centres that supply the hazard: moderate when both NOAA and ECMWF do, low when only one does (visibility comes from NOAA alone, low cloud from ECMWF alone, and a centre whose run is over 24 hours old is left out). It goes no higher until Vis's forecasts have been scored against observations.">Confidence: moderate with two centres, low with one (by rule; not yet scored)</span>
+        <span class="chips-hint">Select a forecast point’s name for its forecast, charts and climate.</span>
+        <span class="chip chip-conf" title="Set by rule from the forecast centres that supply the hazard: moderate when both NOAA and ECMWF do, low when only one does (visibility comes from NOAA alone, low cloud from ECMWF alone, and a centre whose run is over 24 hours old is left out). It goes no higher until the forecasts' calibration is measured: the scores against METARs in “Measured skill” have started, and most of their rows are still too few to read.">Confidence: moderate with two centres, low with one (set by rule, not from the scores)</span>
       </div>
     </section>
 
@@ -104,7 +110,8 @@ INDEX_HTML = """<!doctype html>
           <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let each forecast be checked against the station’s METAR reports (see “Measured skill” below).</li>
           <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, each model weighted equally (its own share is shown beside it), given with its ICD 203 term. Most hazards use both models; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
           <li><b>What sets a cell’s colour:</b> each hazard has an amber and a more severe red threshold, and the colour comes from the chance of reaching either one. Yellow: at least 20% for the amber threshold, or at least 5% for the red one. Amber: at least 45% for amber, or 20% for red. Red: at least 45% for red. A severe outcome therefore colours a cell at a low chance, and the line names the threshold behind the colour. Example: “Low cloud cover ≥ 95 %: Very unlikely · 6% (severe threshold)” is Yellow, because 6% is above the 5% needed for the severe threshold. The day’s colour is its worst hazard. Low cloud cover never goes above Yellow.</li>
-          <li><b>Tonight’s light:</b> civil dusk and dawn, the moon’s lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit. Dusk and dawn show the point’s local time, then yours.</li>
+          <li><b>Tonight’s light:</b> sunset, civil dusk and dawn and the next sunrise, the moon’s phase and lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit. Each time shows the point’s local time, then yours.</li>
+          <li><b>A point’s detail:</b> select its name to open its latest METAR and TAF, a deterministic forecast for the next 7 days beside the past 7, today against its 1991–2020 normal and the 1991–2025 records for the date, sun and moon for the week, its elevation and Köppen climate class. The detail forecast is a single best-estimate model run and can differ from the ensemble colours, which stay the product.</li>
         </ul>
       </div>
     </section>
@@ -133,8 +140,11 @@ INDEX_HTML = """<!doctype html>
           <li><b>Ensemble forecasts:</b> <a href="https://open-meteo.com/en/docs/ensemble-api" rel="noopener">Open-Meteo Ensemble API</a>, CC BY 4.0, free for non-commercial use.</li>
           <li><b>NOAA NCEP GEFS</b> 0.25°, 31 members: US public domain.</li>
           <li><b>ECMWF IFS ensemble</b> 0.25°, 51 members: ECMWF open data, CC BY 4.0.</li>
-          <li><b>Observations for scoring:</b> METARs from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US public domain.</li>
+          <li><b>Observations:</b> METARs from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US public domain, kept in Vis’s own store: they score the forecasts, and each point’s detail shows the newest one with its age. TAFs from the same service for each point’s detail, while they are valid.</li>
           <li><b>Sun and moon:</b> computed by Vis from Jean Meeus, <i>Astronomical Algorithms</i>.</li>
+          <li><b>Point detail forecast:</b> <a href="https://open-meteo.com/en/docs" rel="noopener">Open-Meteo Forecast API</a> (best-match national and global models), CC BY 4.0, free for non-commercial use.</li>
+          <li><b>Climatology:</b> ERA5 reanalysis through <a href="https://open-meteo.com/en/docs/historical-weather-api" rel="noopener">Open-Meteo’s Historical Weather API</a>, CC BY 4.0; contains modified Copernicus Climate Change Service information <!--VIS-C3S-YEAR-->; neither the European Commission nor ECMWF is responsible for any use that may be made of the Copernicus information or data it contains. Normals 1991–2020; records 1991–2025, for the 25 km grid cell, not the station.</li>
+          <li><b>Elevation:</b> Copernicus DEM GLO-90 through Open-Meteo’s Elevation API.</li>
           <li><b>Zones:</b> Watchfloor’s conflict zones. <b>Reference points:</b> chosen by Vis (<a href="https://github.com/metacog-osint/vis/blob/main/config/points.json" rel="noopener">list</a>).</li>
           <li><b>Fonts:</b> IBM Plex, SIL Open Font License.</li>
         </ul>
@@ -144,11 +154,26 @@ INDEX_HTML = """<!doctype html>
     </div>
   </main>
 
+  <dialog id="loc-dialog" class="loc-dialog" aria-labelledby="loc-title">
+    <div class="loc-inner">
+      <header class="loc-head">
+        <div>
+          <p class="eyebrow" id="loc-zone"></p>
+          <h2 id="loc-title">Location</h2>
+          <p class="station-meta" id="loc-sub"></p>
+        </div>
+        <button type="button" class="loc-close" id="loc-close" aria-label="Close">×</button>
+      </header>
+      <div id="loc-body"></div>
+    </div>
+  </dialog>
+
   <footer class="wrap site-foot">
     <p>A project of <a href="https://theintelligence.company">The Intelligence Company</a>. Forecast generated <span id="vis-asof">…</span>. <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a> (GNU AGPL-3.0). Weather data: <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> (CC BY 4.0), from NOAA GEFS and ECMWF IFS. <a href="#about">About and limits</a> · <a href="#sources">Sources</a>.</p>
     <nav class="tic-data" aria-label="Data and downloads"><span class="tic-data-k">Data and downloads</span>
       <a href="data/feed.geojson">Feed (GeoJSON)</a>
       <a href="data/forecast.json">Forecast data (JSON)</a>
+      <a href="data/locations.json">Locations (JSON)</a>
       <a href="data/verification.json">Scores (JSON)</a>
       <a href="https://github.com/metacog-osint/vis/tree/main/history" rel="noopener">Observations and scored forecasts</a>
       <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a></nav>
@@ -405,6 +430,7 @@ table.skill tr.skill-all td { border-top: 2px solid var(--rule); font-weight: 50
 """
 
 VIS_JS = """import { likelihoodLabel } from "./vendor/tic-doctrine.js";
+import { setup as setupDetail } from "./locdetail.js";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -477,13 +503,17 @@ function dayCell(d, hz) {
 function nightCell(n, tz) {
   const lowH = Math.floor((n.dark_low_light_min || 0) / 60);
   const lowM = (n.dark_low_light_min || 0) % 60;
-  return `<td class="night-cell"><div><b>Moon ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
+  return `<td class="night-cell"><div><b>${esc(n.moon_phase || "Moon")}, ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
+    <div>Sunset ${timePair(n.sunset_dusk, tz)}</div>
     <div>Civil dusk ${timePair(n.civil_dusk, tz)}</div>
-    <div>Civil dawn ${timePair(n.civil_dawn, tz)}</div></td>`;
+    <div>Civil dawn ${timePair(n.civil_dawn, tz)}</div>
+    <div>Sunrise ${timePair(n.sunset_dawn, tz)}</div></td>`;
 }
 
 function rowHead(z) {
-  const meta = `${esc(z.station)} · ${esc(z.icao)} (${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})`;
+  // The station opens the point's detail pop-up (locdetail.js); the button carries the point id.
+  const btn = `<button type="button" class="loc-open" data-loc="${esc(z.id)}" title="Forecast, charts and climate for ${esc(z.station)}">${esc(z.station)} · ${esc(z.icao)}</button>`;
+  const meta = `${btn} <span class="mono">(${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})</span>`;
   if (z.role === "alternate") {
     return `<th scope="row" class="alt-head"><span class="sr">${esc(z.name)}, </span>Alternate point<span class="station-meta">${meta}</span></th>`;
   }
@@ -550,6 +580,7 @@ async function init() {
       return `<li><b>${esc(h.name)}</b>: Amber <span class="mono">${esc(lim("amber"))}</span>, Red <span class="mono">${esc(lim("red"))}</span>${n ? ` (${n} members)` : ""}. ${esc(h.why)}.</li>`;
     })
     .join("");
+  return doc;
 }
 
 // A link to a zone's row (#zone-..., from COP) lands before the rows are drawn; land it once they are
@@ -560,7 +591,7 @@ function land() {
   if (el) el.scrollIntoView({ block: "start" });
 }
 
-init().then(land, () => {});
+init().then((doc) => { land(); setupDetail({ hazardList: doc.hazards || [], points: doc.zones || [] }); }, () => {});
 if (T) { T.mountSettings(document.getElementById("time-settings")); T.onChange(() => init()); }
 """
 
@@ -664,16 +695,48 @@ def verification_html(doc: dict | None) -> str:
     return "".join(out)
 
 
-def build(forecast_doc: dict, out_dir: Path | None = None, verification: dict | None = None) -> dict[str, str]:
+def c3s_year(locations_doc: dict | None, forecast_doc: dict) -> str:
+    """The year in the Copernicus notice (licence clause 5.1.2): when the climate cache was last built from ERA5,
+    else the forecast's year."""
+    y = str((locations_doc or {}).get("climate_updated_at") or "")[:4]
+    return y if y.isdigit() else str(forecast_doc.get("generated_at") or "")[:4]
+
+
+def location_files(locations_doc: dict | None) -> dict[str, str]:
+    """data/locations.json (one compact row per point, schema vis-locations-index/1) and data/locations/<id>.json
+    (the full detail, schema vis-location/1) from tools/locations.py's out/locations.json. Without it the page's
+    pop-up says the detail is not built yet; the rest of the site is unchanged."""
+    if not locations_doc:
+        return {}
+    points = locations_doc.get("points") or []
+    index = {
+        "schema": "vis-locations-index/1", "program": "vis", "generated_at": locations_doc.get("generated_at"),
+        "forecast_generated_at": locations_doc.get("forecast_generated_at"),
+        "climate_updated_at": locations_doc.get("climate_updated_at"),
+        "docs": "https://github.com/metacog-osint/vis/blob/main/docs/location-data.md",
+        "sources": locations_doc.get("sources") or [],
+        "points": [locations.index_row(p) for p in points],
+    }
+    files = {"data/locations.json": json.dumps(index, ensure_ascii=False, indent=1) + "\n"}
+    for p in points:
+        files[f"data/locations/{p['id']}.json"] = json.dumps(
+            {**p, "sources": locations_doc.get("sources") or []}, ensure_ascii=False, separators=(",", ":")) + "\n"
+    return files
+
+
+def build(forecast_doc: dict, out_dir: Path | None = None, verification: dict | None = None,
+          locations_doc: dict | None = None) -> dict[str, str]:
     fc = feed_v2.build_feed(forecast_doc)
     files = {
-        "index.html": INDEX_HTML.replace("<!--VIS-VERIFY-->", verification_html(verification)),
+        "index.html": INDEX_HTML.replace("<!--VIS-VERIFY-->", verification_html(verification)).replace(
+            "<!--VIS-C3S-YEAR-->", c3s_year(locations_doc, forecast_doc)),
         "style.css": STYLE_CSS,
         "vis.js": VIS_JS,
         "_headers": HEADERS,
         "404.html": NOT_FOUND_HTML,
         "data/forecast.json": json.dumps(forecast_doc, ensure_ascii=False, indent=1) + "\n",
         "data/feed.geojson": json.dumps(fc, ensure_ascii=False, indent=1) + "\n",
+        **location_files(locations_doc),
     }
     if verification is not None:
         files["data/verification.json"] = json.dumps(verification, ensure_ascii=False, indent=1) + "\n"
@@ -690,12 +753,16 @@ def main(argv=None) -> int:
     ap.add_argument("--in", dest="inp", default=str(ROOT / "out" / "forecast.json"))
     ap.add_argument("--out", default=str(ROOT / "site"))
     ap.add_argument("--verification", default=str(ROOT / "out" / "verification.json"))
+    ap.add_argument("--locations", default=str(ROOT / "out" / "locations.json"),
+                    help="tools/locations.py output; skipped when the file is missing")
     a = ap.parse_args(argv)
     doc = json.loads(Path(a.inp).read_text(encoding="utf-8"))
     vp = Path(a.verification)
     ver = json.loads(vp.read_text(encoding="utf-8")) if vp.exists() else None
+    loc_path = Path(a.locations)
+    loc = json.loads(loc_path.read_text(encoding="utf-8")) if loc_path.exists() else None
     out_dir = Path(a.out)
-    files = build(doc, out_dir, ver)
+    files = build(doc, out_dir, ver, loc)
     print(f"built {len(files)} files in {out_dir}")
     return 0
 

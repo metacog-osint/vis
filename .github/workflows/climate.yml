@@ -1,0 +1,60 @@
+name: climate
+# Climate normals and records for the location pop-up (22 Nov 2026). ERA5 daily history per forecast point comes from
+# Open-Meteo's Historical API (CC BY 4.0, non-commercial free tier). Each point costs many weighted calls, so this runs
+# once a day and fills a few points per run (climate.py --max-points), resuming from the cache it left last time.
+# The cache lives as one asset, climate.json, on release vis-climate; build.yml downloads it before each build.
+# Once every point is filled, a run only refreshes points whose cache is older than its method or record years.
+# The asset is the cache's only live copy, so: a failed or cut-short download fails the run (it never starts fresh
+# unless the release holds no cache at all), an upload that would drop points is refused, an unchanged cache is not
+# uploaded, and every upload also leaves a dated copy (climate.<UTC stamp>.json) that is never overwritten.
+on:
+  schedule:
+    - cron: "10 14 * * *"
+  workflow_dispatch:
+    inputs:
+      max_points:
+        description: "Points to fill this run"
+        default: "4"
+permissions:
+  contents: read
+concurrency:
+  group: climate
+  cancel-in-progress: false
+jobs:
+  climate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write  # uploads release assets on vis-climate
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - name: Cache from release vis-climate
+        id: live
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python tools/release_cache.py get --tag vis-climate --asset climate.json --schema vis-climate/1 \
+            --out out/climate.prev.json | tee -a "$GITHUB_OUTPUT"
+          if [ -f out/climate.prev.json ]; then cp out/climate.prev.json out/climate.json; fi
+      - name: Fill points (ERA5 via Open-Meteo)
+        run: |
+          fresh=""; [ "${{ steps.live.outputs.state }}" = none ] && fresh="--fresh"
+          python tools/climate.py --cache out/climate.json --max-points "${{ github.event.inputs.max_points || '4' }}" $fresh
+      - name: Upload the cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          live=""; [ -f out/climate.prev.json ] && live="--live out/climate.prev.json"
+          python tools/release_cache.py check --new out/climate.json $live > "$RUNNER_TEMP/check.env"
+          cat "$RUNNER_TEMP/check.env"
+          . "$RUNNER_TEMP/check.env"
+          [ "$upload" = yes ] || { echo "Nothing new to upload"; exit 0; }
+          gh release view vis-climate >/dev/null 2>&1 || gh release create vis-climate --title "vis-climate" \
+            --notes "Climate cache for Vis's location pop-up: 1991-2020 daily normals and records per forecast point, from ERA5 via Open-Meteo's Historical API (CC BY 4.0; contains modified Copernicus Climate Change Service information). climate.json is the live copy; climate.<UTC stamp>.json are dated copies, one per upload. Rebuilt by .github/workflows/climate.yml."
+          cp out/climate.json "out/climate.$stamp.json"
+          gh release upload vis-climate "out/climate.$stamp.json"
+          gh release upload vis-climate out/climate.json --clobber
