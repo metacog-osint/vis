@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23142235'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23e3a83b' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23e3a83b'/%3E%3C/svg%3E">
   <title>Vis: operational weather and illumination · The Intelligence Company</title>
   <meta name="description" content="7-day multi-model ensemble weather hazard likelihood and night illumination for each conflict zone.">
   <link rel="canonical" href="https://vis.theintelligence.company/">
@@ -12,29 +13,44 @@
   <link rel="stylesheet" href="tic-tabs.css">
   <link rel="stylesheet" href="tic-fold.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="alternate" type="application/geo+json" title="Vis feed (GeoJSON)" href="data/feed.geojson">
   <link rel="stylesheet" href="locdetail.css">
 </head>
 <body>
+  <a class="skip" href="#main">Skip to content</a>
   <header class="site-head">
     <div class="wrap head-inner">
       <div>
         <p class="eyebrow">The Intelligence Company · Physical Environment</p>
         <h1>Vis <span class="sub">Operational weather &amp; illumination</span></h1>
         <p class="lede">How likely the next seven days’ weather is to degrade operations at a reference airfield or port in each conflict zone, from up to 82 ensemble members (NOAA GEFS 31, ECMWF IFS 51), and tonight’s light.</p>
+        <p class="caveat">These are forecasts with indicative thresholds, not an official forecast and not for flight planning. <a href="https://github.com/metacog-osint/vis/blob/main/doctrine/method.md" rel="noopener">How Vis reads them</a>.</p>
+        <details class="terms" id="terms">
+          <summary>Terms on this page</summary>
+          <dl>
+            <dt>Ensemble members</dt><dd>One model run many times from slightly different starting conditions. The share of members that reach a threshold is the percentage shown.</dd>
+            <dt>GEFS, ECMWF IFS</dt><dd>NOAA’s Global Ensemble Forecast System (31 members) and the European Centre for Medium-Range Weather Forecasts’ Integrated Forecasting System ensemble (51 members).</dd>
+            <dt>00Z, 12Z, UTC</dt><dd>Times in Coordinated Universal Time (Z, “Zulu”). Each day column is a UTC day.</dd>
+            <dt>ICD 203 term</dt><dd>The fixed likelihood words of the US intelligence community’s analytic standards (Intelligence Community Directive 203), such as “very unlikely” for 5 to 20%.</dd>
+            <dt>Green, Yellow, Amber, Red</dt><dd>The UK Met Office’s likelihood-by-impact colours: no significant impact, be aware, be prepared, take action.</dd>
+            <dt>ICAO code</dt><dd>The four-letter airport code from the International Civil Aviation Organization, as in UKBB for Kyiv Boryspil.</dd>
+            <dt>METAR</dt><dd>An airfield’s routine weather observation report.</dd>
+            <dt>ISR, UAS, VFR</dt><dd>Intelligence, surveillance and reconnaissance; uncrewed aircraft systems (drones); visual flight rules, flying by sight rather than instruments.</dd>
+            <dt>JP 3-59</dt><dd>US joint doctrine publication 3-59, Meteorological and Oceanographic Operations.</dd>
+            <dt>DRC, M23, NATO</dt><dd>The Democratic Republic of the Congo; the March 23 Movement, an armed group in its east; the North Atlantic Treaty Organization.</dd>
+            <dt>Civil dusk and dawn</dt><dd>When the sun is 6° below the horizon, the end and start of usable daylight.</dd>
+          </dl>
+        </details>
       </div>
       <div class="meta-box">
         <div id="vis-stamp" class="stamp">Loading forecast…</div>
         <div><span id="time-settings"></span></div>
-        <div class="links">
-          <a href="data/feed.geojson">Feed (GeoJSON)</a> ·
-          <a href="data/forecast.json">Forecast data (JSON)</a> ·
-          <a href="data/locations.json">Locations (JSON)</a>
-        </div>
       </div>
     </div>
   </header>
 
-  <main class="wrap">
+  <main id="main" class="wrap">
+    <noscript><p class="noscript">This page needs JavaScript to draw its forecasts.</p></noscript>
     <p id="vis-stale" class="stale" role="status" hidden></p>
     <!-- Sections row (tic-tabs.js from the hub): one group at a time on a phone, a jumping row wider -->
     <div data-tic-tabs>
@@ -72,14 +88,15 @@
       <div class="card">
         <h2>How to read the table</h2>
         <ul class="thresh-list">
-          <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let the forecasts be checked against the station’s METAR reports later; that scoring is not built yet.</li>
+          <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let each forecast be checked against the station’s METAR reports (see “Measured skill” below).</li>
           <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, each model weighted equally (its own share is shown beside it), given with its ICD 203 term. Most hazards use both models; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
-          <li><b>Tonight’s light:</b> sunset and the next sunrise, civil dusk and dawn, the moon’s phase and lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit.</li>
-          <li><b>A point’s detail:</b> select its name to open its latest METAR and TAF, a deterministic forecast for the next 7 days beside the past 7, today against its 1991–2020 normal and the records for the date, sun and moon for the week, its elevation and Köppen climate class. The detail forecast is a single best-estimate model run and can differ from the ensemble stoplight, which stays the product.</li>
+          <li><b>What sets a cell’s colour:</b> each hazard has an amber and a more severe red threshold, and the colour comes from the chance of reaching either one. Yellow: at least 20% for the amber threshold, or at least 5% for the red one. Amber: at least 45% for amber, or 20% for red. Red: at least 45% for red. A severe outcome therefore colours a cell at a low chance, and the line names the threshold behind the colour. Example: “Low cloud cover ≥ 95 %: Very unlikely · 6% (severe threshold)” is Yellow, because 6% is above the 5% needed for the severe threshold. The day’s colour is its worst hazard. Low cloud cover never goes above Yellow.</li>
+          <li><b>Tonight’s light:</b> sunset, civil dusk and dawn and the next sunrise, the moon’s phase and lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit. Each time shows the point’s local time, then yours.</li>
+          <li><b>A point’s detail:</b> select its name to open its latest METAR and TAF, a deterministic forecast for the next 7 days beside the past 7, today against its 1991–2020 normal and the 1991–2025 records for the date, sun and moon for the week, its elevation and Köppen climate class. The detail forecast is a single best-estimate model run and can differ from the ensemble colours, which stay the product.</li>
         </ul>
       </div>
     </section>
-
+<section class="method-grid" aria-label="Measured skill"><div class="card" id="skill"><h2>Measured skill</h2><p class="small">No forecast has been scored yet.</p></div></section>
     </div>
 
     <div id="sec-about" data-tab-label="About and sources">
@@ -94,7 +111,7 @@
           <li>Thresholds are indicative. Joint doctrine (JP 3-59) names the parameters that matter but publishes no numeric limits, and real limits depend on the platform.</li>
           <li>Each point is read from a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
           <li>Visibility comes from GEFS alone, where it is a diagnosed field that often runs too low in fog and rain.</li>
-          <li>Forecasts are not yet scored against observations, so their calibration is unmeasured.</li>
+          <li>Only wind, visibility, heat and cold can be checked against METARs, and only at stations that report; the sample since 19 Nov 2026 is small, and “Measured skill” says where it is too small to read.</li>
         </ul>
         <p class="small"><b>Terms.</b> Provided as is, without warranty. Code under the GNU AGPL-3.0; data under its sources’ licences, below.</p>
       </div>
@@ -104,6 +121,7 @@
           <li><b>Ensemble forecasts:</b> <a href="https://open-meteo.com/en/docs/ensemble-api" rel="noopener">Open-Meteo Ensemble API</a>, CC BY 4.0, free for non-commercial use.</li>
           <li><b>NOAA NCEP GEFS</b> 0.25°, 31 members: US public domain.</li>
           <li><b>ECMWF IFS ensemble</b> 0.25°, 51 members: ECMWF open data, CC BY 4.0.</li>
+          <li><b>Observations for scoring:</b> METARs from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US public domain.</li>
           <li><b>Sun and moon:</b> computed by Vis from Jean Meeus, <i>Astronomical Algorithms</i>.</li>
           <li><b>Point detail forecast:</b> <a href="https://open-meteo.com/en/docs" rel="noopener">Open-Meteo Forecast API</a> (best-match national and global models), CC BY 4.0, free for non-commercial use.</li>
           <li><b>Observations:</b> METAR and TAF from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US Government data (public domain).</li>
@@ -134,6 +152,13 @@
 
   <footer class="wrap site-foot">
     <p>A project of <a href="https://theintelligence.company">The Intelligence Company</a>. Forecast generated <span id="vis-asof">…</span>. <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a> (GNU AGPL-3.0). Weather data: <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> (CC BY 4.0), from NOAA GEFS and ECMWF IFS. <a href="#about">About and limits</a> · <a href="#sources">Sources</a>.</p>
+    <nav class="tic-data" aria-label="Data and downloads"><span class="tic-data-k">Data and downloads</span>
+      <a href="data/feed.geojson">Feed (GeoJSON)</a>
+      <a href="data/forecast.json">Forecast data (JSON)</a>
+      <a href="data/locations.json">Locations (JSON)</a>
+      <a href="data/verification.json">Scores (JSON)</a>
+      <a href="https://github.com/metacog-osint/vis/tree/main/history" rel="noopener">Observations and scored forecasts</a>
+      <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a></nav>
   </footer>
 
   <script src="tic-time.js"></script>

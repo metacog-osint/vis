@@ -24,6 +24,23 @@ function hm(iso) {                                // the viewer's zone, named; U
   return { text: T ? T.format(iso.replace("Z", ":00Z"), { date: false }) : utc, utc };
 }
 const timeSpan = (iso) => { const t = hm(iso); return `<span class="mono" title="${esc(t.utc)}">${esc(t.text)}</span>`; };
+// The point's own clock (its IANA zone from config/points.json), zone named, on the viewer's 12- or 24-hour setting.
+function placeTime(iso, tz) {
+  if (!iso || !tz) return null;
+  try {
+    const o = { timeZone: tz, hour: "numeric", minute: "2-digit", timeZoneName: "short" };
+    o.hourCycle = T && !T.hour12() ? "h23" : "h12";
+    return new Intl.DateTimeFormat(undefined, o).format(new Date(iso.replace("Z", ":00Z")));
+  } catch (e) { return null; }
+}
+// Local time at the point, then the viewer's; one time only when the two read the same.
+function timePair(iso, tz) {
+  const local = placeTime(iso, tz), t = hm(iso);
+  if (!local) return timeSpan(iso);
+  const there = `<span class="mono" title="${esc("Local time at the point (" + tz + "); " + t.utc)}">${esc(local)}</span>`;
+  if (local === t.text) return there;
+  return `${there} local <span class="also">· <span class="mono" title="${esc(t.utc)}">${esc(t.text)}</span> yours</span>`;
+}
 const when = (g) => (T ? T.format(g, { year: true }) : g.replace("T", " ").slice(0, 16) + " UTC");
 
 const RANK = { green: 0, yellow: 1, amber: 2, red: 3 };
@@ -44,19 +61,22 @@ function dayCell(d, hz) {
     const [level, p] = shown(v);
     const lim = hz[k] ? ` ${limit(hz[k])(level)}` : "";
     const term = likelihoodLabel(Math.max(0.01, Math.min(0.99, p || 0.01)));
-    return `<div class="driver-line"><b>${esc(hz[k]?.name || k)}${esc(lim)}</b>: ${esc(term)} · <span class="mono">${Math.round(p * 100)}%</span></div>`;
+    const sev = level === "red" && v.colour !== "red" ? ' <span class="small" title="This colour comes from the chance of the severe (red) threshold. Yellow starts at 5%, Amber at 20%, Red at 45%.">(severe threshold)</span>' : "";
+    return `<div class="driver-line"><b>${esc(hz[k]?.name || k)}${esc(lim)}</b>: ${esc(term)} · <span class="mono">${Math.round(p * 100)}%</span>${sev}</div>`;
   });
   return `<td class="day-cell col-${esc(d.colour)}"><div class="day-head">${esc(d.colour.toUpperCase())}</div>${
     lines.join("") || '<div class="driver-line">All hazards below Yellow</div>'
   }</td>`;
 }
 
-function nightCell(n) {
+function nightCell(n, tz) {
   const lowH = Math.floor((n.dark_low_light_min || 0) / 60);
   const lowM = (n.dark_low_light_min || 0) % 60;
   return `<td class="night-cell"><div><b>${esc(n.moon_phase || "Moon")}, ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
-    <div>Sunset ${timeSpan(n.sunset_dusk)} · sunrise ${timeSpan(n.sunset_dawn)}</div>
-    <div>Civil dusk ${timeSpan(n.civil_dusk)} · dawn ${timeSpan(n.civil_dawn)}</div></td>`;
+    <div>Sunset ${timePair(n.sunset_dusk, tz)}</div>
+    <div>Civil dusk ${timePair(n.civil_dusk, tz)}</div>
+    <div>Civil dawn ${timePair(n.civil_dawn, tz)}</div>
+    <div>Sunrise ${timePair(n.sunset_dawn, tz)}</div></td>`;
 }
 
 function rowHead(z) {
@@ -116,7 +136,7 @@ async function init() {
     .map((z) => `<tr id="zone-${esc(z.id)}" class="${z.role === "alternate" ? "alt-row" : "ref-row"}">
         ${rowHead(z)}
         ${(z.days || []).map((d) => dayCell(d, hz)).join("")}
-        ${nightCell(z.days?.[0]?.night || {})}
+        ${nightCell(z.days?.[0]?.night || {}, z.tz)}
       </tr>`)
     .join("");
 

@@ -9,7 +9,7 @@ Vis answers two operational questions for each of Watchfloor's 16 conflict zones
 
 Each conflict zone is anchored at a named operational airfield or port with an ICAO station identifier (for example, `UKBB` Kyiv Boryspil for Ukraine, `RCTP` Taipei Taoyuan for the Taiwan Strait, `OIKB` Bandar Abbas for Iran & Red Sea, `HSPN` Port Sudan for Sudan). Using an ICAO station rather than a geographic polygon centroid means:
 - the forecast samples an actual operational hub rather than an uninhabited desert or mountain midpoint; and
-- every forecast can later be checked against the station's METAR reports. That scoring is not built yet (plan step W3).
+- every forecast can be checked against the station's METAR reports (see "Verification" below).
 
 Since 8 Nov 2026 (Tom's decision) each zone's alternates are forecast too, as rows of their own: 16 reference points and 15 alternates, 31 in all. An alternate's row id is `<zone id>-<ICAO>`.
 
@@ -42,3 +42,31 @@ The thresholds are one generic, indicative set (Tom, 8 Nov 2026). Platform profi
 ## Night illumination (`tools/astro.py`)
 
 Sun and moon positions are computed deterministically from Meeus (*Astronomical Algorithms*): sunset/sunrise, civil ($-6^\circ$), nautical ($-12^\circ$) and astronomical ($-18^\circ$) twilight, moonrise, moonset, lunar illuminated fraction at local midnight, and **low-light dark minutes** (sun below $-12^\circ$ with the moon either below the horizon or under 25% illuminated).
+
+## Verification (plan step W3, method `vis-verify/1`, 24 Nov 2026)
+
+Every archived forecast (release `vis-data-YYYY-MM`, kept since 19 Nov 2026; nothing earlier was stored) is checked
+against the station's METARs once its UTC day has ended plus 6 hours (`tools/verify.py`).
+
+- **Observations:** `tools/metar.py` stores every report from the NOAA Aviation Weather Center data API (US public
+  domain) in `history/metar/YYYY/MM/DD.jsonl`, append-only. Each build asks for the last 200 hours, one call per
+  station. 11 of the 31 stations returned no reports on 24 Nov 2026 (UKBB, UKOO, OLBA, OIKB, OYHD, HSSS, HSPN, HHAS,
+  HDAM, FZNA, ZKPY); their forecasts are counted as unresolved, never filled.
+- **Scored hazards:** wind (the larger of mean wind and gust), visibility (the report's metric group when it has one,
+  else AWC's statute miles), heat and cold (2 m temperature). Each 3-hourly model step in the forecast's window takes
+  the nearest report within 60 minutes, and the hazard counts as observed when the forecast's own test holds on two
+  consecutive steps. "Not observed" needs reports at 75% of the steps and no hit beside a gap; anything else is stored
+  as unresolved with its reason.
+- **Not scored:** heavy rain and snow (24 h totals most of these stations do not report), low cloud cover (a model
+  cloud fraction, not a ceiling) and icing (needs a precipitation rate).
+- **Stores:** `history/verify/observed.jsonl` (what the station showed, once per point, UTC day and window start) and
+  `history/verify/pairs.jsonl` (each forecast's amber and red probabilities for that point and day). Both are
+  append-only.
+- **Scores** (`site/data/verification.json`, the page's "Measured skill" card): Brier score, skill against the
+  sample's own observed frequency, and reliability in the ICD 203 likelihood bands, by hazard, threshold and lead day,
+  with one forecast per model run. A row is marked too few to read unless it has at least 100 forecasts and 10
+  observed events at 3 or more points.
+- **First read (24 Nov 2026, 19 to 23 Nov):** 5,929 forecasts resolved. No wind, heat or cold event was observed. Poor
+  visibility (3 km) was observed 39 times, all at Srinagar (VISR), on days the forecast gave almost no chance, while
+  none of the 20 forecasts at "Likely" or above verified. That is one station and one week, too small to read, but
+  it agrees with the known weakness of GEFS's diagnosed visibility.

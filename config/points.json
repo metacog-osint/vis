@@ -9,10 +9,11 @@
       "countries": ["UA"],
       "station": "Kyiv Boryspil",
       "icao": "UKBB",
+      "tz": "Europe/Kyiv",
       "lat": 50.345,
       "lon": 30.895,
       "alternates": [
-        {"station": "Odesa", "icao": "UKOO", "lat": 46.427, "lon": 30.676, "country": "UA"}
+        {"station": "Odesa", "icao": "UKOO", "tz": "Europe/Kyiv", "lat": 46.427, "lon": 30.676, "country": "UA"}
       ]
     },
     {
@@ -22,10 +23,11 @@
       "countries": ["RU", "PL", "LT", "LV", "EE", "FI", "SE", "NO"],
       "station": "Kaliningrad Khrabrovo",
       "icao": "UMKK",
+      "tz": "Europe/Kaliningrad",
       "lat": 54.890,
       "lon": 20.593,
       "alternates": [
-        {"station": "Vilnius", "icao": "EYVI", "lat": 54.634, "lon": 25.286, "country": "LT"}
+        {"station": "Vilnius", "icao": "EYVI", "tz": "Europe/Vilnius", "lat": 54.634, "lon": 25.286, "country": "LT"}
       ]
     },
     {
@@ -35,10 +37,11 @@
       "countries": ["TW"],
       "station": "Taipei Taoyuan",
       "icao": "RCTP",
+      "tz": "Asia/Taipei",
       "lat": 25.078,
       "lon": 121.233,
       "alternates": [
-        {"station": "Kaohsiung", "icao": "RCKH", "lat": 22.577, "lon": 120.350, "country": "TW"}
+        {"station": "Kaohsiung", "icao": "RCKH", "tz": "Asia/Taipei", "lat": 22.577, "lon": 120.350, "country": "TW"}
       ]
     },
     {
@@ -48,10 +51,11 @@
       "countries": ["PH", "VN"],
       "station": "Puerto Princesa (Palawan)",
       "icao": "RPVP",
+      "tz": "Asia/Manila",
       "lat": 9.742,
       "lon": 118.759,
       "alternates": [
-        {"station": "Subic Bay", "icao": "RPLB", "lat": 14.794, "lon": 120.271, "country": "PH"}
+        {"station": "Subic Bay", "icao": "RPLB", "tz": "Asia/Manila", "lat": 14.794, "lon": 120.271, "country": "PH"}
       ]
     },
     {
@@ -61,10 +65,11 @@
       "countries": ["KR", "KP"],
       "station": "Seoul Incheon",
       "icao": "RKSI",
+      "tz": "Asia/Seoul",
       "lat": 37.460,
       "lon": 126.441,
       "alternates": [
-        {"station": "Pyongyang Sunan", "icao": "ZKPY", "lat": 39.224, "lon": 125.670, "country": "KP"}
+        {"station": "Pyongyang Sunan", "icao": "ZKPY", "tz": "Asia/Pyongyang", "lat": 39.224, "lon": 125.670, "country": "KP"}
       ]
     },
     {
@@ -74,10 +79,11 @@
       "countries": ["IL", "PS", "LB"],
       "station": "Tel Aviv Ben Gurion",
       "icao": "LLBG",
+      "tz": "Asia/Jerusalem",
       "lat": 32.011,
       "lon": 34.887,
       "alternates": [
-        {"station": "Beirut Rafic Hariri", "icao": "OLBA", "cell": "sea", "lat": 33.821, "lon": 35.488, "country": "LB"}
+        {"station": "Beirut Rafic Hariri", "icao": "OLBA", "tz": "Asia/Beirut", "cell": "sea", "lat": 33.821, "lon": 35.488, "country": "LB"}
       ]
     },
     {
@@ -87,10 +93,11 @@
       "countries": ["IR", "YE"],
       "station": "Bandar Abbas (Strait of Hormuz)",
       "icao": "OIKB",
+      "tz": "Asia/Tehran",
       "lat": 27.218,
       "lon": 56.378,
       "alternates": [
-        {"station": "Hodeidah (Red Sea)", "icao": "OYHD", "lat": 14.753, "lon": 42.976, "country": "YE"}
+        {"station": "Hodeidah (Red Sea)", "icao": "OYHD", "tz": "Asia/Aden", "lat": 14.753, "lon": 42.976, "country": "YE"}
       ]
     },
     {
@@ -100,10 +107,11 @@
       "countries": ["IN", "PK"],
       "station": "Srinagar",
       "icao": "VISR",
+      "tz": "Asia/Kolkata",
       "lat": 33.987,
       "lon": 74.774,
       "alternates": [
-        {"station": "Islamabad", "icao": "OPIS", "lat": 33.549, "lon": 72.826, "country": "PK"}
+        {"station": "Islamabad", "icao": "OPIS", "tz": "Asia/Karachi", "lat": 33.549, "lon": 72.826, "country": "PK"}
       ]
     },
     {
@@ -113,10 +121,11 @@
       "countries": ["SD"],
       "station": "Port Sudan",
       "icao": "HSPN",
+      "tz": "Africa/Khartoum",
       "lat": 19.434,
       "lon": 37.234,
       "alternates": [
-        {"station": "Khartoum", "icao": "HSSS", "lat": 15.590, "lon": 32.553, "country": "SD"}
+        {"station": "Khartoum", "icao": "HSSS", "tz": "Africa/Khartoum", "lat": 15.590, "lon": 32.553, "country": "SD"}
       ]
     },
     {
@@ -126,10 +135,11 @@
       "countries": ["ET", "ER"],
       "station": "Addis Ababa Bole",
       "icao": "HAAB",
+      "tz": "Africa/Addis_Ababa",
       "lat": 8.978,
       "lon": 38.799,
       "alternates": [
-        {"station": "Asmara", "icao": "HHAS", "lat": 15.292, "lon": 38.911, "country": "ER"}
+        {"station": "Asmara", "icao": "HHAS", "tz": "Africa/Asmara", "lat": 15.292, "lon": 38.911, "country": "ER"}
       ]
     },
     {
@@ -139,10 +149,11 @@
       "countries": ["SO", "DJ"],
       "station": "Mogadishu Aden Adde",
       "icao": "HCMM",
+      "tz": "Africa/Mogadishu",
       "lat": 2.014,
       "lon": 45.305,
       "alternates": [
-        {"station": "Djibouti Ambouli", "icao": "HDAM", "lat": 11.547, "lon": 43.159, "country": "DJ"}
+        {"station": "Djibouti Ambouli", "icao": "HDAM", "tz": "Africa/Djibouti", "lat": 11.547, "lon": 43.159, "country": "DJ"}
       ]
     },
     {
@@ -152,10 +163,11 @@
       "countries": ["ML", "BF", "NE"],
       "station": "Niamey Diori Hamani",
       "icao": "DRRN",
+      "tz": "Africa/Niamey",
       "lat": 13.482,
       "lon": 2.184,
       "alternates": [
-        {"station": "Bamako Modibo Keita", "icao": "GABS", "lat": 12.534, "lon": -7.950, "country": "ML"}
+        {"station": "Bamako Modibo Keita", "icao": "GABS", "tz": "Africa/Bamako", "lat": 12.534, "lon": -7.950, "country": "ML"}
       ]
     },
     {
@@ -165,10 +177,11 @@
       "countries": ["CD", "RW"],
       "station": "Goma",
       "icao": "FZNA",
+      "tz": "Africa/Lubumbashi",
       "lat": -1.671,
       "lon": 29.238,
       "alternates": [
-        {"station": "Kigali", "icao": "HRYR", "lat": -1.969, "lon": 30.139, "country": "RW"}
+        {"station": "Kigali", "icao": "HRYR", "tz": "Africa/Kigali", "lat": -1.969, "lon": 30.139, "country": "RW"}
       ]
     },
     {
@@ -178,10 +191,11 @@
       "countries": ["MM"],
       "station": "Yangon",
       "icao": "VYYY",
+      "tz": "Asia/Yangon",
       "lat": 16.907,
       "lon": 96.133,
       "alternates": [
-        {"station": "Mandalay", "icao": "VYMD", "lat": 21.702, "lon": 95.978, "country": "MM"}
+        {"station": "Mandalay", "icao": "VYMD", "tz": "Asia/Yangon", "lat": 21.702, "lon": 95.978, "country": "MM"}
       ]
     },
     {
@@ -191,11 +205,12 @@
       "countries": ["VE"],
       "station": "Caracas Maiquetía",
       "icao": "SVMI",
+      "tz": "America/Caracas",
       "cell": "sea",
       "lat": 10.601,
       "lon": -66.991,
       "alternates": [
-        {"station": "Maracaibo", "icao": "SVMC", "lat": 10.558, "lon": -71.728, "country": "VE"}
+        {"station": "Maracaibo", "icao": "SVMC", "tz": "America/Caracas", "lat": 10.558, "lon": -71.728, "country": "VE"}
       ]
     },
     {
@@ -205,6 +220,7 @@
       "countries": ["CU"],
       "station": "Havana José Martí",
       "icao": "MUHA",
+      "tz": "America/Havana",
       "lat": 22.989,
       "lon": -82.409,
       "alternates": []

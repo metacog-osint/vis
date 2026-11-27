@@ -16,3 +16,7 @@ reference airfield or port, and tonight's light. Planned at https://vis.theintel
 Data: Open-Meteo (CC BY 4.0, free for non-commercial use), NOAA GEFS (public domain), ECMWF IFS ensemble (CC BY 4.0),
 ERA5 (contains modified Copernicus Climate Change Service information), NOAA Aviation Weather Center (public domain).
 Code: GNU AGPL-3.0 (`LICENSE`). Shared and third-party files keep their own licences, listed in `NOTICE`.
+
+## AI assistance
+
+This repository is built with AI coding assistance (Anthropic's Claude Code). The Intelligence Company is responsible for everything published here.

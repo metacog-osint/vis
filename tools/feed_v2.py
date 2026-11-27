@@ -19,12 +19,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "doctrine" / "kit" / "python"))
-from tic_doctrine import CONTRACT, confidence, contract, likelihood, registers, vocab  # noqa: E402
+from tic_doctrine import CONTRACT, __version__ as KIT_VERSION, confidence, contract, likelihood, registers, vocab  # noqa: E402
 
 SITE = "https://vis.theintelligence.company"
 METHOD = "vis-ensemble-1.1"
 LANGUAGE_KEY = "https://github.com/metacog-osint/tic-doctrine/blob/main/docs/language-key.md"
 DOCTRINE = ROOT / "doctrine"
+CONTRACT_REV = "2.1"  # feed contract revision 2.1; last_change is filled by the kit's history step
 
 SRC_GEFS = {
     "id": "open-meteo-gefs",
@@ -94,6 +95,40 @@ def _resolution_rule(station: str, icao: str, hdef: dict, level: str, day_str: s
     op = ">=" if hdef["dir"] == "above" else "<="
     return (f"Yes if ICAO station {icao} ({station}) reports {hdef['name'].lower()} ({hdef['var']}) "
             f"{op} {thr} {unit} for >= {min_h} hours on {day_str} UTC.")
+
+
+def _whole_utc(ts: str) -> str:
+    """'2026-11-24T00:00Z' -> '2026-11-24T00:00:00Z'."""
+    return ts[:-1] + ":00Z" if len(ts) == 17 and ts.endswith("Z") else ts
+
+
+def forecast_period(days: list[dict]) -> dict:
+    """Contract 2.1 event times of a forecast: the period it covers, from the first scored hour to the last day's end."""
+    first = days[0]
+    start = _whole_utc(first["from"]) if first.get("from") else f"{first['day']}T00:00:00Z"
+    return {"event_start": start, "event_end": f"{days[-1]['day']}T23:59:59Z"}
+
+
+def feed_health(forecast_doc: dict, generated: str) -> dict:
+    """Contract 2.1 health: one entry per source lane. A model left out of this run is listed as not read."""
+    models = {m["id"]: m for m in forecast_doc.get("models", [])}
+    out = {}
+    for mid, src in (("ncep_gefs025", SRC_GEFS), ("ecmwf_ifs025", SRC_ECMWF)):
+        m = models.get(mid, {"used": True})
+        used = m.get("used", True)
+        run = m.get("run_time")
+        out[src["id"]] = {
+            "state": "fresh" if used else "stale",
+            "checked_at": generated,
+            "last_ok": generated if used else None,
+            "last_error": None if used else f"left out of this run; newest run {run or 'unknown'}",
+            "failures": 0 if used else 1,
+            "data_as_of": run,
+            "detail": f"{mid}: newest run {run or 'unknown'}" + ("" if used else ", not used"),
+        }
+    out[SRC_ASTRO["id"]] = {"state": "up", "checked_at": generated, "last_ok": generated, "last_error": None,
+                            "failures": 0, "data_as_of": generated, "detail": "computed on this run"}
+    return out
 
 
 def build_feed(forecast_doc: dict) -> dict:
@@ -213,6 +248,8 @@ def build_feed(forecast_doc: dict) -> dict:
         props = {
             "contract": CONTRACT,
             "id": f"vis:{day0}:zone:{z['id']}",
+            "subject_id": f"vis:zone:{z['id']}",
+            **forecast_period(days_72h),
             "program": "vis",
             "title": title,
             "summary": summary,
@@ -305,6 +342,8 @@ def build_feed(forecast_doc: dict) -> dict:
     head_props = {
         "contract": CONTRACT,
         "id": f"vis:{day0}:summary",
+        "subject_id": "vis:summary:daily",
+        "event_start": generated,
         "program": "vis",
         "title": (f"Vis, {day0}: {len(zones_amber_or_red)} of {len(all_zones)} conflict zones with Amber or Red "
                   f"operational weather in the next 72 hours at one or more of their {len(feats)} forecast points "
@@ -354,8 +393,11 @@ def build_feed(forecast_doc: dict) -> dict:
     return {
         "type": "FeatureCollection",
         "contract": CONTRACT,
+        "contract_rev": CONTRACT_REV,
+        "kit": KIT_VERSION,
         "program": "vis",
         "generated_at": generated,
+        "health": feed_health(forecast_doc, generated),
         "licence": ("Vis code GNU AGPL-3.0; ensemble data from Open-Meteo (CC BY 4.0), carrying NOAA NCEP GEFS "
                     "(US public domain) and ECMWF open data (CC BY 4.0)"),
         "attribution": "Vis, The Intelligence Company. Ensemble weather: Open-Meteo (NOAA GEFS + ECMWF IFS).",
