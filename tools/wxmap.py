@@ -5,7 +5,8 @@
 The map draws imagery straight from open tile services, so nothing is stored or proxied here:
 
 - NASA GIBS (WMTS, EPSG:3857): GOES-East, GOES-West and Himawari imagery, IMERG precipitation and GLM lightning.
-  NASA data are CC0; GIBS asks for an acknowledgement (shown on the map).
+  Each layer keeps its source's terms (NOAA GOES public domain; JMA Himawari, JMA's Public Data License with the
+  source cited; NASA IMERG CC0); GIBS asks for an acknowledgement (shown on the map).
 - EUMETSAT EUMETView (WMS): Meteosat Third Generation (0 degrees) imagery and Lightning Imager flash area, which
   fill Europe, Africa and the Middle East. EUMETSAT data policy: WMS visualisations are free and unrestricted under
   CC BY 4.0, credited "Contains modified EUMETSAT Meteosat data <year>".
@@ -17,8 +18,11 @@ Each product lists candidate layer names per satellite sector. This script reads
 keeps the first candidate that exists, and records its tile address, time step and latest time. The page works
 out the newest frames from the clock and the observed delay (latest time against this run's time), so a manifest
 from the twice-daily build still gives current frames. A layer that a service no longer lists is left out and
-named under "dropped"; a service that cannot be reached leaves only the other one. The script never fails the build:
-with neither service it writes "ok": false and the page says imagery is unavailable.
+named under "dropped"; a service that cannot be reached leaves only the other one. Each layer also records the
+first time its service still lists ("first", "keep_s"), so the page never asks a radar server for a scan it no
+longer keeps. The script never fails the build: with neither service it writes "ok": false and the page says
+imagery is unavailable. Socket reads time out after TIMEOUT_S seconds, and a host that times out once is skipped
+for the rest of the run, so a hung server costs the build well under a minute.
 
 --gibs and --eumetview read capabilities from files instead (tests and offline runs); --offline then skips the
 NOAA and ECCC services.
@@ -30,6 +34,7 @@ import json
 import math
 import re
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -81,7 +86,7 @@ SECTORS = {
 # Candidates are tried in order: an exact name, or a pattern (re.fullmatch) when a service's naming is uncertain.
 PRODUCTS = [
     {"id": "ir", "name": "Infrared", "group": "imagery",
-     "note": "Clean longwave window (10.3–10.5 µm): cloud-top temperature, day and night. Colder, higher tops show brighter.",
+     "note": "Clean longwave window (10.3–10.5 µm): cloud-top temperature, day and night. Meteosat's tiles are grey, colder and higher tops brighter; NASA's GOES and Himawari tiles are colour-enhanced, with the coldest tops in colour.",
      "sectors": {
          "goes_west": ("gibs", ["GOES-West_ABI_Band13_Clean_Infrared"]),
          "goes_east": ("gibs", ["GOES-East_ABI_Band13_Clean_Infrared"]),
@@ -198,16 +203,21 @@ def parse_time(text: str) -> datetime | None:
     return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
 
 
-def time_extent(values: list[str]) -> tuple[datetime | None, int | None]:
-    """The latest time and the step from WMTS/WMS time values: "start/end/PT10M" intervals or comma lists."""
-    latest, step = None, None
+def time_range(values: list[str]) -> tuple[datetime | None, datetime | None, int | None]:
+    """The first time, the latest time and the step from WMTS/WMS time values: "start/end/PT10M" intervals or comma
+    lists. The first time is what the service still keeps: NOAA's radar server lists about 2 hours of scans and
+    ECCC's 3 hours, and both answer a request for an older time with an empty tile or an error."""
+    first, latest, step = None, None, None
     for v in values:
         for part in (v or "").split(","):
             part = part.strip()
             if not part:
                 continue
             bits = part.split("/")
+            start = parse_time(bits[0])
             end = parse_time(bits[1] if len(bits) >= 2 else bits[0])
+            if start and (first is None or start < first):
+                first = start
             if end and (latest is None or end > latest):
                 latest = end
                 step = duration_s(bits[2]) if len(bits) == 3 else step
@@ -215,6 +225,12 @@ def time_extent(values: list[str]) -> tuple[datetime | None, int | None]:
         times = sorted(t for v in values for t in (parse_time(p) for p in (v or "").split(",")) if t)
         if len(times) >= 2:
             step = int((times[-1] - times[-2]).total_seconds())
+    return first, latest, step
+
+
+def time_extent(values: list[str]) -> tuple[datetime | None, int | None]:
+    """The latest time and the step (see time_range)."""
+    _, latest, step = time_range(values)
     return latest, step
 
 
@@ -248,12 +264,13 @@ def gibs_layers(xml_bytes: bytes) -> dict[str, dict]:
                 dim = d
         if not ident or not url or tms is None:
             continue
-        latest, step = (time_extent([v.text or "" for v in dim.findall("w:Value", NS)]) if dim is not None
-                        else (None, None))
+        first, latest, step = (time_range([v.text or "" for v in dim.findall("w:Value", NS)]) if dim is not None
+                               else (None, None, None))
         out[ident] = {
             "url": (url.replace("{Time}", "{time}").replace("{TileMatrixSet}", tms)
                     .replace("{TileMatrix}", "{z}").replace("{TileRow}", "{y}").replace("{TileCol}", "{x}")),
             "max_zoom": max_zoom.get(tms),
+            "first": first,
             "latest": latest,
             "step_s": step,
             "timed": dim is not None,
@@ -271,13 +288,13 @@ def wms_layers(xml_bytes: bytes, workspace: str = "mtg_fd", qualify: bool = True
         if not name:
             continue
         values = [d.text or "" for d in lyr.findall("wms:Dimension", NS) if (d.get("name") or "").lower() == "time"]
-        latest, step = time_extent(values) if values else (None, None)
+        first, latest, step = time_range(values) if values else (None, None, None)
         if latest is None:
             for d in lyr.findall("wms:Dimension", NS):
                 if (d.get("name") or "").lower() == "time" and d.get("default"):
                     latest = parse_time(d.get("default"))
         full = name if ":" in name or not qualify else f"{workspace}:{name}"
-        out[full] = {"layer": full, "latest": latest, "step_s": step, "timed": bool(values)}
+        out[full] = {"layer": full, "first": first, "latest": latest, "step_s": step, "timed": bool(values)}
     return out
 
 
@@ -322,6 +339,11 @@ def build_manifest(gibs: dict[str, dict] | None, eumetview: dict[str, dict] | No
                      "south": sec.get("south", -85), "north": sec.get("north", 85),
                      "source": svc, "name": name, "step_s": info["step_s"], "latest": iso(info["latest"]),
                      "lag_s": max(0, int((now - info["latest"]).total_seconds()))}
+            # How far back the service keeps frames (its first listed time to its latest). The page never asks
+            # for a time older than that: radar servers keep 2 to 3 hours and answer older times with nothing.
+            first = info.get("first")
+            if first and first <= info["latest"]:
+                entry.update(first=iso(first), keep_s=int((info["latest"] - first).total_seconds()))
             if svc == "gibs":
                 entry.update(url=info["url"], max_zoom=info["max_zoom"] if info["max_zoom"] is not None else 6)
             else:
@@ -366,10 +388,22 @@ def probe_url(layer: dict, now: datetime) -> str:
     return f"{layer['wms']}?{q}"
 
 
-def fetch(url: str, timeout: int = 90) -> bytes:
+TIMEOUT_S = 20      # per socket operation; a host that times out once is not asked again this run
+_HUNG: set[str] = set()
+
+
+def fetch(url: str, timeout: int = TIMEOUT_S) -> bytes:
+    host = urllib.parse.urlsplit(url).hostname or ""
+    if host in _HUNG:
+        raise TimeoutError(f"{host} timed out earlier in this run; not asked again")
     req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.read()
+    except (TimeoutError, urllib.error.URLError) as e:
+        if isinstance(e, TimeoutError) or isinstance(getattr(e, "reason", None), TimeoutError):
+            _HUNG.add(host)
+        raise
 
 
 def _read(path_or_url: str | None, url: str, label: str, reader) -> dict | None:
@@ -433,14 +467,16 @@ def main(argv=None) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     for p in doc["products"]:
-        print(f"  {p['id']}: " + "; ".join(f"{l['sector']} {l['name']} every {l['step_s'] // 60} min, "
-                                           f"latest {l['latest']} ({l['lag_s'] // 60} min behind)" for l in p["layers"]))
+        print(f"  {p['id']}: " + "; ".join(
+            f"{l['sector']} {l['name']} every {l['step_s'] // 60} min, latest {l['latest']} ({l['lag_s'] // 60} min "
+            f"behind)" + (f", kept {l['keep_s'] // 60} min" if l.get("keep_s", 0) < 2 * 86400 and "keep_s" in l else "")
+            for l in p["layers"]))
     if a.probe:
         for p in doc["products"]:
             for l in p["layers"]:
                 u = probe_url(l, datetime.now(timezone.utc))
                 try:
-                    with urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=30) as r:
+                    with urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=TIMEOUT_S) as r:
                         body = r.read()
                         print(f"  probe {p['id']} {l['sector']}: HTTP {r.status} {r.headers.get('Content-Type')} {len(body)} B")
                 except Exception as e:  # noqa: BLE001

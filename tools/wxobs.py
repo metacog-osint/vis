@@ -8,7 +8,8 @@
   site/data/smoke.json as polygons by density.
 
 Neither is global: no free service maps hail or smoke worldwide. Like the other map tools this never fails the
-build; a source that cannot be read writes "ok": false and the map hides that layer.
+build; a source that cannot be read writes "ok": false and the map hides that layer. Reads time out after
+TIMEOUT_S seconds, and a host that times out once is not asked again this run.
 """
 from __future__ import annotations
 
@@ -18,6 +19,8 @@ import io
 import json
 import re
 import sys
+import urllib.error
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
@@ -35,9 +38,21 @@ def iso(t: datetime) -> str:
     return t.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def fetch(url: str, timeout: int = 60) -> bytes:
-    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
-        return r.read()
+TIMEOUT_S = 15      # per socket operation; a host that times out once is not asked again this run
+_HUNG: set[str] = set()
+
+
+def fetch(url: str, timeout: int = TIMEOUT_S) -> bytes:
+    host = urllib.parse.urlsplit(url).hostname or ""
+    if host in _HUNG:
+        raise TimeoutError(f"{host} timed out earlier in this run; not asked again")
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
+            return r.read()
+    except (TimeoutError, urllib.error.URLError) as e:
+        if isinstance(e, TimeoutError) or isinstance(getattr(e, "reason", None), TimeoutError):
+            _HUNG.add(host)
+        raise
 
 
 def convective_day(now: datetime, back: int) -> datetime:

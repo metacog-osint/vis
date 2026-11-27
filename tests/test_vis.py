@@ -784,22 +784,38 @@ class WxMapTests(unittest.TestCase):
 
 
 class GfsDecodeTests(unittest.TestCase):
-    def test_decode_closes_its_temporary_file_before_reading_it_and_removes_it(self):
-        # On Windows a temporary file that is still open cannot be opened again; decode() must write and close it
-        # first. A stand-in for eccodes records the file it was handed.
+    @staticmethod
+    def msg(body: bytes) -> bytes:
+        n = 16 + len(body) + 4
+        return b"GRIB\0\0\0\x02" + n.to_bytes(8, "big") + body + b"7777"
+
+    def test_messages_split_on_their_own_lengths(self):
+        a, b = self.msg(b"one"), self.msg(b"second")
+        self.assertEqual(list(gfs.messages(a + b)), [a, b])
+        self.assertEqual(list(gfs.messages(b"")), [])
+        with self.assertRaises(ValueError):
+            list(gfs.messages(a[:-2]))
+
+    def test_decode_reads_from_memory_with_no_temporary_file(self):
+        # eccodes keeps a file it reads open, and Windows can neither reopen nor remove an open file; decode() hands
+        # each message to eccodes from memory. A stand-in for eccodes records what it was given.
         import types
         from unittest import mock
-        seen = []
-
-        def new_from_file(fh):
-            seen.append(fh.name)
-            self.assertEqual(fh.read(), b"GRIB-bytes")
-            return None
-        fake = types.SimpleNamespace(codes_grib_new_from_file=new_from_file)
+        given = []
+        keys = {"latitudeOfFirstGridPointInDegrees": 90.0, "latitudeOfLastGridPointInDegrees": -90.0,
+                "missingValue": 9999.0, "shortName": "u", "level": 250, "Ni": 2, "Nj": 1,
+                "longitudeOfFirstGridPointInDegrees": 0.0, "jDirectionIncrementInDegrees": 1.0,
+                "iDirectionIncrementInDegrees": 1.0}
+        fake = types.SimpleNamespace(
+            codes_new_from_message=lambda m: given.append(m) or len(given),
+            codes_get=lambda gid, k: keys[k], codes_get_values=lambda gid: [3.0, 9999.0],
+            codes_release=lambda gid: None)
+        a, b = self.msg(b"one"), self.msg(b"two")
         with mock.patch.dict(sys.modules, {"eccodes": fake}):
-            self.assertEqual(gfs.decode(b"GRIB-bytes"), [])
-        self.assertEqual(len(seen), 1)
-        self.assertFalse(Path(seen[0]).exists())
+            out = gfs.decode(a + b)
+        self.assertEqual(given, [a, b])
+        self.assertEqual([m["values"] for m in out], [[3.0, None], [3.0, None]])
+        self.assertEqual(out[0]["dlat"], -1.0)
 
 
 def _grib53(values, ni, nj, la1=10.0, lo1=0.0, step=0.25, group=3, order=2):

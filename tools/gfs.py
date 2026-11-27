@@ -6,14 +6,16 @@ filter, US public domain), at the forecast hour nearest the build time, and writ
 2-degree global grid of whole m/s that site/wxmap.js animates as moving streaks) and site/data/snow.json (a 1-degree
 grid of whole centimetres, drawn as shaded cells). Decoding needs the eccodes package (pip install eccodes); the
 build installs it. Like tools/wxmap.py this never fails the build: with no run or no decoder it writes a file that
-says the layer is unavailable, and the map hides the layer.
+says the layer is unavailable, and the map hides the layer. Reads time out after TIMEOUT_S seconds, and once NOMADS
+times out the older runs are not tried, so a hung server costs about TIMEOUT_S seconds.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import sys
-import tempfile
+import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -45,42 +47,62 @@ def candidates(now: datetime, back_cycles: int = 4):
             yield cyc, lead
 
 
-def fetch(url: str, timeout: int = 90) -> bytes:
-    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
-        return r.read()
+TIMEOUT_S = 20      # per socket operation; a host that times out once is not asked again this run
+_HUNG: set[str] = set()
+
+
+def fetch(url: str, timeout: int = TIMEOUT_S) -> bytes:
+    host = urllib.parse.urlsplit(url).hostname or ""
+    if host in _HUNG:
+        raise TimeoutError(f"{host} timed out earlier in this run; not asked again")
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
+            return r.read()
+    except (TimeoutError, urllib.error.URLError) as e:
+        if isinstance(e, TimeoutError) or isinstance(getattr(e, "reason", None), TimeoutError):
+            _HUNG.add(host)
+        raise
 
 
 def has_winds(idx_text: str) -> bool:
     return f":UGRD:{LEVEL_HPA} mb:" in idx_text and f":VGRD:{LEVEL_HPA} mb:" in idx_text
 
 
+def messages(grib: bytes):
+    """Split a GRIB2 file into its messages: each starts with "GRIB" and gives its own length in octets 9 to 16."""
+    pos = grib.find(b"GRIB")
+    while pos >= 0 and pos + 16 <= len(grib):
+        n = int.from_bytes(grib[pos + 8:pos + 16], "big")
+        if grib[pos + 7] != 2 or n < 16 or pos + n > len(grib):
+            raise ValueError(f"not a whole GRIB2 message at byte {pos}")
+        yield grib[pos:pos + n]
+        pos = grib.find(b"GRIB", pos + n)
+
+
 def decode(grib: bytes) -> list[dict]:
-    """GRIB2 messages as {short, level, ni, nj, lat0, lon0, dlat, dlon, values}. Needs eccodes."""
+    """GRIB2 messages as {short, level, ni, nj, lat0, lon0, dlat, dlon, values}. Needs eccodes.
+
+    Each message is decoded from memory: no temporary file, which eccodes would keep open (on Windows an open file
+    can be neither reopened nor removed)."""
     import eccodes  # noqa: PLC0415 - optional dependency, only the build installs it
 
     out = []
-    with tempfile.NamedTemporaryFile(suffix=".grib2") as f:
-        f.write(grib)
-        f.flush()
-        with open(f.name, "rb") as fh:
-            while True:
-                gid = eccodes.codes_grib_new_from_file(fh)
-                if gid is None:
-                    break
-                try:
-                    g = lambda k: eccodes.codes_get(gid, k)  # noqa: E731
-                    lat0, lat1 = g("latitudeOfFirstGridPointInDegrees"), g("latitudeOfLastGridPointInDegrees")
-                    miss = g("missingValue")
-                    out.append({
-                        "short": g("shortName"), "level": g("level"), "ni": g("Ni"), "nj": g("Nj"),
-                        "lat0": lat0, "lon0": g("longitudeOfFirstGridPointInDegrees"),
-                        "dlat": g("jDirectionIncrementInDegrees") * (-1 if lat1 < lat0 else 1),
-                        "dlon": g("iDirectionIncrementInDegrees"),
-                        # Points the GRIB bitmap masks (snow depth over the sea) come back as missingValue.
-                        "values": [None if v == miss else float(v) for v in eccodes.codes_get_values(gid)],
-                    })
-                finally:
-                    eccodes.codes_release(gid)
+    for msg in messages(grib):
+        gid = eccodes.codes_new_from_message(msg)
+        try:
+            g = lambda k: eccodes.codes_get(gid, k)  # noqa: E731
+            lat0, lat1 = g("latitudeOfFirstGridPointInDegrees"), g("latitudeOfLastGridPointInDegrees")
+            miss = g("missingValue")
+            out.append({
+                "short": g("shortName"), "level": g("level"), "ni": g("Ni"), "nj": g("Nj"),
+                "lat0": lat0, "lon0": g("longitudeOfFirstGridPointInDegrees"),
+                "dlat": g("jDirectionIncrementInDegrees") * (-1 if lat1 < lat0 else 1),
+                "dlon": g("iDirectionIncrementInDegrees"),
+                # Points the GRIB bitmap masks (snow depth over the sea) come back as missingValue.
+                "values": [None if v == miss else float(v) for v in eccodes.codes_get_values(gid)],
+            })
+        finally:
+            eccodes.codes_release(gid)
     return out
 
 
