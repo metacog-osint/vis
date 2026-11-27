@@ -49,7 +49,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.skip != 'yes'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write  # the archive step uploads release assets (monthly release vis-data-YYYY-MM)
     steps:
@@ -60,7 +60,9 @@ jobs:
         run: python tests/test_vis.py
       - name: Kit copy is intact
         run: python doctrine/kit/tic.py kitcheck
-      - name: Forecast (Open-Meteo ensembles)
+      # The forecast step also reads the GEFS cloud ceiling from NOAA's files on AWS Open Data (tools/gefs.py, about
+      # 1.7 GB of byte ranges and 1.5 min of decoding on 4 processes); a failure there leaves the ceiling out.
+      - name: Forecast (Open-Meteo ensembles, NOAA GEFS ceiling)
         run: python tools/forecast.py --days 7
       # Plan step W3 (ideas#246): store METARs append-only, resolve every archived forecast whose UTC day has ended,
       # and score them; the page's "Measured skill" card reads out/verification.json. A failure here leaves the card
@@ -82,6 +84,16 @@ jobs:
           done
           python tools/verify.py resolve --forecasts "$RUNNER_TEMP/forecasts" && python tools/verify.py score \
             || echo "::warning::verification failed this run"
+      # Location detail (22 Nov 2026): per-point forecast, the newest METAR from history/metar (stored by the step
+      # above), the current TAF, normals and records for the pop-up. The climate cache comes from release vis-climate
+      # (filled by climate.yml); without it the pop-up shows no normals yet. A source that fails is written into the
+      # file's errors list, and a failure of the step itself leaves the pop-up without data but never stops the deploy.
+      - name: Climate cache from release vis-climate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download vis-climate -p climate.json -D out --clobber || echo "No climate cache yet"
+      - name: Location detail (Open-Meteo forecast, METAR store, AWC TAF)
+        run: python tools/locations.py || echo "::warning::location detail failed; the pop-up keeps no data this build"
       - name: Feed and site
         run: python tools/build_site.py
       # Contract 2.1: the kit's history log gives each subject its last_change. The log is append-only and lives in
@@ -118,8 +130,16 @@ jobs:
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "Cloudflare secrets not set; skipping deploy"; exit 0
           fi
-          npx --yes wrangler@4.151.3 pages deploy site --project-name vis --branch main \
-            --commit-hash "$GITHUB_SHA" --commit-message "build $GITHUB_SHA" --commit-dirty=true
+          # Cloudflare's API fails now and then with nothing wrong here ("An unknown error occurred ... [code: 8000000]"),
+          # which failed the run and mailed an alert. Try three times, 20 s and 60 s apart.
+          for wait in 0 20 60; do
+            if [ "$wait" != 0 ]; then echo "::warning::Cloudflare deploy failed; trying again in ${wait} s"; sleep "$wait"; fi
+            if npx --yes wrangler@4.151.3 pages deploy site --project-name vis --branch main \
+                 --commit-hash "$GITHUB_SHA" --commit-message "build $GITHUB_SHA" --commit-dirty=true; then
+              exit 0
+            fi
+          done
+          echo "::error::Cloudflare Pages deploy failed three times"; exit 1
       - name: Commit history/
         run: |
           git config user.name "vis-bot"
@@ -137,15 +157,17 @@ jobs:
       # Retention (18 Nov 2026): keep every build's forecast.json (gzipped) in a monthly release. It runs after the
       # deploy, so a failure here never blocks the live site, but it fails the run loudly. Asset names are unique per
       # build (newest model run + build time); no --clobber. The feed is derived from forecast.json, so not archived.
-      - name: Archive forecast.json to release vis-data-YYYY-MM
+      - name: Archive forecast.json and locations.json to release vis-data-YYYY-MM
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          python tools/archive.py prepare out/forecast.json archive > "$RUNNER_TEMP/archive.env"
+          extra=""; [ -f out/locations.json ] && extra="--extra out/locations.json"
+          python tools/archive.py prepare out/forecast.json archive $extra > "$RUNNER_TEMP/archive.env"
           cat "$RUNNER_TEMP/archive.env"
           set -a; . "$RUNNER_TEMP/archive.env"; set +a
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" \
             --notes "Per-build archive of Vis forecast.json (gzip). Forecasts from Open-Meteo, CC BY 4.0. Asset name: newest model run (UTC) then build time."
           gh release upload "$tag" "$path"
           echo "Archived $name to $tag"
+          if [ -n "${extra_path:-}" ]; then gh release upload "$tag" "$extra_path"; echo "Archived $extra_name to $tag"; fi

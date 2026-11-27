@@ -1,6 +1,9 @@
-"""Build Vis's static site (site/index.html, site/style.css, site/vis.js, site/data/forecast.json, site/data/feed.geojson).
+"""Build Vis's static site (site/index.html, site/style.css, site/vis.js, site/data/forecast.json, site/data/feed.geojson,
+and, when out/locations.json exists, site/data/locations.json and site/data/locations/<point id>.json).
 
-    python tools/build_site.py [--in out/forecast.json] [--out site]
+    python tools/build_site.py [--in out/forecast.json] [--out site] [--locations out/locations.json]
+
+site/locdetail.js and site/locdetail.css (the point pop-up) are plain files, not generated: edit them in place.
 """
 from __future__ import annotations
 
@@ -12,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import feed_v2  # noqa: E402
+import locations  # noqa: E402
 
 INDEX_HTML = """<!doctype html>
 <html lang="en">
@@ -27,9 +31,9 @@ INDEX_HTML = """<!doctype html>
   <link rel="stylesheet" href="tic-time.css">
   <link rel="stylesheet" href="tic-tabs.css">
   <link rel="stylesheet" href="tic-fold.css">
-  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="style.css">
   <link rel="alternate" type="application/geo+json" title="Vis feed (GeoJSON)" href="data/feed.geojson">
+  <link rel="stylesheet" href="locdetail.css">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -74,22 +78,26 @@ INDEX_HTML = """<!doctype html>
       <div class="wx-top">
         <div>
           <h2 id="wx-title">Weather map</h2>
-          <p class="small" id="wx-note">Live satellite imagery, radar, lightning, the jet stream, snow, smoke and hail, with Vis’s forecast points coloured by today’s outlook.</p>
+          <p class="small" id="wx-note">Recent satellite imagery, radar, lightning, the jet stream, snow, smoke and hail, with Vis’s forecast points coloured by its outlook for the current UTC day.</p>
         </div>
-        <div class="wx-loop">
+        <button type="button" id="wx-open" class="wx-btn wx-open">Show the map</button>
+        <div class="wx-loop" id="wx-loop" hidden>
           <button type="button" id="wx-play" class="wx-btn wx-play">Play loop</button>
           <input type="range" id="wx-frame" min="0" max="0" value="0" disabled aria-label="Frame">
           <span id="wx-time" class="mono wx-time" aria-live="polite">–</span>
         </div>
       </div>
-      <div class="wx-controls">
-        <div id="wx-products" class="wx-products" role="group" aria-label="Imagery"></div>
+      <div id="wx-body" hidden>
+        <div class="wx-controls">
+          <div id="wx-products" class="wx-products" role="group" aria-label="Imagery"></div>
+        </div>
+        <div id="wx-overlays" class="wx-overlays" role="group" aria-label="Overlays"><label class="wx-check"><input type="checkbox" id="wx-points" checked> Forecast points</label></div>
+        <p id="wx-otime" class="small wx-otime" hidden></p>
+        <div id="wx-map" class="wx-map" role="region" aria-label="Weather map"></div>
+        <ul id="wx-overlay-notes" class="small wx-notes" hidden></ul>
+        <p id="wx-status" class="small wx-status" role="status" hidden></p>
       </div>
-      <div id="wx-overlays" class="wx-overlays" role="group" aria-label="Overlays"><label class="wx-check"><input type="checkbox" id="wx-points" checked> Forecast points</label></div>
-      <div id="wx-map" class="wx-map" role="region" aria-label="Weather map"></div>
-      <ul id="wx-overlay-notes" class="small wx-notes" hidden></ul>
-      <p id="wx-status" class="small wx-status" role="status" hidden></p>
-      <p class="small wx-foot">Imagery and radar reach the map minutes after the scan (IMERG precipitation several hours after); a loop loads only when you press Play. Jet stream, snow, smoke and hail come from the last site build. Not for flight planning.</p>
+      <p class="small wx-foot">The map loads only when you open it (about 2 MB of imagery); a loop loads only when you press Play. What it shows was measured, then reached the map later: NASA’s GOES and Himawari imagery about an hour after the scan, Meteosat about 30 minutes, radar a few minutes, IMERG precipitation several hours. Each frame names its own time. Jet stream, snow, smoke and hail come from the last site build. Not for flight planning.</p>
     </section>
 
     <section class="legend-bar" aria-label="Colour key">
@@ -100,7 +108,8 @@ INDEX_HTML = """<!doctype html>
         <span class="pill col-red"><b>Red</b> · Take action</span>
       </div>
       <div class="chips-note">
-        <span class="chip chip-conf" title="Set by rule from the forecast centres that supply the hazard: moderate when both NOAA and ECMWF do, low when only one does (visibility comes from NOAA alone, low cloud from ECMWF alone, and a centre whose run is over 24 hours old is left out). It goes no higher until Vis's forecasts have been scored against observations.">Confidence: moderate with two centres, low with one (by rule; not yet scored)</span>
+        <span class="chips-hint">Select a forecast point’s name for its forecast, charts and climate.</span>
+        <span class="chip chip-conf" title="Set by rule from the forecast centres that supply the hazard: moderate when both NOAA and ECMWF do, low when only one does (visibility comes from NOAA alone, low cloud from ECMWF alone, and a centre whose run is over 24 hours old is left out). It goes no higher until the forecasts' calibration is measured: the scores against METARs in “Measured skill” have started, and most of their rows are still too few to read.">Confidence: moderate with two centres, low with one (set by rule, not from the scores)</span>
       </div>
     </section>
 
@@ -125,9 +134,10 @@ INDEX_HTML = """<!doctype html>
         <h2>How to read the table</h2>
         <ul class="thresh-list">
           <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let each forecast be checked against the station’s METAR reports (see “Measured skill” below).</li>
-          <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, each model weighted equally (its own share is shown beside it), given with its ICD 203 term. Most hazards use both models; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
-          <li><b>What sets a cell’s colour:</b> each hazard has an amber and a more severe red threshold, and the colour comes from the chance of reaching either one. Yellow: at least 20% for the amber threshold, or at least 5% for the red one. Amber: at least 45% for amber, or 20% for red. Red: at least 45% for red. A severe outcome therefore colours a cell at a low chance, and the line names the threshold behind the colour. Example: “Low cloud cover ≥ 95 %: Very unlikely · 6% (severe threshold)” is Yellow, because 6% is above the 5% needed for the severe threshold. The day’s colour is its worst hazard. Low cloud cover never goes above Yellow.</li>
-          <li><b>Tonight’s light:</b> civil dusk and dawn, the moon’s lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit.</li>
+          <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, each model weighted equally (its own share is shown beside it), given with its ICD 203 term. Most hazards use both models; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. The low ceiling trial uses GEFS’s 31, read from NOAA’s own files on AWS Open Data, since neither ensemble on Open-Meteo carries cloud base. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
+          <li><b>What sets a cell’s colour:</b> each hazard has an amber and a more severe red threshold, and the colour comes from the chance of reaching either one. Yellow: at least 20% for the amber threshold, or at least 5% for the red one. Amber: at least 45% for amber, or 20% for red. Red: at least 45% for red. A severe outcome therefore colours a cell at a low chance, and the line names the threshold behind the colour. Example: “Low cloud cover ≥ 95 %: Very unlikely · 6% (severe threshold)” is Yellow, because 6% is above the 5% needed for the severe threshold. The day’s colour is its worst hazard. Low cloud cover, and the low ceiling while it is on trial, never go above Yellow.</li>
+          <li><b>Tonight’s light:</b> sunset, civil dusk and dawn and the next sunrise, the moon’s phase and lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit. Each time shows the point’s local time, then yours.</li>
+          <li><b>A point’s detail:</b> select its name to open its latest METAR and TAF, a deterministic forecast for the next 7 days beside the past 7, today against its 1991–2020 normal and the 1991–2025 records for the date, sun and moon for the week, its elevation and Köppen climate class. The detail forecast is a single best-estimate model run and can differ from the ensemble colours, which stay the product.</li>
         </ul>
       </div>
     </section>
@@ -147,7 +157,7 @@ INDEX_HTML = """<!doctype html>
           <li>Each point is read from a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
           <li>Visibility comes from GEFS alone, where it is a diagnosed field that often runs too low in fog and rain.</li>
           <li>Only wind, visibility, heat and cold can be checked against METARs, and only at stations that report; the sample since 19 Nov 2026 is small, and “Measured skill” says where it is too small to read.</li>
-          <li>The weather map shows observations, not Vis’s forecast. Its imagery and radar come straight from NASA, EUMETSAT, NOAA and Environment and Climate Change Canada; when a service is down, its part of the map goes blank. Radar covers only the US, its territories and Canada; lightning only Europe, Africa, the Middle East and Canada; hail reports and smoke only North America. The jet stream and snow depth are NOAA GFS model values, not measurements, and the jet stream, snow, smoke and hail layers are as fresh as the last site build.</li>
+          <li>On the weather map, only the coloured points are Vis’s forecast. The imagery, radar, lightning, smoke and hail are observations, and the jet stream and snow depth are NOAA GFS model values. Its imagery and radar come straight from NASA, EUMETSAT, NOAA and Environment and Climate Change Canada; when a service is down, its part of the map goes blank. Radar covers only the US, its territories and Canada; lightning only Europe, Africa, the Middle East and Canada; hail reports and smoke only North America. The jet stream, snow, smoke and hail layers are as fresh as the last site build. Radar services keep only their last 2 to 3 hours, so a loop’s older frames can have no radar, and the map says so. The coastlines are coarse (Natural Earth’s 1:110m scale, off by up to about 10 km), so the map stops at a regional zoom. Opening the map has your browser fetch tiles from NASA, EUMETSAT, NOAA and Environment and Climate Change Canada.</li>
         </ul>
         <p class="small"><b>Terms.</b> Provided as is, without warranty. Code under the GNU AGPL-3.0; data under its sources’ licences, below.</p>
       </div>
@@ -157,10 +167,13 @@ INDEX_HTML = """<!doctype html>
           <li><b>Ensemble forecasts:</b> <a href="https://open-meteo.com/en/docs/ensemble-api" rel="noopener">Open-Meteo Ensemble API</a>, CC BY 4.0, free for non-commercial use.</li>
           <li><b>NOAA NCEP GEFS</b> 0.25°, 31 members: US public domain.</li>
           <li><b>ECMWF IFS ensemble</b> 0.25°, 51 members: ECMWF open data, CC BY 4.0.</li>
-          <li><b>Observations for scoring:</b> METARs from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US public domain.</li>
+          <li><b>Observations:</b> METARs from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US public domain, kept in Vis’s own store: they score the forecasts, and each point’s detail shows the newest one with its age. TAFs from the same service for each point’s detail, while they are valid.</li>
           <li><b>Weather map imagery:</b> <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" rel="noopener">NASA GIBS</a> (we acknowledge the use of imagery provided by services from NASA’s Global Imagery Browse Services, part of NASA’s Earth Science Data and Information System): NOAA GOES-East and GOES-West, JMA Himawari, NASA GPM IMERG and GOES GLM lightning. <a href="https://view.eumetsat.int/" rel="noopener">EUMETSAT EUMETView</a>: Meteosat imagery (Third Generation at 0°, second generation at 0° and over the Indian Ocean) and the Lightning Imager, CC BY 4.0; contains modified EUMETSAT Meteosat data; also H SAF rain rate and rapidly developing thunderstorms. <b>Radar:</b> <a href="https://opengeo.ncep.noaa.gov/" rel="noopener">NOAA MRMS</a> through NCEP’s open map server, public domain. <b>Canada radar and lightning:</b> Data Source: Environment and Climate Change Canada (<a href="https://eccc-msc.github.io/open-data/licence/readme_en/" rel="noopener">Data Server End-use Licence</a>). <b>Jet stream and snow depth:</b> NOAA GFS through NOMADS, public domain. <b>Hail reports:</b> NOAA Storm Prediction Center preliminary local storm reports. <b>Smoke:</b> NOAA NESDIS Hazard Mapping System. <b>Daily aerosol (smoke and haze):</b> NASA VIIRS aerosol optical depth through GIBS. RainViewer radar tiles are not used: RainViewer limits them to personal and educational use.</li>
           <li><b>Map outlines:</b> Natural Earth, public domain. <b>Map library:</b> Leaflet, BSD 2-Clause.</li>
           <li><b>Sun and moon:</b> computed by Vis from Jean Meeus, <i>Astronomical Algorithms</i>.</li>
+          <li><b>Point detail forecast:</b> <a href="https://open-meteo.com/en/docs" rel="noopener">Open-Meteo Forecast API</a> (best-match national and global models), CC BY 4.0, free for non-commercial use.</li>
+          <li><b>Climatology:</b> ERA5 reanalysis through <a href="https://open-meteo.com/en/docs/historical-weather-api" rel="noopener">Open-Meteo’s Historical Weather API</a>, CC BY 4.0; contains modified Copernicus Climate Change Service information <!--VIS-C3S-YEAR-->; neither the European Commission nor ECMWF is responsible for any use that may be made of the Copernicus information or data it contains. Normals 1991–2020; records 1991–2025, for the 25 km grid cell, not the station.</li>
+          <li><b>Elevation:</b> Copernicus DEM GLO-90 through Open-Meteo’s Elevation API.</li>
           <li><b>Zones:</b> Watchfloor’s conflict zones. <b>Reference points:</b> chosen by Vis (<a href="https://github.com/metacog-osint/vis/blob/main/config/points.json" rel="noopener">list</a>).</li>
           <li><b>Fonts:</b> IBM Plex, SIL Open Font License.</li>
         </ul>
@@ -170,11 +183,26 @@ INDEX_HTML = """<!doctype html>
     </div>
   </main>
 
+  <dialog id="loc-dialog" class="loc-dialog" aria-labelledby="loc-title">
+    <div class="loc-inner">
+      <header class="loc-head">
+        <div>
+          <p class="eyebrow" id="loc-zone"></p>
+          <h2 id="loc-title">Location</h2>
+          <p class="station-meta" id="loc-sub"></p>
+        </div>
+        <button type="button" class="loc-close" id="loc-close" aria-label="Close">×</button>
+      </header>
+      <div id="loc-body"></div>
+    </div>
+  </dialog>
+
   <footer class="wrap site-foot">
     <p>A project of <a href="https://theintelligence.company">The Intelligence Company</a>. Forecast generated <span id="vis-asof">…</span>. <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a> (GNU AGPL-3.0). Weather data: <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> (CC BY 4.0), from NOAA GEFS and ECMWF IFS. Map imagery: NASA GIBS, EUMETSAT, NOAA and ECCC. <a href="#about">About and limits</a> · <a href="#sources">Sources</a>.</p>
     <nav class="tic-data" aria-label="Data and downloads"><span class="tic-data-k">Data and downloads</span>
       <a href="data/feed.geojson">Feed (GeoJSON)</a>
       <a href="data/forecast.json">Forecast data (JSON)</a>
+      <a href="data/locations.json">Locations (JSON)</a>
       <a href="data/verification.json">Scores (JSON)</a>
       <a href="https://github.com/metacog-osint/vis/tree/main/history" rel="noopener">Observations and scored forecasts</a>
       <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a></nav>
@@ -356,6 +384,7 @@ h1 .sub {
   font-size: 12px;
 }
 .mono { font-family: "IBM Plex Mono", monospace; }
+.also { color: #5A6B80; }
 /* Sections row (tic-tabs.css) in Vis's colours */
 .tic-tabs-nav { --panel: var(--card); --line: var(--rule); --link: var(--accent); }
 /* Long-table window and its "Show all" button (tic-fold.css) in Vis's colours */
@@ -456,6 +485,10 @@ table.skill tr.skill-all td { border-top: 2px solid var(--rule); font-weight: 50
 .wx-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .wx-btn:disabled { opacity: 0.5; cursor: default; }
 .wx-play { min-width: 92px; }
+.wx-open { font-weight: 600; }
+.wx-open[hidden], .wx-loop[hidden], #wx-body[hidden] { display: none; }
+.wx-otime { margin: 0 0 6px; color: var(--muted); }
+.wx-otime[hidden] { display: none; }
 .wx-check { font-size: 12.5px; color: var(--ink); display: inline-flex; align-items: center; gap: 4px; }
 .wx-map {
   height: 520px;
@@ -496,6 +529,7 @@ table.skill tr.skill-all td { border-top: 2px solid var(--rule); font-weight: 50
 """
 
 VIS_JS = """import { likelihoodLabel } from "./vendor/tic-doctrine.js";
+import { setup as setupDetail } from "./locdetail.js";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -520,6 +554,23 @@ function hm(iso) {                                // the viewer's zone, named; U
   return { text: T ? T.format(iso.replace("Z", ":00Z"), { date: false }) : utc, utc };
 }
 const timeSpan = (iso) => { const t = hm(iso); return `<span class="mono" title="${esc(t.utc)}">${esc(t.text)}</span>`; };
+// The point's own clock (its IANA zone from config/points.json), zone named, on the viewer's 12- or 24-hour setting.
+function placeTime(iso, tz) {
+  if (!iso || !tz) return null;
+  try {
+    const o = { timeZone: tz, hour: "numeric", minute: "2-digit", timeZoneName: "short" };
+    o.hourCycle = T && !T.hour12() ? "h23" : "h12";
+    return new Intl.DateTimeFormat(undefined, o).format(new Date(iso.replace("Z", ":00Z")));
+  } catch (e) { return null; }
+}
+// Local time at the point, then the viewer's; one time only when the two read the same.
+function timePair(iso, tz) {
+  const local = placeTime(iso, tz), t = hm(iso);
+  if (!local) return timeSpan(iso);
+  const there = `<span class="mono" title="${esc("Local time at the point (" + tz + "); " + t.utc)}">${esc(local)}</span>`;
+  if (local === t.text) return there;
+  return `${there} local <span class="also">· <span class="mono" title="${esc(t.utc)}">${esc(t.text)}</span> yours</span>`;
+}
 const when = (g) => (T ? T.format(g, { year: true }) : g.replace("T", " ").slice(0, 16) + " UTC");
 
 const RANK = { green: 0, yellow: 1, amber: 2, red: 3 };
@@ -548,15 +599,20 @@ function dayCell(d, hz) {
   }</td>`;
 }
 
-function nightCell(n) {
+function nightCell(n, tz) {
   const lowH = Math.floor((n.dark_low_light_min || 0) / 60);
   const lowM = (n.dark_low_light_min || 0) % 60;
-  return `<td class="night-cell"><div><b>Moon ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
-    <div>Civil dusk ${timeSpan(n.civil_dusk)} · dawn ${timeSpan(n.civil_dawn)}</div></td>`;
+  return `<td class="night-cell"><div><b>${esc(n.moon_phase || "Moon")}, ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
+    <div>Sunset ${timePair(n.sunset_dusk, tz)}</div>
+    <div>Civil dusk ${timePair(n.civil_dusk, tz)}</div>
+    <div>Civil dawn ${timePair(n.civil_dawn, tz)}</div>
+    <div>Sunrise ${timePair(n.sunset_dawn, tz)}</div></td>`;
 }
 
 function rowHead(z) {
-  const meta = `${esc(z.station)} · ${esc(z.icao)} (${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})`;
+  // The station opens the point's detail pop-up (locdetail.js); the button carries the point id.
+  const btn = `<button type="button" class="loc-open" data-loc="${esc(z.id)}" title="Forecast, charts and climate for ${esc(z.station)}">${esc(z.station)} · ${esc(z.icao)}</button>`;
+  const meta = `${btn} <span class="mono">(${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})</span>`;
   if (z.role === "alternate") {
     return `<th scope="row" class="alt-head"><span class="sr">${esc(z.name)}, </span>Alternate point<span class="station-meta">${meta}</span></th>`;
   }
@@ -583,7 +639,10 @@ async function init() {
     const runs = ms.map((m) => (m.used === false
       ? `${short(m)} left out: newest run ${m.run_time ? when(m.run_time) : "unknown"}, ${m.age_hours} h old`
       : `${short(m)} run ${m.run_time ? when(m.run_time) : "time unknown"}`)).join("; ");
-    stamp.textContent = `Generated ${when(g)} · ${n} ensemble members${runs ? ` (${runs})` : ""}`;
+    const c = doc.ceiling || {};
+    const cig = c.state === "used" ? `; ceiling trial: GEFS run ${when(c.run_time)} from NOAA's files`
+      : c.state ? "; ceiling trial: not read this run" : "";
+    stamp.textContent = `Generated ${when(g)} · ${n} ensemble members${runs ? ` (${runs}${cig})` : ""}`;
     stamp.title = g.replace("T", " ").slice(0, 16) + " UTC";
     if (used.length < ms.length) stamp.classList.add("partial");
   }
@@ -610,7 +669,7 @@ async function init() {
     .map((z) => `<tr id="zone-${esc(z.id)}" class="${z.role === "alternate" ? "alt-row" : "ref-row"}">
         ${rowHead(z)}
         ${(z.days || []).map((d) => dayCell(d, hz)).join("")}
-        ${nightCell(z.days?.[0]?.night || {})}
+        ${nightCell(z.days?.[0]?.night || {}, z.tz)}
       </tr>`)
     .join("");
 
@@ -623,6 +682,7 @@ async function init() {
       return `<li><b>${esc(h.name)}</b>: Amber <span class="mono">${esc(lim("amber"))}</span>, Red <span class="mono">${esc(lim("red"))}</span>${n ? ` (${n} members)` : ""}. ${esc(h.why)}.</li>`;
     })
     .join("");
+  return doc;
 }
 
 // A link to a zone's row (#zone-..., from COP) lands before the rows are drawn; land it once they are
@@ -633,7 +693,7 @@ function land() {
   if (el) el.scrollIntoView({ block: "start" });
 }
 
-init().then(land, () => {});
+init().then((doc) => { land(); setupDetail({ hazardList: doc.hazards || [], points: doc.zones || [] }); }, () => {});
 if (T) { T.mountSettings(document.getElementById("time-settings")); T.onChange(() => init()); }
 """
 
@@ -687,7 +747,8 @@ HEADERS = """/*
 """
 
 
-HAZ_NAMES = {"wind": "Strong wind (gusts)", "vis": "Poor visibility", "heat": "Extreme heat", "cold": "Extreme cold"}
+HAZ_NAMES = {"wind": "Strong wind (gusts)", "vis": "Poor visibility", "heat": "Extreme heat", "cold": "Extreme cold",
+             "ceiling": "Low ceiling (trial)"}
 
 
 def _num(v, fmt="{:.3f}"):
@@ -709,13 +770,14 @@ def verification_html(doc: dict | None) -> str:
            f'too short for the two-step rule). One forecast per model run is counted. Lower Brier is better; skill '
            f'is against the sample’s own observed frequency, so 0 means no better than always forecasting that '
            f'rate. A row is marked too few to read unless it has {escape(str(r.get("readable_when", "")))}. '
-           f'Rain, snow, low cloud and icing are not scored: METARs do not measure them the way the forecast '
-           f'states them. Thresholds are indicative; not for flight planning.</p>',
+           f'Rain, snow, low cloud cover and icing are not scored: METARs do not measure them the way the forecast '
+           f'states them. The low ceiling trial is scored against the METAR ceiling (lowest broken, overcast or '
+           f'obscured layer). Thresholds are indicative; not for flight planning.</p>',
            '<div class="table-wrap"><table class="skill"><thead><tr><th>Hazard</th><th>Threshold</th>'
            '<th>Lead (days)</th><th>Forecasts</th><th>Observed</th><th>Points (with events)</th><th>Brier</th>'
            '<th>Skill</th><th>Read</th></tr></thead><tbody>']
     for c in doc["scores"]:
-        thr = "" if c.get("threshold") is None else f'{"≤" if c["hazard"] in ("vis", "cold") else "≥"} {c["threshold"]:g} {c.get("unit") or ""}'
+        thr = "" if c.get("threshold") is None else f'{"≤" if c["hazard"] in ("vis", "cold", "ceiling") else "≥"} {c["threshold"]:g} {c.get("unit") or ""}'
         lead = "all" if c["lead_days"] == "all" else str(c["lead_days"])
         read = "yes" if c.get("readable") else "too few to read"
         cls = ' class="skill-all"' if lead == "all" else ""
@@ -737,16 +799,48 @@ def verification_html(doc: dict | None) -> str:
     return "".join(out)
 
 
-def build(forecast_doc: dict, out_dir: Path | None = None, verification: dict | None = None) -> dict[str, str]:
+def c3s_year(locations_doc: dict | None, forecast_doc: dict) -> str:
+    """The year in the Copernicus notice (licence clause 5.1.2): when the climate cache was last built from ERA5,
+    else the forecast's year."""
+    y = str((locations_doc or {}).get("climate_updated_at") or "")[:4]
+    return y if y.isdigit() else str(forecast_doc.get("generated_at") or "")[:4]
+
+
+def location_files(locations_doc: dict | None) -> dict[str, str]:
+    """data/locations.json (one compact row per point, schema vis-locations-index/1) and data/locations/<id>.json
+    (the full detail, schema vis-location/1) from tools/locations.py's out/locations.json. Without it the page's
+    pop-up says the detail is not built yet; the rest of the site is unchanged."""
+    if not locations_doc:
+        return {}
+    points = locations_doc.get("points") or []
+    index = {
+        "schema": "vis-locations-index/1", "program": "vis", "generated_at": locations_doc.get("generated_at"),
+        "forecast_generated_at": locations_doc.get("forecast_generated_at"),
+        "climate_updated_at": locations_doc.get("climate_updated_at"),
+        "docs": "https://github.com/metacog-osint/vis/blob/main/docs/location-data.md",
+        "sources": locations_doc.get("sources") or [],
+        "points": [locations.index_row(p) for p in points],
+    }
+    files = {"data/locations.json": json.dumps(index, ensure_ascii=False, indent=1) + "\n"}
+    for p in points:
+        files[f"data/locations/{p['id']}.json"] = json.dumps(
+            {**p, "sources": locations_doc.get("sources") or []}, ensure_ascii=False, separators=(",", ":")) + "\n"
+    return files
+
+
+def build(forecast_doc: dict, out_dir: Path | None = None, verification: dict | None = None,
+          locations_doc: dict | None = None) -> dict[str, str]:
     fc = feed_v2.build_feed(forecast_doc)
     files = {
-        "index.html": INDEX_HTML.replace("<!--VIS-VERIFY-->", verification_html(verification)),
+        "index.html": INDEX_HTML.replace("<!--VIS-VERIFY-->", verification_html(verification)).replace(
+            "<!--VIS-C3S-YEAR-->", c3s_year(locations_doc, forecast_doc)),
         "style.css": STYLE_CSS,
         "vis.js": VIS_JS,
         "_headers": HEADERS,
         "404.html": NOT_FOUND_HTML,
         "data/forecast.json": json.dumps(forecast_doc, ensure_ascii=False, indent=1) + "\n",
         "data/feed.geojson": json.dumps(fc, ensure_ascii=False, indent=1) + "\n",
+        **location_files(locations_doc),
     }
     if verification is not None:
         files["data/verification.json"] = json.dumps(verification, ensure_ascii=False, indent=1) + "\n"
@@ -763,12 +857,16 @@ def main(argv=None) -> int:
     ap.add_argument("--in", dest="inp", default=str(ROOT / "out" / "forecast.json"))
     ap.add_argument("--out", default=str(ROOT / "site"))
     ap.add_argument("--verification", default=str(ROOT / "out" / "verification.json"))
+    ap.add_argument("--locations", default=str(ROOT / "out" / "locations.json"),
+                    help="tools/locations.py output; skipped when the file is missing")
     a = ap.parse_args(argv)
     doc = json.loads(Path(a.inp).read_text(encoding="utf-8"))
     vp = Path(a.verification)
     ver = json.loads(vp.read_text(encoding="utf-8")) if vp.exists() else None
+    loc_path = Path(a.locations)
+    loc = json.loads(loc_path.read_text(encoding="utf-8")) if loc_path.exists() else None
     out_dir = Path(a.out)
-    files = build(doc, out_dir, ver)
+    files = build(doc, out_dir, ver, loc)
     print(f"built {len(files)} files in {out_dir}")
     return 0
 

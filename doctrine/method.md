@@ -27,6 +27,25 @@ Two hazards use one model only, because each is published by only one ensemble o
 
 **Low cloud cover shows at most Yellow** (Tom, 8 Nov 2026). It is the cover of the lowest 3 km (`cloud_cover_low`), not ceiling height, and neither ensemble on Open-Meteo carries cloud base (checked 8 Nov 2026). Before the cap, low cloud drove all 31 Amber and Red zone-days in the 8 Nov 17Z run, and Kyiv read Red all week. A true ceiling needs another source.
 
+**Low ceiling (trial, from 27 Nov 2026; `tools/gefs.py`).** Neither ensemble on Open-Meteo carries cloud base, so the
+ceiling comes from NOAA's own GEFS files on AWS Open Data (`noaa-gefs-pds`, 0.25-degree `pgrb2sp25`, 31 members,
+3-hourly; US public domain). Each build reads the newest 00Z or 12Z run, at most 24 hours old, whose files reach the end
+of the forecast for every member, and fetches only the `HGT:cloud ceiling` record of each file through its `.idx`
+byte ranges (about 1 MB of 19.5 MB). The records are GRIB2 template 5.3 (complex packing with spatial differencing),
+decoded with the standard library; the decoder matched ecCodes 2.50.1 exactly at every grid point of real records.
+Each point takes its nearest 0.25-degree cell, with its own elevation check (one Open-Meteo elevation call): a cell
+more than 300 m from the station's height is left out of the trial (on 27 Nov 2026 Caracas SVMI, Asmara HHAS and
+Beirut OLBA). The field is NOAA UPP's ceiling: the height above mean sea level of the mid-point of the lowest model
+layer holding cloud water or ice, set only when the column's largest layer cloud fraction is at least 50%, and
+20,000 m when there is none. Vis subtracts the station's elevation, since a METAR reports heights above the
+aerodrome. This is not the METAR or ICAO ceiling (the lowest layer covering more than half the sky): scattered low
+cloud under a high overcast can read as a low ceiling. Thresholds, indicative and not for flight planning: Amber at
+or below 305 m (about 1,000 ft, the IFR ceiling bound) and Red at or below 152 m (about 500 ft, LIFR) on two
+consecutive 3-hourly steps. During the trial it shows at most Yellow; it comes from one model, so it never makes a
+COP warning. The trial is read from its Measured skill rows: if they score at least as well as the sample's own
+climatology, the cap lifts and the ceiling replaces low cloud cover. A failure to read the files leaves the ceiling
+out of that build and never stops the forecast; the page and the feed name the run used.
+
 The thresholds are one generic, indicative set (Tom, 8 Nov 2026). Platform profiles (rotary-wing, small UAS, maritime with sea state) and a heat-stress measure (WBGT) are later work. A thunderstorm hazard (CAPE with rain in the same hour; both ensembles carry CAPE) comes back only after a week of test runs.
 
 ## Likelihood, impact matrix and confidence
@@ -37,6 +56,7 @@ The thresholds are one generic, indicative set (Tom, 8 Nov 2026). Platform profi
   - **Amber** (*Be prepared*): moderate threshold is *Roughly even chance* or higher ($p_{\text{amber}} \ge 0.45$), or severe threshold is *Unlikely* or higher ($p_{\text{red}} \ge 0.20$).
   - **Yellow** (*Be aware*): moderate threshold is *Unlikely* or higher ($p_{\text{amber}} \ge 0.20$), or severe threshold is *Very unlikely* or higher ($p_{\text{red}} \ge 0.05$).
   - **Green** (*No significant impact*): below Yellow on every hazard.
+- **Feed items** (`site/data/feed.geojson`, tic-feed/2): one forecast per point covers the 72-hour window from the first scored hour (`event_start` to `event_end`), and `valid_until` is the end of that window; each build replaces the items before then. The probability is for the driving hazard on the driving day, and `resolution.known_at` is the end of that day. The resolution rule states the test `tools/verify.py` applies (the report nearest each 3-hourly step, two consecutive steps), or says that Vis does not score that hazard from METARs.
 - **Confidence**: Scored separately by the house confidence rubric (`tic_doctrine.confidence`). With two independent numerical weather prediction centres (NOAA GEFS and ECMWF IFS) agreeing, confidence is **Moderate**; per house doctrine, confidence cannot reach **High** until the ensemble's calibration is scored in **Verdict**.
 
 ## Night illumination (`tools/astro.py`)
@@ -53,7 +73,11 @@ against the station's METARs once its UTC day has ended plus 6 hours (`tools/ver
   station. 11 of the 31 stations returned no reports on 24 Nov 2026 (UKBB, UKOO, OLBA, OIKB, OYHD, HSSS, HSPN, HHAS,
   HDAM, FZNA, ZKPY); their forecasts are counted as unresolved, never filled.
 - **Scored hazards:** wind (the larger of mean wind and gust), visibility (the report's metric group when it has one,
-  else AWC's statute miles), heat and cold (2 m temperature). Each 3-hourly model step in the forecast's window takes
+  else AWC's statute miles), heat and cold (2 m temperature), and from 27 Nov 2026 the low ceiling trial: the
+  report's lowest broken (BKN), overcast (OVC) or obscured (VV) base, read from the raw text before any TEMPO, BECMG,
+  NOSIG or RMK group. FEW or SCT only, CAVOK, NSC, SKC, CLR and NCD count as no ceiling (CAVOK and NSC only say
+  nothing below 1,500 m, so ceiling thresholds stay under that); a ceiling layer whose height is `///`, or a report
+  with no cloud group, is unresolved. Each 3-hourly model step in the forecast's window takes
   the nearest report within 60 minutes, and the hazard counts as observed when the forecast's own test holds on two
   consecutive steps. "Not observed" needs reports at 75% of the steps and no hit beside a gap; anything else is stored
   as unresolved with its reason.

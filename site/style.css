@@ -164,6 +164,7 @@ h1 .sub {
   font-size: 12px;
 }
 .mono { font-family: "IBM Plex Mono", monospace; }
+.also { color: #5A6B80; }
 /* Sections row (tic-tabs.css) in Vis's colours */
 .tic-tabs-nav { --panel: var(--card); --line: var(--rule); --link: var(--accent); }
 /* Long-table window and its "Show all" button (tic-fold.css) in Vis's colours */
@@ -264,6 +265,10 @@ table.skill tr.skill-all td { border-top: 2px solid var(--rule); font-weight: 50
 .wx-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .wx-btn:disabled { opacity: 0.5; cursor: default; }
 .wx-play { min-width: 92px; }
+.wx-open { font-weight: 600; }
+.wx-open[hidden], .wx-loop[hidden], #wx-body[hidden] { display: none; }
+.wx-otime { margin: 0 0 6px; color: var(--muted); }
+.wx-otime[hidden] { display: none; }
 .wx-check { font-size: 12.5px; color: var(--ink); display: inline-flex; align-items: center; gap: 4px; }
 .wx-map {
   height: 520px;

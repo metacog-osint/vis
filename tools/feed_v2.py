@@ -19,7 +19,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "doctrine" / "kit" / "python"))
+sys.path.insert(0, str(ROOT / "tools"))
 from tic_doctrine import CONTRACT, __version__ as KIT_VERSION, confidence, contract, likelihood, registers, vocab  # noqa: E402
+import verify  # noqa: E402  (the resolution rule states verify's own test)
 
 SITE = "https://vis.theintelligence.company"
 METHOD = "vis-ensemble-1.1"
@@ -49,6 +51,18 @@ SRC_ECMWF = {
     "source_type": "model",
     "descriptor": "51-member global ensemble forecast (ecmwf_ifs025) at 0.25 deg, 3-hourly steps (served hourly, interpolated) out to 7 days.",
 }
+# The low ceiling trial reads NOAA's own GEFS files (tools/gefs.py), since Open-Meteo carries no cloud base.
+SRC_CEILING = {
+    "id": "noaa-gefs-aws",
+    "publisher": "NOAA NCEP (AWS Open Data)",
+    "title": "NOAA GEFS 0.25 deg cloud ceiling (31 members, trial)",
+    "url": "https://registry.opendata.aws/noaa-gefs/",
+    "licence": "NOAA NCEP, US public domain",
+    "grade": "A2",
+    "independence_group": "noaa-ncep",
+    "source_type": "model",
+    "descriptor": "HGT:cloud ceiling from the GEFS pgrb2sp25 files, 3-hourly, nearest 0.25 deg cell to each point.",
+}
 SRC_ASTRO = {
     "id": "astro-meeus",
     "publisher": "Vis, The Intelligence Company",
@@ -76,25 +90,65 @@ def _ncf_for_hazard(hid: str) -> list[str]:
     return []
 
 
-def _resolution_rule(station: str, icao: str, hdef: dict, level: str, day_str: str) -> str:
+_COUNT = {2: "two", 3: "three", 4: "four"}
+
+
+def _steps(hdef: dict, day_str: str, day_from: str | None = None) -> str:
+    """The persistence the forecast counts and tools/verify.py scores: `min_steps` consecutive 3-hourly model steps
+    (00, 03 ... 21 UTC) in the UTC day, from the first scored step when the day's window opens after 00 UTC."""
+    n = hdef.get("min_steps", 1)
+    h = verify.STEP_H
+    marks = f"00, {h:02d} ... {24 - h:02d} UTC"
+    start = day_from[11:16] if day_from and len(day_from) >= 16 and day_from[11:16] != "00:00" else None
+    when = f"from {start} on {day_str} UTC" if start else f"on {day_str} UTC"
+    if n <= 1:
+        return f"at any {h}-hourly step ({marks}) {when}"
+    return f"on {_COUNT.get(n, str(n))} consecutive {h}-hourly steps ({marks}) {when}"
+
+
+def _metar_element(hdef: dict, level: str) -> str:
+    """What the station's report must show at each step, as tools/verify.py reads it."""
+    thr, hid = hdef[level], hdef["id"]
+    if hid == "ceiling":
+        return (f"a ceiling (lowest broken, overcast or obscured layer) at or below {thr:g} m "
+                f"({round(thr / 0.3048 / 100) * 100:,} ft) above the aerodrome")
+    op = ">=" if hdef["dir"] == "above" else "<="
+    if hid == "wind":
+        return f"a mean wind or gust {op} {thr:g} km/h (about {round(thr / 1.852)} kt)"
+    if hid == "vis":
+        return f"visibility {op} {thr:g} m"
+    if hid in ("heat", "cold"):
+        return f"a temperature {op} {thr:g} C"
+    return f"{hdef['name'].lower()} {op} {thr:g} {hdef['unit']}"
+
+
+def _resolution_rule(station: str, icao: str, hdef: dict, level: str, day_str: str,
+                     day_from: str | None = None) -> str:
+    """The rule a forecast is resolved by: for the hazards tools/verify.py scores, exactly its test (the report nearest
+    each 3-hourly step, the persistence the forecast used, and when the answer is No or unresolved); for the others,
+    the event in station terms and why Vis does not score it from METARs."""
     thr = hdef[level]
-    unit = hdef["unit"]
-    min_h = hdef.get("min_hours", 1)
+    steps = _steps(hdef, day_str, day_from)
+    if hdef["id"] in verify.SCORED:
+        return (f"Yes if the {icao} ({station}) METAR nearest each step, within {verify.NEAR_MIN} minutes, reports "
+                f"{_metar_element(hdef, level)} {steps}. No if reports cover at least "
+                f"{round(verify.MIN_COVERAGE * 100)}% of the steps and no hit sits beside a missing report; "
+                f"otherwise unresolved.")
+    not_scored = verify.NOT_RESOLVABLE.get(hdef["id"])
+    tail = f" Vis does not score this from METARs. {not_scored[0].upper()}{not_scored[1:]}." if not_scored else ""
     if hdef["id"] == "lowcloud":
         # METARs give cloud in oktas, not percent: 80% is about broken (5-7 oktas), 95% about overcast; 3 km is about
         # 10,000 ft.
         layers = "overcast (OVC)" if level == "red" else "broken or overcast (BKN or OVC)"
-        return (f"Yes if METARs from {icao} ({station}) report {layers} cloud below 10,000 ft for >= {min_h} hours "
-                f"on {day_str} UTC.")
+        return f"Yes if METARs from {icao} ({station}) report {layers} cloud below 10,000 ft {steps}.{tail}"
     if hdef["agg"] == "sum":
-        return f"Yes if ICAO station {icao} ({station}) records {hdef['name'].lower()} >= {thr} {unit} on {day_str} UTC."
+        return (f"Yes if ICAO station {icao} ({station}) records {hdef['name'].lower()} >= {thr:g} {hdef['unit']} "
+                f"on {day_str} UTC.{tail}")
     if hdef["agg"] == "joint":
         w = hdef["with"]
-        return (f"Yes if ICAO station {icao} ({station}) reports 2 m temperature <= {thr} C with precipitation "
-                f">= {w[level]} mm/h in the same hour for >= {min_h} hours on {day_str} UTC.")
-    op = ">=" if hdef["dir"] == "above" else "<="
-    return (f"Yes if ICAO station {icao} ({station}) reports {hdef['name'].lower()} ({hdef['var']}) "
-            f"{op} {thr} {unit} for >= {min_h} hours on {day_str} UTC.")
+        return (f"Yes if ICAO station {icao} ({station}) reports 2 m temperature <= {thr:g} C with precipitation "
+                f">= {w[level]:g} mm/h at the same step, {steps}.{tail}")
+    return f"Yes if ICAO station {icao} ({station}) reports {_metar_element(hdef, level)} {steps}.{tail}"
 
 
 def _whole_utc(ts: str) -> str:
@@ -126,6 +180,15 @@ def feed_health(forecast_doc: dict, generated: str) -> dict:
             "data_as_of": run,
             "detail": f"{mid}: newest run {run or 'unknown'}" + ("" if used else ", not used"),
         }
+    c = forecast_doc.get("ceiling")
+    if c:
+        ok = c.get("state") == "used"
+        out[SRC_CEILING["id"]] = {
+            "state": "fresh" if ok else "stale", "checked_at": generated, "last_ok": generated if ok else None,
+            "last_error": None if ok else (c.get("why") or "not read"), "failures": 0 if ok else 1,
+            "data_as_of": c.get("run_time"),
+            "detail": f"GEFS cloud ceiling (trial): run {c.get('run_time') or 'none'}" + ("" if ok else ", not used"),
+        }
     out[SRC_ASTRO["id"]] = {"state": "up", "checked_at": generated, "last_ok": generated, "last_error": None,
                             "failures": 0, "data_as_of": generated, "detail": "computed on this run"}
     return out
@@ -145,6 +208,11 @@ def build_feed(forecast_doc: dict) -> dict:
         run = models.get(mid, {}).get("run_time")
         if run:
             src["descriptor"] = src["descriptor"] + f" Run used: {run}."
+        sources_all.append(src)
+    ceiling = forecast_doc.get("ceiling") or {}
+    if ceiling.get("state") == "used":
+        src = {**SRC_CEILING, "accessed_at": generated}
+        src["descriptor"] = src["descriptor"] + f" Run used: {ceiling.get('run_time')}."
         sources_all.append(src)
     sources_all.append({**SRC_ASTRO, "accessed_at": generated})
     members_used = forecast_doc.get("members_used") or 82
@@ -202,9 +270,15 @@ def build_feed(forecast_doc: dict) -> dict:
         ))
         hdef = hz_by_id[best_hid]
         peak_day = best_day["day"]
-        valid_until = f"{peak_day}T23:59:59Z"
+        # The item forecasts its whole 72-hour window (event_start to event_end), so its information holds until the
+        # window ends; the next build replaces it before then. The probability, the resolution rule and known_at stay
+        # on the driving day.
+        period = forecast_period(days_72h)
+        valid_until = period["event_end"]
+        known_at = f"{peak_day}T23:59:59Z"
         resolve_dt = (datetime.strptime(peak_day, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%dT12:00:00Z")
         tonight = days_72h[0].get("night") or {}
+        sun0 = days_72h[0].get("sun") or {}
         dark_h = (tonight.get("dark_low_light_min") or 0) / 60.0
 
         # Amber or Red goes to COP as a warning only when two models supply the hazard and the point's grid cell was
@@ -248,7 +322,7 @@ def build_feed(forecast_doc: dict) -> dict:
             "contract": CONTRACT,
             "id": f"vis:{day0}:zone:{z['id']}",
             "subject_id": f"vis:zone:{z['id']}",
-            **forecast_period(days_72h),
+            **period,
             "program": "vis",
             "title": title,
             "summary": summary,
@@ -287,9 +361,9 @@ def build_feed(forecast_doc: dict) -> dict:
                 },
             ],
             "resolution": {
-                "rule": _resolution_rule(station, icao, hdef, level, peak_day),
+                "rule": _resolution_rule(station, icao, hdef, level, peak_day, best_day.get("from")),
                 "source": f"NOAA Aviation Weather Center METAR / SYNOP archive for {icao} (https://aviationweather.gov/data/metar/?ids={icao})",
-                "known_at": valid_until,
+                "known_at": known_at,
                 "resolve_by": resolve_dt,
             },
             "sources": sources_all,
@@ -311,6 +385,16 @@ def build_feed(forecast_doc: dict) -> dict:
                 "p90": best_hval["p90"],
                 "moon_lit": tonight.get("moon_lit"),
                 "dark_low_light_min": tonight.get("dark_low_light_min"),
+                # Sun and moon for the point's local solar day 0 (Vis's own computation, like the moon fields), the
+                # station elevation from the grid check, and where the full location detail lives (22 Nov 2026):
+                # data/locations/<id>.json, schema vis-location/1 (docs/location-data.md).
+                "moon_phase": tonight.get("moon_phase"),
+                "sunrise": sun0.get("sunrise"),
+                "sunset": sun0.get("sunset"),
+                "day_length_min": sun0.get("day_length_min"),
+                "station_elevation_m": (z.get("grid") or {}).get("station_elevation_m"),
+                "detail_url": f"{SITE}/data/locations/{z['id']}.json",
+                "detail_page": f"{SITE}/#loc-{z['id']}",
             },
             "visual": {"type": "table", "url": f"{SITE}/#zone-{z['id']}"},
             "link": f"{SITE}/#zone-{z['id']}",
@@ -364,6 +448,7 @@ def build_feed(forecast_doc: dict) -> dict:
             "members_used": members_used,
             "model_runs": [{k: m.get(k) for k in ("id", "run_time", "age_hours", "state", "used")}
                            for m in forecast_doc.get("models", [])],
+            "ceiling_run": {k: (forecast_doc.get("ceiling") or {}).get(k) for k in ("source", "run_time", "age_hours", "state")},
         },
         "visual": {"type": "table", "url": SITE},
         "link": SITE,

@@ -1,4 +1,5 @@
 import { likelihoodLabel } from "./vendor/tic-doctrine.js";
+import { setup as setupDetail } from "./locdetail.js";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -23,6 +24,23 @@ function hm(iso) {                                // the viewer's zone, named; U
   return { text: T ? T.format(iso.replace("Z", ":00Z"), { date: false }) : utc, utc };
 }
 const timeSpan = (iso) => { const t = hm(iso); return `<span class="mono" title="${esc(t.utc)}">${esc(t.text)}</span>`; };
+// The point's own clock (its IANA zone from config/points.json), zone named, on the viewer's 12- or 24-hour setting.
+function placeTime(iso, tz) {
+  if (!iso || !tz) return null;
+  try {
+    const o = { timeZone: tz, hour: "numeric", minute: "2-digit", timeZoneName: "short" };
+    o.hourCycle = T && !T.hour12() ? "h23" : "h12";
+    return new Intl.DateTimeFormat(undefined, o).format(new Date(iso.replace("Z", ":00Z")));
+  } catch (e) { return null; }
+}
+// Local time at the point, then the viewer's; one time only when the two read the same.
+function timePair(iso, tz) {
+  const local = placeTime(iso, tz), t = hm(iso);
+  if (!local) return timeSpan(iso);
+  const there = `<span class="mono" title="${esc("Local time at the point (" + tz + "); " + t.utc)}">${esc(local)}</span>`;
+  if (local === t.text) return there;
+  return `${there} local <span class="also">· <span class="mono" title="${esc(t.utc)}">${esc(t.text)}</span> yours</span>`;
+}
 const when = (g) => (T ? T.format(g, { year: true }) : g.replace("T", " ").slice(0, 16) + " UTC");
 
 const RANK = { green: 0, yellow: 1, amber: 2, red: 3 };
@@ -51,15 +69,20 @@ function dayCell(d, hz) {
   }</td>`;
 }
 
-function nightCell(n) {
+function nightCell(n, tz) {
   const lowH = Math.floor((n.dark_low_light_min || 0) / 60);
   const lowM = (n.dark_low_light_min || 0) % 60;
-  return `<td class="night-cell"><div><b>Moon ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
-    <div>Civil dusk ${timeSpan(n.civil_dusk)} · dawn ${timeSpan(n.civil_dawn)}</div></td>`;
+  return `<td class="night-cell"><div><b>${esc(n.moon_phase || "Moon")}, ${Math.round((n.moon_lit || 0) * 100)}% lit</b> · low-light dark <span class="mono">${lowH}h ${lowM}m</span></div>
+    <div>Sunset ${timePair(n.sunset_dusk, tz)}</div>
+    <div>Civil dusk ${timePair(n.civil_dusk, tz)}</div>
+    <div>Civil dawn ${timePair(n.civil_dawn, tz)}</div>
+    <div>Sunrise ${timePair(n.sunset_dawn, tz)}</div></td>`;
 }
 
 function rowHead(z) {
-  const meta = `${esc(z.station)} · ${esc(z.icao)} (${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})`;
+  // The station opens the point's detail pop-up (locdetail.js); the button carries the point id.
+  const btn = `<button type="button" class="loc-open" data-loc="${esc(z.id)}" title="Forecast, charts and climate for ${esc(z.station)}">${esc(z.station)} · ${esc(z.icao)}</button>`;
+  const meta = `${btn} <span class="mono">(${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})</span>`;
   if (z.role === "alternate") {
     return `<th scope="row" class="alt-head"><span class="sr">${esc(z.name)}, </span>Alternate point<span class="station-meta">${meta}</span></th>`;
   }
@@ -86,7 +109,10 @@ async function init() {
     const runs = ms.map((m) => (m.used === false
       ? `${short(m)} left out: newest run ${m.run_time ? when(m.run_time) : "unknown"}, ${m.age_hours} h old`
       : `${short(m)} run ${m.run_time ? when(m.run_time) : "time unknown"}`)).join("; ");
-    stamp.textContent = `Generated ${when(g)} · ${n} ensemble members${runs ? ` (${runs})` : ""}`;
+    const c = doc.ceiling || {};
+    const cig = c.state === "used" ? `; ceiling trial: GEFS run ${when(c.run_time)} from NOAA's files`
+      : c.state ? "; ceiling trial: not read this run" : "";
+    stamp.textContent = `Generated ${when(g)} · ${n} ensemble members${runs ? ` (${runs}${cig})` : ""}`;
     stamp.title = g.replace("T", " ").slice(0, 16) + " UTC";
     if (used.length < ms.length) stamp.classList.add("partial");
   }
@@ -113,7 +139,7 @@ async function init() {
     .map((z) => `<tr id="zone-${esc(z.id)}" class="${z.role === "alternate" ? "alt-row" : "ref-row"}">
         ${rowHead(z)}
         ${(z.days || []).map((d) => dayCell(d, hz)).join("")}
-        ${nightCell(z.days?.[0]?.night || {})}
+        ${nightCell(z.days?.[0]?.night || {}, z.tz)}
       </tr>`)
     .join("");
 
@@ -126,6 +152,7 @@ async function init() {
       return `<li><b>${esc(h.name)}</b>: Amber <span class="mono">${esc(lim("amber"))}</span>, Red <span class="mono">${esc(lim("red"))}</span>${n ? ` (${n} members)` : ""}. ${esc(h.why)}.</li>`;
     })
     .join("");
+  return doc;
 }
 
 // A link to a zone's row (#zone-..., from COP) lands before the rows are drawn; land it once they are
@@ -136,5 +163,5 @@ function land() {
   if (el) el.scrollIntoView({ block: "start" });
 }
 
-init().then(land, () => {});
+init().then((doc) => { land(); setupDetail({ hazardList: doc.hazards || [], points: doc.zones || [] }); }, () => {});
 if (T) { T.mountSettings(document.getElementById("time-settings")); T.onChange(() => init()); }
