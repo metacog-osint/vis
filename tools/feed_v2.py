@@ -305,7 +305,7 @@ def build_feed(forecast_doc: dict) -> dict:
         dark_h = (tonight.get("dark_low_light_min") or 0) / 60.0
 
         # Amber or Red goes to COP as a warning only when two models supply the hazard and the point's grid cell was
-        # checked against the station (Tom's yes 16 Nov 2026, from the 15 Nov review: 9 of 18 archived warnings were
+        # checked against the station (16 Nov 2026, from the 15 Nov review: 9 of 18 archived warnings were
         # GEFS-only visibility, and Caracas's came from a cell 936 m up in the coastal range).
         grid = z.get("grid") or {}
         held = []

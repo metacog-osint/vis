@@ -42,7 +42,7 @@ MAX_RUN_AGE_HOURS = 24.0
 VARS = "wind_gusts_10m,precipitation,temperature_2m,snowfall,visibility,cloud_cover_low"
 # Both ensembles are 3-hourly on Open-Meteo (metadata `temporal_resolution_seconds` 10800, checked 15 Nov 2026); the
 # hourly series between steps are interpolated. Persistence is therefore counted on the model's own steps, at 00, 03,
-# ... 21 UTC: a hazard must hold on `min_steps` consecutive steps (Tom's yes 16 Nov 2026, from the 15 Nov review: under
+# ... 21 UTC: a hazard must hold on `min_steps` consecutive steps (16 Nov 2026, from the 15 Nov review: under
 # straight-line interpolation one strong 3-hourly value gave up to five hourly values over the line).
 NATIVE_STEP_HOURS = 3
 # Grid cell check (15 Nov 2026 review: Caracas Maiquetia, a sea-level runway, was read from a cell centred 936 m up in
@@ -60,7 +60,7 @@ HAZARDS = [
      "amber": 65.0, "red": 90.0, "unit": "km/h",
      "why": "10 m gusts at or over the line on two consecutive 3-hourly model steps; small UAS and rotary-wing limits ~65 km/h, severe air/port disruption >= 90 km/h"},
     # Cover, not ceiling height: neither ensemble on Open-Meteo carries cloud base (checked 8 Nov 2026), so low cloud
-    # can only raise awareness (Tom, 8 Nov 2026: "Cover, max Yellow").
+    # can only raise awareness (8 Nov 2026).
     {"id": "lowcloud", "name": "Low cloud cover", "var": "cloud_cover_low", "agg": "max", "dir": "above", "min_steps": 2,
      "amber": 80.0, "red": 95.0, "unit": "%", "max_colour": "yellow",
      "why": "Cloud cover in the lowest 3 km on two consecutive 3-hourly steps (ECMWF members only); it degrades optical ISR, laser designation "
@@ -240,8 +240,8 @@ def first_hour_index(times, now):
 
 
 def expand_points(zones):
-    """One row per forecast point: each zone's reference point, then its alternates (Tom, 8 Nov 2026: forecast the
-    alternates too). A reference row keeps the zone's id; an alternate's id is <zone id>-<ICAO>."""
+    """One row per forecast point: each zone's reference point, then its alternates (8 Nov 2026: the
+    alternates are forecast too). A reference row keeps the zone's id; an alternate's id is <zone id>-<ICAO>."""
     rows = []
     for z in zones:
         rows.append({**{k: v for k, v in z.items() if k != "alternates"}, "zone_id": z["id"], "role": "reference"})
@@ -360,7 +360,7 @@ def score_zone_days(zone_models, days, now=None, model_ids=None):
                     per_model[model_ids[m_idx]] = pm
             if total == 0:
                 continue
-            # Each model weighs the same, whatever its member count (Tom's yes 16 Nov 2026; pooled by count, ECMWF's
+            # Each model weighs the same, whatever its member count (16 Nov 2026; pooled by count, ECMWF's
             # 51 members had carried 62% of the weight). Each model's own share is kept beside it.
             pa = sum(v["amber_hits"] / v["members"] for v in per_model.values()) / len(per_model)
             pr = sum(v["red_hits"] / v["members"] for v in per_model.values()) / len(per_model)
