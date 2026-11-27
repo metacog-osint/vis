@@ -1,0 +1,33 @@
+name: gefs-probe
+# Research timing only, not part of the build: reads NOAA GEFS cloud ceiling, visibility and freezing rain for one
+# full ensemble run (31 members, 3-hourly steps to 168 h) at Vis's 31 points from the public noaa-gefs-pds bucket, on
+# the same runner type the build uses, and prints the fetch and decode times. Runs only on pushes to its own branch
+# that touch the probe, or by hand. No secrets, read-only token, nothing deployed or stored.
+on:
+  push:
+    branches: [research/gefs-ceiling]
+    paths: [tools/gefs_probe.py, .github/workflows/gefs-probe.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gefs-probe
+  cancel-in-progress: true
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - name: Runner
+        run: nproc && lscpu | grep -E "Model name|^CPU\(s\)" && free -m | head -2
+      - name: Install ecCodes for the comparison (timed)
+        run: time python -m pip install --disable-pip-version-check -q eccodes==2.50.1 numpy && python -m pip freeze
+      - name: One full run, standard-library decoder on every core, ecCodes alongside
+        run: time python -I tools/gefs_probe.py --bench --run 2026112612 --members all --steps 3-168 --fields ceil,vis,cfrzr --threads 32 --procs "$(nproc)" --eccodes
+      - name: Ceiling only, one process (the build's current shape)
+        run: time python -I tools/gefs_probe.py --bench --run 2026112612 --members gec00,gep01,gep02,gep03 --steps 3-168 --fields ceil --threads 32 --procs 1
