@@ -15,6 +15,7 @@ import archive  # noqa: E402
 import build_site  # noqa: E402
 import feed_v2  # noqa: E402
 import forecast  # noqa: E402
+import gefs  # noqa: E402
 import climate  # noqa: E402
 import history  # noqa: E402
 import locations  # noqa: E402
@@ -106,7 +107,8 @@ class VisTests(unittest.TestCase):
         for f in fc["features"]:
             self.assertTrue(f["properties"]["event_start"].endswith("Z"))
         self.assertLessEqual(z0["event_start"], z0["event_end"])
-        self.assertEqual(set(fc["health"]), {"open-meteo-gefs", "open-meteo-ecmwf", "astro-meeus"})
+        self.assertEqual(set(fc["health"]), {"open-meteo-gefs", "open-meteo-ecmwf", "noaa-gefs-aws", "astro-meeus"})
+        self.assertEqual(fc["health"]["noaa-gefs-aws"]["state"], "stale")   # this doc read no ceiling
         self.assertIn("UKBB", z0["resolution"]["rule"])
 
         files = build_site.build(doc)
@@ -456,6 +458,230 @@ class VerifyTests(unittest.TestCase):
         self.assertIn("too few to read", html)
         self.assertIn("indicative", html)
         self.assertNotIn("<script", html)
+
+
+def _grib53(values, ni, nj, la1=10.0, lo1=0.0, step=0.25, group=3, order=2):
+    """A tiny GRIB2 message, grid 3.0 and data template 5.3 (second-order spatial differencing, no missing values),
+    holding integer `values` (R=0, E=0, D=0). Written from the WMO template layout, for the decoder's tests."""
+    import struct
+
+    def sm(v, n):   # sign and magnitude
+        return ((1 << (8 * n - 1)) | -v if v < 0 else v).to_bytes(n, "big")
+
+    def nbits(v):
+        return max(1, int(v).bit_length()) if v else 0
+
+    f = list(values)
+    if order == 2:
+        sd = [f[i] - 2 * f[i - 1] + f[i - 2] for i in range(2, len(f))]
+    else:
+        sd = [f[i] - f[i - 1] for i in range(1, len(f))]
+    minsd = min(sd)
+    x = [0] * order + [v - minsd for v in sd]
+    groups = [x[i:i + group] for i in range(0, len(x), group)]
+    refs = [min(g) for g in groups]
+    widths = [nbits(max(g) - r) for g, r in zip(groups, refs)]
+    lens = [len(g) for g in groups]
+    rb, wb, lb = max(1, nbits(max(refs))), max(1, nbits(max(widths))), max(1, nbits(max(lens) - min(lens)))
+    bits = []
+
+    def put(v, n):
+        bits.extend((v >> (n - 1 - k)) & 1 for k in range(n))
+
+    def pad():
+        while len(bits) % 8:
+            bits.append(0)
+    for r in refs:
+        put(r, rb)
+    pad()
+    for w in widths:
+        put(w, wb)
+    pad()
+    for n in lens:
+        put(n - min(lens), lb)
+    pad()
+    for g, r, w in zip(groups, refs, widths):
+        for v in g:
+            put(v - r, w)
+    pad()
+    packed = bytes(int("".join(map(str, bits[i:i + 8])), 2) for i in range(0, len(bits), 8))
+    octs = 2
+    data = b"".join(sm(v, octs) for v in f[:order]) + sm(minsd, octs) + packed
+    n = len(f)
+    s1 = struct.pack(">IB", 21, 1) + bytes(16)
+    s3 = (struct.pack(">IBBIBBH", 72, 3, 0, n, 0, 0, 0) + bytes(16) + struct.pack(">II", ni, nj) + bytes(8)
+          + sm(int(la1 * 1e6), 4) + sm(int(lo1 * 1e6), 4) + b"\x30"
+          + sm(int((la1 - step * (nj - 1)) * 1e6), 4) + sm(int((lo1 + step * (ni - 1)) * 1e6), 4)
+          + struct.pack(">II", int(step * 1e6), int(step * 1e6)) + b"\x00")
+    s4 = struct.pack(">IBHH", 34, 4, 0, 0) + bytes(25)
+    s5 = (struct.pack(">IBIH", 49, 5, n, 3) + struct.pack(">f", 0.0) + sm(0, 2) + sm(0, 2)
+          + bytes([rb, 0, 1, 0]) + bytes(8) + struct.pack(">I", len(groups)) + bytes([0, wb])
+          + struct.pack(">I", min(lens)) + bytes([1]) + struct.pack(">I", lens[-1]) + bytes([lb, order, octs]))
+    s6 = struct.pack(">IBB", 6, 6, 255)
+    s7 = struct.pack(">IB", 5 + len(data), 7) + data
+    body = s1 + s3 + s4 + s5 + s6 + s7 + b"7777"
+    return b"GRIB" + bytes([0, 0, 0, 2]) + struct.pack(">Q", 16 + len(body)) + body
+
+
+class GefsCeilingTests(unittest.TestCase):
+    """The low ceiling trial: tools/gefs.py's decoder and series, the hazard, and METAR ceilings in verify.py."""
+    NI, NJ = 5, 4   # 10.00..9.25 N, 0.00..1.00 E
+
+    def field(self, base=400):
+        return [base + 37 * k - (k % 3) * 11 + (k * k) % 7 for k in range(self.NI * self.NJ)]
+
+    def test_decoder_reads_a_template_5_3_record(self):
+        vals = self.field()
+        for order in (1, 2):
+            msg = _grib53(vals, self.NI, self.NJ, order=order)
+            dec = gefs.decode(msg)
+            self.assertEqual([round(v) for v in gefs.values_at(dec, range(len(vals)))], vals)
+            # Stopping early still gives the right values up to that point.
+            self.assertEqual(round(gefs.values_at(gefs.decode(msg, 7), [7])[0]), vals[7])
+        g = gefs.grid(gefs.sections(msg)[3])
+        self.assertEqual((g["ni"], g["nj"], g["la1"], g["di"], g["scan"]), (5, 4, 10.0, 0.25, 0))
+        self.assertEqual(gefs.grid_index(g, 9.52, 0.49), (2 * 5 + 2, 9.5, 0.5))
+        got, cells = gefs.point_values(msg, [(9.52, 0.49), (9.26, 359.9)])
+        self.assertEqual([round(v) for v in got], [vals[12], vals[15]])
+        self.assertEqual(cells, [(9.5, 0.5), (9.25, 0.0)])
+
+    def test_decoder_refuses_what_it_does_not_handle(self):
+        msg = bytearray(_grib53(self.field(), self.NI, self.NJ))
+        i = msg.find(bytes([0, 0, 0, 49, 5]))
+        msg[i + 10] = 40   # data template 5.40 (JPEG 2000)
+        with self.assertRaises(ValueError):
+            gefs.decode(bytes(msg))
+        with self.assertRaises(ValueError):
+            gefs.sections(b"GRIB\x00\x00\x00\x01" + bytes(20))
+
+    def test_record_range_and_agl(self):
+        idx = ("1:0:d=2026112612:VIS:surface:24 hour fcst:\n28:17000000:d=2026112612:TMP:2 m above ground:24 hour fcst:\n"
+               "29:18000000:d=2026112612:HGT:cloud ceiling:24 hour fcst:\n30:19000000:d=2026112612:CAPE:surface:\n")
+        self.assertEqual(gefs.record_range(idx), (18000000, 18999999))
+        self.assertEqual(gefs.record_range(idx, "CAPE:surface"), (19000000, None))
+        with self.assertRaises(KeyError):
+            gefs.record_range(idx, "CFRZR:surface")
+        self.assertEqual(gefs.agl(20000.0, 120.0), gefs.NO_CEILING_M)
+        self.assertEqual(gefs.agl(420.0, 120.0), 300.0)
+        self.assertEqual(gefs.agl(80.0, 120.0), 0.0)
+        self.assertIsNone(gefs.agl(420.0, None))
+
+    def _bucket(self, run_ok, msgs, elev):
+        """A fake opener for the bucket and the elevation API; run_ok is the set of runs whose files exist."""
+        import urllib.error
+        import urllib.parse
+        calls = []
+        idx = "1:0:d=x:VIS:surface:\n2:100:d=x:HGT:cloud ceiling:\n"
+
+        def opener(req, timeout=0):
+            url = req.full_url
+            calls.append(url)
+            if url.startswith(gefs.ELEVATION_URL):
+                n = len(urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)["latitude"][0].split(","))
+                return _Resp(json.dumps({"elevation": elev[:n]}).encode())
+            run = url.split("gefs.")[1][:8] + url.split("/atmos")[0][-2:]
+            if run not in run_ok:
+                raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+            if url.endswith(".idx"):
+                return _Resp(idx.encode())
+            member = url.rsplit("/", 1)[1].split(".")[0]
+            step = int(url[-3:])
+            body = msgs(member, step)
+            return _Resp(body if req.get_header("Range") else b"x" * 100 + body)
+        return opener, calls
+
+    def test_ceiling_series_reads_the_newest_complete_run_and_aligns_steps(self):
+        import urllib.parse  # noqa: F401
+        now = datetime(2026, 11, 27, 4, 30, tzinfo=timezone.utc)
+        times = [f"2026-11-27T{h:02d}:00" for h in range(24)]
+        low = _grib53([20000] * 20, self.NI, self.NJ)
+
+        def msgs(member, step):
+            if member == "gep01" and step in (6, 9):     # 06Z and 09Z valid: 250 m MSL at every cell
+                return _grib53([250] * 20, self.NI, self.NJ)
+            return low
+        opener, calls = self._bucket({"2026112700"}, msgs, [50.0, 60.0])
+        pts = [{"lat": 9.52, "lon": 0.49, "icao": "TEST"}]
+        series, info = gefs.ceiling_series(pts, times, now, opener=opener, procs=1)
+        self.assertEqual((info["state"], info["run_time"], info["age_hours"]), ("used", "2026-11-27T00:00:00Z", 4.5))
+        self.assertEqual(info["steps"], 6)    # 06Z..21Z: 03Z is before the current hour
+        self.assertEqual(info["cells"][0]["diff_m"], 10.0)
+        s = series[0]
+        self.assertEqual(len(s), 31)
+        self.assertEqual(s["ceiling_agl_member01"][6], 200.0)
+        self.assertEqual(s["ceiling_agl_member01"][9], 200.0)
+        self.assertEqual(s["ceiling_agl_member01"][12], gefs.NO_CEILING_M)
+        self.assertIsNone(s["ceiling_agl_member01"][3])       # past
+        self.assertIsNone(s["ceiling_agl_member01"][7])       # between steps
+        self.assertTrue(any("gefs.20261127/00/" in c for c in calls))
+        # A cell over 300 m from the station is left out and named.
+        opener, _ = self._bucket({"2026112700"}, msgs, [50.0, 60.0, 50.0, 400.0])
+        series, info = gefs.ceiling_series(pts + [{"lat": 9.3, "lon": 0.0, "icao": "HIGH"}], times, now,
+                                           opener=opener, procs=1)
+        self.assertIsNone(series[1])
+        self.assertEqual((info["points_used"], info["left_out"]), (1, ["HIGH"]))
+
+        # The hazard: one member of 31 under 305 m on two steps; GEFS only, capped at Yellow.
+        hourly = {"time": times}
+        hourly.update(s)
+        d = forecast.score_zone_days([{"hourly": hourly}], 1, now=now, model_ids=["ncep_gefs025"])[0]
+        c = d["hazards"]["ceiling"]
+        self.assertEqual((c["members"], c["amber_hits"], c["red_hits"], c["models"]), (31, 1, 0, 1))
+
+    def test_ceiling_series_falls_back_a_cycle_and_fails_soft(self):
+        now = datetime(2026, 11, 27, 4, 30, tzinfo=timezone.utc)
+        times = [f"2026-11-27T{h:02d}:00" for h in range(24)]
+        low = _grib53([20000] * 20, self.NI, self.NJ)
+        opener, _ = self._bucket({"2026112612"}, lambda m, st: low, [50.0, 60.0])
+        series, info = gefs.ceiling_series([{"lat": 9.5, "lon": 0.5}], times, now, opener=opener, procs=1)
+        self.assertEqual(info["run_time"], "2026-11-26T12:00:00Z")
+        opener, _ = self._bucket(set(), lambda m, st: low, [50.0, 60.0])
+        series, info = gefs.ceiling_series([{"lat": 9.5, "lon": 0.5}], times, now, opener=opener, procs=1)
+        self.assertIsNone(series)
+        self.assertEqual(info["state"], "unavailable")
+        self.assertIn("no complete", info["why"])
+        opener, _ = self._bucket({"2026112700"}, lambda m, st: b"not grib", [50.0, 60.0])
+        series, info = gefs.ceiling_series([{"lat": 9.5, "lon": 0.5}], times, now, opener=opener, procs=1)
+        self.assertIsNone(series)
+        self.assertIn("ValueError", info["why"])
+
+    def test_hazard_is_capped_yellow_and_never_a_warning(self):
+        h = next(h for h in forecast.HAZARDS if h["id"] == "ceiling")
+        self.assertEqual((h["amber"], h["red"], h["min_steps"], h["max_colour"], h["dir"]), (305.0, 152.0, 2, "yellow", "below"))
+        times = [f"2026-11-27T{h:02d}:00" for h in range(24)]
+        hourly = {"time": times}
+        for k in range(31):
+            hourly["ceiling_agl" if k == 0 else "ceiling_agl_member%02d" % k] = [100.0 if t % 3 == 0 else None for t in range(24)]
+        d = forecast.score_zone_days([{"hourly": hourly}], 1, model_ids=["ncep_gefs025"])[0]
+        self.assertEqual(d["hazards"]["ceiling"]["p_red"], 1.0)
+        self.assertEqual(d["hazards"]["ceiling"]["colour"], "yellow")
+        self.assertEqual(d["colour"], "yellow")
+
+    def test_metar_ceiling(self):
+        c = lambda raw: verify.ceiling_m({"raw": raw})  # noqa: E731
+        # Cut from history/metar (16-18 Nov 2026).
+        self.assertEqual(c("METAR EYVI 170020Z 17012KT 9999 OVC008 03/02 Q1000 NOSIG"), 243.8)
+        self.assertEqual(c("METAR EYVI 170150Z 17013KT 8000 -RA OVC004 03/03 Q0999 TEMPO 3000 RA BR OVC002"), 121.9)
+        self.assertEqual(c("METAR EYVI 180220Z 17004KT 130V200 0700 R01/1000D FG VV002 02/02 Q0990 NOSIG"), 61.0)
+        self.assertEqual(c("METAR MUHA 161550Z 08011KT 040V110 9000 SCT030 27/19 Q1020"), verify.NO_CEILING_M)
+        self.assertEqual(c("METAR DRRN 161600Z 07011KT CAVOK 38/M04 Q1011 NOSIG"), verify.NO_CEILING_M)
+        self.assertEqual(c("METAR DRRN 161800Z 07005KT 8000 NSC 32/M03 Q1012 NOSIG"), verify.NO_CEILING_M)
+        self.assertEqual(c("METAR TEST 010000Z AUTO 00000KT 9999 NCD 10/05 Q1015"), verify.NO_CEILING_M)
+        self.assertEqual(c("METAR TEST 010000Z 00000KT 9999 FEW005 BKN012CB OVC030 10/05 Q1015"), 365.8)
+        self.assertIsNone(c("METAR TEST 010000Z AUTO 00000KT 9999 BKN/// 10/05 Q1015"))
+        self.assertIsNone(c("METAR TEST 010000Z AUTO 00000KT 9999 VV/// 10/05 Q1015"))
+        self.assertIsNone(c("METAR TEST 010000Z 00000KT 9999 10/05 Q1015"))
+        self.assertIsNone(c("METAR TEST 010000Z 00000KT 9999 10/05 Q1015 RMK BKN005"))
+        self.assertEqual(verify.value("ceiling", {"raw": "METAR X 010000Z 9999 OVC008 01/01 Q1000"}), 243.8)
+        self.assertIn("ceiling", verify.SCORED)
+
+    def test_ceiling_resolves_against_metars(self):
+        hz = next(h for h in forecast.HAZARDS if h["id"] == "ceiling")
+        steps = [datetime(2026, 11, 17, h, tzinfo=timezone.utc) for h in range(0, 24, 3)]
+        mk = lambda h, grp: {"obs_time": f"2026-11-17T{h:02d}:00:00Z", "raw": f"METAR EYVI 17{h:02d}00Z 9999 {grp} 03/02 Q1000"}  # noqa: E731
+        reps = [mk(h, "OVC008" if h in (6, 9) else "SCT030") for h in range(0, 24, 3)]
+        self.assertEqual(verify.resolve_level(hz, hz["amber"], steps, reps)[:3], (1, 8, 243.8))
+        self.assertEqual(verify.resolve_level(hz, hz["red"], steps, reps)[0], 0)
 
 
 class _Resp:

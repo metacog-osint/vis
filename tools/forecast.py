@@ -21,6 +21,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 sys.path.insert(0, os.path.join(ROOT, "doctrine", "kit", "python"))
 import astro  # noqa: E402
+import gefs  # noqa: E402
 from tic_doctrine import likelihood  # noqa: E402
 
 ENSEMBLE_URL = "https://ensemble-api.open-meteo.com/v1/ensemble"
@@ -64,6 +65,15 @@ HAZARDS = [
      "amber": 80.0, "red": 95.0, "unit": "%", "max_colour": "yellow",
      "why": "Cloud cover in the lowest 3 km on two consecutive 3-hourly steps (ECMWF members only); it degrades optical ISR, laser designation "
             "and VFR flying, but it is cover, not ceiling height, so it shows at most Yellow"},
+    # On trial from 27 Nov 2026: NOAA's own GEFS cloud ceiling (tools/gefs.py), above the station, scored against
+    # METAR ceilings in tools/verify.py. Capped at Yellow during the trial; it comes from one model, so under method 1.1
+    # it never reaches COP as a warning.
+    {"id": "ceiling", "name": "Low ceiling (trial)", "var": "ceiling_agl", "agg": "min", "dir": "below", "min_steps": 2,
+     "amber": 305.0, "red": 152.0, "unit": "m", "max_colour": "yellow", "trial": True,
+     "why": "GEFS cloud ceiling at or below 305 m (about 1,000 ft, the IFR bound) or 152 m (about 500 ft, LIFR) above "
+            "the station on two consecutive 3-hourly steps (GEFS members, read from NOAA's own files). On trial and "
+            "shown at most Yellow until it is scored against METAR ceilings; the model ceiling is the lowest layer "
+            "holding cloud when the column is at least half covered, not the METAR definition"},
     {"id": "vis", "name": "Poor visibility", "var": "visibility", "agg": "min", "dir": "below", "min_steps": 2,
      "amber": 3000.0, "red": 1000.0, "unit": "m",
      "why": "Surface visibility < 3 km (amber) or < 1 km (red) on two consecutive 3-hourly steps (fog, mist, dust, "
@@ -385,7 +395,22 @@ def load_zones(points_path=None, entities_path=None):
              "station": z["name"], "icao": "ZZZZ", "countries": []} for z in ent["zones"]]
 
 
-def build_forecast_doc(zones, by_model, days=7, generated_at=None, runs=None, grids=None):
+def add_ceiling(zones, by_model, now, opener=None, procs=gefs.PROCS):
+    """Put the GEFS ceiling members (tools/gefs.py) into the GEFS answers' hourly series, so the "ceiling" hazard is
+    scored like the others. Returns the run info for the doc; with GEFS left out of this run, nothing is added."""
+    answers = by_model.get("ncep_gefs025")
+    if not answers or not answers[0] or not (answers[0].get("hourly") or {}).get("time"):
+        return {"source": gefs.SOURCE["id"], "state": "unavailable", "why": "GEFS is not in this run", "run_time": None}
+    times = answers[0]["hourly"]["time"]
+    series, info = gefs.ceiling_series(zones, times, now, opener=opener, procs=procs)
+    if series:
+        for a, s in zip(answers, series):
+            if s and a and (a.get("hourly") or {}).get("time") == times:
+                a["hourly"].update(s)
+    return info
+
+
+def build_forecast_doc(zones, by_model, days=7, generated_at=None, runs=None, grids=None, ceiling=None):
     """`runs` is {model id: model_run() result}; a model missing from `by_model` was left out (stale run)."""
     generated_at = generated_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     now = datetime.strptime(generated_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
@@ -424,6 +449,7 @@ def build_forecast_doc(zones, by_model, days=7, generated_at=None, runs=None, gr
         "max_run_age_hours": MAX_RUN_AGE_HOURS,
         "native_step_hours": NATIVE_STEP_HOURS, "grid_max_diff_m": GRID_MAX_DIFF_M,
         "model_weighting": "equal",
+        "ceiling": ceiling or {"source": gefs.SOURCE["id"], "state": "unavailable", "why": "not read", "run_time": None},
         "source": "Open-Meteo Ensemble API (open-meteo.com, CC BY 4.0); sun and moon computed (Meeus)",
         "hazards": [{k: v for k, v in h.items()} for h in HAZARDS],
         "zones": out_zones,
@@ -461,7 +487,13 @@ def main():
     bad = [f"{z.get('icao')} ({g['diff_m']:+.0f} m)" for z, g in zip(zones, grids) if g["ok"] is False]
     print(f"grid check: {sum(1 for g in grids if g['ok'])} of {len(zones)} points within {GRID_MAX_DIFF_M:g} m"
           + (f"; off: {', '.join(bad)}" if bad else ""), flush=True)
-    result = build_forecast_doc(zones, by_model, days=a.days, generated_at=generated_at, runs=runs, grids=grids)
+    print("reading GEFS cloud ceiling from NOAA's files (noaa-gefs-pds)...", flush=True)
+    ceiling = add_ceiling(zones, by_model, now)
+    print(f"ceiling: {ceiling.get('state')}, run {ceiling.get('run_time') or 'none'}"
+          + (f", {ceiling.get('steps')} steps in {ceiling.get('seconds')} s" if ceiling.get("state") == "used" else "")
+          + (f" ({ceiling['why']})" if ceiling.get("why") else ""), flush=True)
+    result = build_forecast_doc(zones, by_model, days=a.days, generated_at=generated_at, runs=runs, grids=grids,
+                                ceiling=ceiling)
     os.makedirs(a.out, exist_ok=True)
     p = os.path.join(a.out, "forecast.json")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
