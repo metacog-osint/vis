@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT / "doctrine" / "kit" / "python"))
 sys.path.insert(0, str(ROOT / "tools"))
 from tic_doctrine import CONTRACT, __version__ as KIT_VERSION, confidence, contract, likelihood, registers, vocab  # noqa: E402
 import verify  # noqa: E402  (the resolution rule states verify's own test)
+import gefs  # noqa: E402  (the ceiling source's limits)
 
 SITE = "https://vis.theintelligence.company"
 METHOD = "vis-ensemble-1.1"
@@ -106,12 +107,34 @@ def _steps(hdef: dict, day_str: str, day_from: str | None = None) -> str:
     return f"on {_COUNT.get(n, str(n))} consecutive {h}-hourly steps ({marks}) {when}"
 
 
+def ceiling_limits(forecast_doc: dict) -> str:
+    """The ceiling source's two measured limits, with the points the second one hits in this build (as on the page:
+    tools/build_site.py ceiling_limits_html)."""
+    both, red = gefs.unreachable(forecast_doc)
+    where = []
+    if both:
+        where.append("Amber and Red cannot be reached at " + ", ".join(z.get("icao") for z in both))
+    if red:
+        where.append("Red cannot be reached at " + ", ".join(z.get("icao") for z in red))
+    return (" Trial, scored by Vis against METAR ceilings (lowest BKN, OVC or VV layer). Two known limits: GEFS v12 "
+            "sets this field only where surface-based CAPE is at least about 0.5 J/kg, so stratus and fog in stable "
+            "air read as no ceiling; and the field cannot sit lower than about 17 m above the model's own ground, so "
+            "where that ground is well above the station a threshold can be out of reach"
+            + (f" ({'; '.join(where)})." if where else "."))
+
+
+def _ft_rule(thr_m: float) -> str:
+    """What a METAR ceiling (100 ft steps) must read to fall at or below `thr_m` metres."""
+    ft = int(thr_m / 0.3048 // 100) * 100
+    return f"{ft:,} ft or lower"
+
+
 def _metar_element(hdef: dict, level: str) -> str:
     """What the station's report must show at each step, as tools/verify.py reads it."""
     thr, hid = hdef[level], hdef["id"]
     if hid == "ceiling":
         return (f"a ceiling (lowest broken, overcast or obscured layer) at or below {thr:g} m "
-                f"({round(thr / 0.3048 / 100) * 100:,} ft) above the aerodrome")
+                f"({_ft_rule(thr)} in the report's 100 ft steps) above the aerodrome")
     op = ">=" if hdef["dir"] == "above" else "<="
     if hid == "wind":
         return f"a mean wind or gust {op} {thr:g} km/h (about {round(thr / 1.852)} kt)"
@@ -212,7 +235,7 @@ def build_feed(forecast_doc: dict) -> dict:
     ceiling = forecast_doc.get("ceiling") or {}
     if ceiling.get("state") == "used":
         src = {**SRC_CEILING, "accessed_at": generated}
-        src["descriptor"] = src["descriptor"] + f" Run used: {ceiling.get('run_time')}."
+        src["descriptor"] = src["descriptor"] + f" Run used: {ceiling.get('run_time')}." + ceiling_limits(forecast_doc)
         sources_all.append(src)
     sources_all.append({**SRC_ASTRO, "accessed_at": generated})
     members_used = forecast_doc.get("members_used") or 82

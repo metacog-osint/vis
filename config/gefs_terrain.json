@@ -1,0 +1,320 @@
+{
+ "what": "GEFS v12 model ground (HGT:surface, orography) at the nearest 0.25-degree cell to each point, the cell tools/gefs.py reads the ceiling from. The ceiling field is a height above mean sea level and cannot sit below this ground, so it bounds the lowest ceiling above the station the trial can show.",
+ "source": "NOAA NCEP GEFS v12, noaa-gefs-pds gefs.20261127/00/atmos/pgrb2sp25/gec00.t00z.pgrb2s.0p25.f000, record HGT:surface (US public domain)",
+ "read": "2026-11-27",
+ "lowest_layer_m": 17.0,
+ "lowest_layer_note": "How far above the model's ground the ceiling field can sit: over 2,588,066 ceiling values in six GEFS fields (26 Nov 2026 12Z and 27 Nov 00Z runs, steps 3 to 18 h), 0.1% sat less than 17.2 m above it and 1% less than 20.7 m; 3 values sat below it. Values cluster at model layer mid-points near 20, 60, 115, 180, 250 and 315 m.",
+ "points": {
+  "01_Ukraine_Conflict": {
+   "icao": "UKBB",
+   "cell": [
+    50.25,
+    31.0
+   ],
+   "model_terrain_m": 113.6,
+   "station_m": 131.0,
+   "dem_cell_m": 109.0
+  },
+  "01_Ukraine_Conflict-UKOO": {
+   "icao": "UKOO",
+   "cell": [
+    46.5,
+    30.75
+   ],
+   "model_terrain_m": 32.2,
+   "station_m": 50.0,
+   "dem_cell_m": 0.0
+  },
+  "07_Russia_NATO": {
+   "icao": "UMKK",
+   "cell": [
+    55.0,
+    20.5
+   ],
+   "model_terrain_m": 10.1,
+   "station_m": 11.0,
+   "dem_cell_m": 0.0
+  },
+  "07_Russia_NATO-EYVI": {
+   "icao": "EYVI",
+   "cell": [
+    54.75,
+    25.25
+   ],
+   "model_terrain_m": 157.6,
+   "station_m": 181.0,
+   "dem_cell_m": 190.0
+  },
+  "02_Taiwan_Strait": {
+   "icao": "RCTP",
+   "cell": [
+    25.0,
+    121.25
+   ],
+   "model_terrain_m": 200.8,
+   "station_m": 30.0,
+   "dem_cell_m": 94.0
+  },
+  "02_Taiwan_Strait-RCKH": {
+   "icao": "RCKH",
+   "cell": [
+    22.5,
+    120.25
+   ],
+   "model_terrain_m": 12.2,
+   "station_m": 8.0,
+   "dem_cell_m": 0.0
+  },
+  "08_South_China_Sea": {
+   "icao": "RPVP",
+   "cell": [
+    9.75,
+    118.75
+   ],
+   "model_terrain_m": 88.0,
+   "station_m": 14.0,
+   "dem_cell_m": 14.0
+  },
+  "08_South_China_Sea-RPLB": {
+   "icao": "RPLB",
+   "cell": [
+    14.75,
+    120.25
+   ],
+   "model_terrain_m": 152.8,
+   "station_m": 17.0,
+   "dem_cell_m": 48.0
+  },
+  "03_Korea_Peninsula": {
+   "icao": "RKSI",
+   "cell": [
+    37.5,
+    126.5
+   ],
+   "model_terrain_m": 17.1,
+   "station_m": 6.0,
+   "dem_cell_m": 15.0
+  },
+  "03_Korea_Peninsula-ZKPY": {
+   "icao": "ZKPY",
+   "cell": [
+    39.25,
+    125.75
+   ],
+   "model_terrain_m": 77.3,
+   "station_m": 25.0,
+   "dem_cell_m": 104.0
+  },
+  "10_Israel_Gaza_Lebanon": {
+   "icao": "LLBG",
+   "cell": [
+    32.0,
+    35.0
+   ],
+   "model_terrain_m": 228.8,
+   "station_m": 36.0,
+   "dem_cell_m": 195.0
+  },
+  "10_Israel_Gaza_Lebanon-OLBA": {
+   "icao": "OLBA",
+   "cell": [
+    33.75,
+    35.5
+   ],
+   "model_terrain_m": 432.8,
+   "station_m": 7.0,
+   "dem_cell_m": 340.0
+  },
+  "11_Iran_Red_Sea": {
+   "icao": "OIKB",
+   "cell": [
+    27.25,
+    56.5
+   ],
+   "model_terrain_m": 68.5,
+   "station_m": 5.0,
+   "dem_cell_m": 5.0
+  },
+  "11_Iran_Red_Sea-OYHD": {
+   "icao": "OYHD",
+   "cell": [
+    14.75,
+    43.0
+   ],
+   "model_terrain_m": 35.4,
+   "station_m": 10.0,
+   "dem_cell_m": 16.0
+  },
+  "06_India_Pakistan": {
+   "icao": "VISR",
+   "cell": [
+    34.0,
+    74.75
+   ],
+   "model_terrain_m": 2175.5,
+   "station_m": 1658.0,
+   "dem_cell_m": 1664.0
+  },
+  "06_India_Pakistan-OPIS": {
+   "icao": "OPIS",
+   "cell": [
+    33.5,
+    72.75
+   ],
+   "model_terrain_m": 468.8,
+   "station_m": 535.0,
+   "dem_cell_m": 514.0
+  },
+  "13_Sudan": {
+   "icao": "HSPN",
+   "cell": [
+    19.5,
+    37.25
+   ],
+   "model_terrain_m": 54.6,
+   "station_m": 42.0,
+   "dem_cell_m": 8.0
+  },
+  "13_Sudan-HSSS": {
+   "icao": "HSSS",
+   "cell": [
+    15.5,
+    32.5
+   ],
+   "model_terrain_m": 398.3,
+   "station_m": 383.0,
+   "dem_cell_m": 381.0
+  },
+  "18_Ethiopia_Eritrea": {
+   "icao": "HAAB",
+   "cell": [
+    9.0,
+    38.75
+   ],
+   "model_terrain_m": 2424.7,
+   "station_m": 2326.0,
+   "dem_cell_m": 2313.0
+  },
+  "18_Ethiopia_Eritrea-HHAS": {
+   "icao": "HHAS",
+   "cell": [
+    15.25,
+    39.0
+   ],
+   "model_terrain_m": 1803.7,
+   "station_m": 2317.0,
+   "dem_cell_m": 1871.0
+  },
+  "19_Somalia": {
+   "icao": "HCMM",
+   "cell": [
+    2.0,
+    45.25
+   ],
+   "model_terrain_m": 53.6,
+   "station_m": 4.0,
+   "dem_cell_m": 37.0
+  },
+  "19_Somalia-HDAM": {
+   "icao": "HDAM",
+   "cell": [
+    11.5,
+    43.25
+   ],
+   "model_terrain_m": 71.5,
+   "station_m": 6.0,
+   "dem_cell_m": 0.0
+  },
+  "12_Sahel_West_Africa": {
+   "icao": "DRRN",
+   "cell": [
+    13.5,
+    2.25
+   ],
+   "model_terrain_m": 239.4,
+   "station_m": 220.0,
+   "dem_cell_m": 209.0
+  },
+  "12_Sahel_West_Africa-GABS": {
+   "icao": "GABS",
+   "cell": [
+    12.5,
+    -8.0
+   ],
+   "model_terrain_m": 390.6,
+   "station_m": 373.0,
+   "dem_cell_m": 338.0
+  },
+  "14_DRC_Rwanda": {
+   "icao": "FZNA",
+   "cell": [
+    -1.75,
+    29.25
+   ],
+   "model_terrain_m": 1796.0,
+   "station_m": 1526.0,
+   "dem_cell_m": 1461.0
+  },
+  "14_DRC_Rwanda-HRYR": {
+   "icao": "HRYR",
+   "cell": [
+    -2.0,
+    30.25
+   ],
+   "model_terrain_m": 1487.1,
+   "station_m": 1488.0,
+   "dem_cell_m": 1351.0
+  },
+  "16_Myanmar": {
+   "icao": "VYYY",
+   "cell": [
+    17.0,
+    96.25
+   ],
+   "model_terrain_m": 11.1,
+   "station_m": 23.0,
+   "dem_cell_m": 5.0
+  },
+  "16_Myanmar-VYMD": {
+   "icao": "VYMD",
+   "cell": [
+    21.75,
+    96.0
+   ],
+   "model_terrain_m": 147.4,
+   "station_m": 87.0,
+   "dem_cell_m": 75.0
+  },
+  "05_Venezuela": {
+   "icao": "SVMI",
+   "cell": [
+    10.5,
+    -67.0
+   ],
+   "model_terrain_m": 786.9,
+   "station_m": 57.0,
+   "dem_cell_m": 936.0
+  },
+  "05_Venezuela-SVMC": {
+   "icao": "SVMC",
+   "cell": [
+    10.5,
+    -71.75
+   ],
+   "model_terrain_m": 28.2,
+   "station_m": 65.0,
+   "dem_cell_m": 51.0
+  },
+  "15_Cuba": {
+   "icao": "MUHA",
+   "cell": [
+    23.0,
+    -82.5
+   ],
+   "model_terrain_m": 49.6,
+   "station_m": 59.0,
+   "dem_cell_m": 64.0
+  }
+ },
+ "station_note": "station_m and dem_cell_m: the station's height and its GEFS cell centre's, from Open-Meteo's elevation API (Copernicus DEM GLO-90), as tools/gefs.py check_cells() read them on 27 Nov 2026. The build reads both again each run and uses its own read; these are the fallback for the page's text when the ceiling is not read."
+}
