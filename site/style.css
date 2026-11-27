@@ -164,6 +164,7 @@ h1 .sub {
   font-size: 12px;
 }
 .mono { font-family: "IBM Plex Mono", monospace; }
+.also { color: #5A6B80; }
 /* Sections row (tic-tabs.css) in Vis's colours */
 .tic-tabs-nav { --panel: var(--card); --line: var(--rule); --link: var(--accent); }
 /* Long-table window and its "Show all" button (tic-fold.css) in Vis's colours */

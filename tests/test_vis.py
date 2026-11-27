@@ -175,6 +175,23 @@ class VisTests(unittest.TestCase):
         odesa = next(r for r in rows if r["icao"] == "UKOO")
         self.assertEqual((odesa["id"], odesa["role"], odesa["countries"]), ("01_Ukraine_Conflict-UKOO", "alternate", ["UA"]))
 
+    def test_every_point_names_its_time_zone(self):
+        # Dusk and dawn are shown in the point's own clock, so every row needs a real IANA zone.
+        try:
+            from zoneinfo import ZoneInfo
+        except ImportError:  # pragma: no cover
+            ZoneInfo = None
+        rows = forecast.expand_points(forecast.load_zones())
+        for r in rows:
+            self.assertRegex(r.get("tz") or "", r"^[A-Z][A-Za-z_]+/[A-Za-z_]+$", r["icao"])
+            if ZoneInfo:
+                ZoneInfo(r["tz"])
+        self.assertEqual(next(r for r in rows if r["icao"] == "UKOO")["tz"], "Europe/Kyiv")
+        m = _synthetic_model(hours=24, members=2, gust=10.0)
+        doc = forecast.build_forecast_doc(rows[:2], {"ncep_gefs025": [m, m]}, days=1,
+                                          generated_at="2026-10-31T18:00:00Z")
+        self.assertEqual([z["tz"] for z in doc["zones"]], ["Europe/Kyiv", "Europe/Kyiv"])
+
     def test_feed_counts_zones_not_points(self):
         rows = forecast.expand_points(forecast.load_zones()[:1])  # Kyiv Boryspil and Odesa
         m_amber = _synthetic_model(hours=72, members=4, gust=70.0)

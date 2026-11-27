@@ -680,3 +680,5 @@
 {"icao":"VYYY","obs_time":"2026-11-24T23:30:00Z","type":"METAR","temp_c":25,"wspd_kt":2,"wgst_kt":null,"visib":4.35,"raw":"METAR VYYY 242330Z 33002KT 7000 NSC 25/23 Q1014 NOSIG"}
 {"icao":"EYVI","obs_time":"2026-11-24T23:50:00Z","type":"METAR","temp_c":0,"wspd_kt":10,"wgst_kt":null,"visib":"6+","raw":"METAR EYVI 242350Z 01010KT 9999 BKN016 OVC023 00/M03 Q1015 NOSIG"}
 {"icao":"LLBG","obs_time":"2026-11-24T23:50:00Z","type":"METAR","temp_c":17,"wspd_kt":4,"wgst_kt":null,"visib":"6+","raw":"METAR LLBG 242350Z 14004KT 9999 SCT034 17/14 Q1020 NOSIG"}
+{"icao":"MUHA","obs_time":"2026-11-24T23:50:00Z","type":"METAR","temp_c":24,"wspd_kt":4,"wgst_kt":null,"visib":4.97,"raw":"METAR MUHA 242350Z 07004KT 8000 FEW025 SCT100 BKN200 24/23 Q1013"}
+{"icao":"VISR","obs_time":"2026-11-24T23:30:00Z","type":"METAR","temp_c":-2,"wspd_kt":2,"wgst_kt":null,"visib":2.49,"raw":"METAR VISR 242330Z VRB02KT 4000 BR FEW200 M02/M03 Q1030 NOSIG"}
