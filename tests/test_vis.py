@@ -220,6 +220,53 @@ class VisTests(unittest.TestCase):
         self.assertIn("BKN or OVC", feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", h, "amber", "2026-11-09"))
         self.assertIn("(OVC)", feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", h, "red", "2026-11-09"))
 
+    def test_items_stay_valid_for_their_window_and_resolve_on_the_driving_day(self):
+        # Amber wind on every day: the driving day is day 0, so the old valid_until (end of the driving day) would
+        # have expired the item two days before its window ended.
+        zones = forecast.load_zones()[:2]
+        m = _synthetic_model(hours=72, members=4, gust=70.0)
+        ok = {"cell": "land", "lat": 50.25, "lon": 31.0, "cell_elevation_m": 120.0, "station_elevation_m": 127.0,
+              "diff_m": -7.0, "ok": True}
+        doc = forecast.build_forecast_doc(zones, {"ncep_gefs025": [m, m], "ecmwf_ifs025": [m, m]}, days=3,
+                                          generated_at="2026-10-31T18:00:00Z", grids=[ok, ok])
+        fc = feed_v2.build_feed(doc)
+        self.assertEqual(fc["dropped"], [])
+        items = [f["properties"] for f in fc["features"] if f["properties"]["kind"] == "forecast"]
+        self.assertEqual(len(items), 2)
+        for p in items:
+            day = p["measures"]["driver_day"]
+            self.assertEqual(p["valid_until"], p["event_end"])
+            self.assertEqual(p["event_end"], f"{doc['zones'][0]['days'][2]['day']}T23:59:59Z")
+            self.assertEqual(day, doc["zones"][0]["days"][0]["day"])
+            self.assertEqual(p["resolution"]["known_at"], f"{day}T23:59:59Z")
+            self.assertLess(p["resolution"]["known_at"], p["valid_until"])
+            self.assertIn(f"on {day}", p["title"])
+
+    def test_resolution_rule_states_the_persistence_verify_scores(self):
+        for h in forecast.HAZARDS:
+            for lvl in ("amber", "red"):
+                rule = feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", h, lvl, "2026-11-28")
+                self.assertNotIn("hours", rule, (h["id"], rule))
+                if h.get("min_steps") == 2:
+                    self.assertIn("on two consecutive 3-hourly steps (00, 03 ... 21 UTC) on 2026-11-28 UTC", rule)
+                if h["id"] in verify.SCORED:
+                    self.assertIn(f"within {verify.NEAR_MIN} minutes", rule)
+                    self.assertIn("otherwise unresolved", rule)
+                else:
+                    self.assertIn("Vis does not score this from METARs", rule)
+        # verify scores the same step count the rule states.
+        self.assertTrue(all(h.get("min_steps") == 2 for h in forecast.HAZARDS if h["id"] in verify.SCORED))
+        wind = next(h for h in forecast.HAZARDS if h["id"] == "wind")
+        self.assertIn("a mean wind or gust >= 65 km/h (about 35 kt)",
+                      feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", wind, "amber", "2026-11-28"))
+        # Day 0 opens at the build hour: the rule counts only the steps from there, as verify does.
+        rule = feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", wind, "amber", "2026-11-27", "2026-11-27T03:00Z")
+        self.assertIn("from 03:00 on 2026-11-27 UTC", rule)
+        self.assertEqual(verify.steps_for("2026-11-27", "2026-11-27T03:00Z")[0].hour, 3)
+        ceiling = next(h for h in forecast.HAZARDS if h["id"] == "ceiling")
+        self.assertIn("at or below 305 m (1,000 ft) above the aerodrome",
+                      feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", ceiling, "amber", "2026-11-28"))
+
     def test_fetch_waits_and_retries_when_open_meteo_refuses(self):
         import io
         import urllib.error

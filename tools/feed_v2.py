@@ -19,7 +19,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "doctrine" / "kit" / "python"))
+sys.path.insert(0, str(ROOT / "tools"))
 from tic_doctrine import CONTRACT, __version__ as KIT_VERSION, confidence, contract, likelihood, registers, vocab  # noqa: E402
+import verify  # noqa: E402  (the resolution rule states verify's own test)
 
 SITE = "https://vis.theintelligence.company"
 METHOD = "vis-ensemble-1.1"
@@ -88,29 +90,65 @@ def _ncf_for_hazard(hid: str) -> list[str]:
     return []
 
 
-def _resolution_rule(station: str, icao: str, hdef: dict, level: str, day_str: str) -> str:
+_COUNT = {2: "two", 3: "three", 4: "four"}
+
+
+def _steps(hdef: dict, day_str: str, day_from: str | None = None) -> str:
+    """The persistence the forecast counts and tools/verify.py scores: `min_steps` consecutive 3-hourly model steps
+    (00, 03 ... 21 UTC) in the UTC day, from the first scored step when the day's window opens after 00 UTC."""
+    n = hdef.get("min_steps", 1)
+    h = verify.STEP_H
+    marks = f"00, {h:02d} ... {24 - h:02d} UTC"
+    start = day_from[11:16] if day_from and len(day_from) >= 16 and day_from[11:16] != "00:00" else None
+    when = f"from {start} on {day_str} UTC" if start else f"on {day_str} UTC"
+    if n <= 1:
+        return f"at any {h}-hourly step ({marks}) {when}"
+    return f"on {_COUNT.get(n, str(n))} consecutive {h}-hourly steps ({marks}) {when}"
+
+
+def _metar_element(hdef: dict, level: str) -> str:
+    """What the station's report must show at each step, as tools/verify.py reads it."""
+    thr, hid = hdef[level], hdef["id"]
+    if hid == "ceiling":
+        return (f"a ceiling (lowest broken, overcast or obscured layer) at or below {thr:g} m "
+                f"({round(thr / 0.3048 / 100) * 100:,} ft) above the aerodrome")
+    op = ">=" if hdef["dir"] == "above" else "<="
+    if hid == "wind":
+        return f"a mean wind or gust {op} {thr:g} km/h (about {round(thr / 1.852)} kt)"
+    if hid == "vis":
+        return f"visibility {op} {thr:g} m"
+    if hid in ("heat", "cold"):
+        return f"a temperature {op} {thr:g} C"
+    return f"{hdef['name'].lower()} {op} {thr:g} {hdef['unit']}"
+
+
+def _resolution_rule(station: str, icao: str, hdef: dict, level: str, day_str: str,
+                     day_from: str | None = None) -> str:
+    """The rule a forecast is resolved by: for the hazards tools/verify.py scores, exactly its test (the report nearest
+    each 3-hourly step, the persistence the forecast used, and when the answer is No or unresolved); for the others,
+    the event in station terms and why Vis does not score it from METARs."""
     thr = hdef[level]
-    unit = hdef["unit"]
-    min_h = hdef.get("min_hours", 1)
+    steps = _steps(hdef, day_str, day_from)
+    if hdef["id"] in verify.SCORED:
+        return (f"Yes if the {icao} ({station}) METAR nearest each step, within {verify.NEAR_MIN} minutes, reports "
+                f"{_metar_element(hdef, level)} {steps}. No if reports cover at least "
+                f"{round(verify.MIN_COVERAGE * 100)}% of the steps and no hit sits beside a missing report; "
+                f"otherwise unresolved.")
+    not_scored = verify.NOT_RESOLVABLE.get(hdef["id"])
+    tail = f" Vis does not score this from METARs. {not_scored[0].upper()}{not_scored[1:]}." if not_scored else ""
     if hdef["id"] == "lowcloud":
         # METARs give cloud in oktas, not percent: 80% is about broken (5-7 oktas), 95% about overcast; 3 km is about
         # 10,000 ft.
         layers = "overcast (OVC)" if level == "red" else "broken or overcast (BKN or OVC)"
-        return (f"Yes if METARs from {icao} ({station}) report {layers} cloud below 10,000 ft for >= {min_h} hours "
-                f"on {day_str} UTC.")
-    if hdef["id"] == "ceiling":
-        return (f"Yes if METARs from {icao} ({station}) report a ceiling (lowest broken, overcast or obscured layer) at "
-                f"or below {thr:g} m ({round(thr / 0.3048 / 100) * 100:,} ft) above the aerodrome on two consecutive "
-                f"3-hourly steps on {day_str} UTC.")
+        return f"Yes if METARs from {icao} ({station}) report {layers} cloud below 10,000 ft {steps}.{tail}"
     if hdef["agg"] == "sum":
-        return f"Yes if ICAO station {icao} ({station}) records {hdef['name'].lower()} >= {thr} {unit} on {day_str} UTC."
+        return (f"Yes if ICAO station {icao} ({station}) records {hdef['name'].lower()} >= {thr:g} {hdef['unit']} "
+                f"on {day_str} UTC.{tail}")
     if hdef["agg"] == "joint":
         w = hdef["with"]
-        return (f"Yes if ICAO station {icao} ({station}) reports 2 m temperature <= {thr} C with precipitation "
-                f">= {w[level]} mm/h in the same hour for >= {min_h} hours on {day_str} UTC.")
-    op = ">=" if hdef["dir"] == "above" else "<="
-    return (f"Yes if ICAO station {icao} ({station}) reports {hdef['name'].lower()} ({hdef['var']}) "
-            f"{op} {thr} {unit} for >= {min_h} hours on {day_str} UTC.")
+        return (f"Yes if ICAO station {icao} ({station}) reports 2 m temperature <= {thr:g} C with precipitation "
+                f">= {w[level]:g} mm/h at the same step, {steps}.{tail}")
+    return f"Yes if ICAO station {icao} ({station}) reports {_metar_element(hdef, level)} {steps}.{tail}"
 
 
 def _whole_utc(ts: str) -> str:
@@ -232,7 +270,12 @@ def build_feed(forecast_doc: dict) -> dict:
         ))
         hdef = hz_by_id[best_hid]
         peak_day = best_day["day"]
-        valid_until = f"{peak_day}T23:59:59Z"
+        # The item forecasts its whole 72-hour window (event_start to event_end), so its information holds until the
+        # window ends; the next build replaces it before then. The probability, the resolution rule and known_at stay
+        # on the driving day.
+        period = forecast_period(days_72h)
+        valid_until = period["event_end"]
+        known_at = f"{peak_day}T23:59:59Z"
         resolve_dt = (datetime.strptime(peak_day, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%dT12:00:00Z")
         tonight = days_72h[0].get("night") or {}
         sun0 = days_72h[0].get("sun") or {}
@@ -279,7 +322,7 @@ def build_feed(forecast_doc: dict) -> dict:
             "contract": CONTRACT,
             "id": f"vis:{day0}:zone:{z['id']}",
             "subject_id": f"vis:zone:{z['id']}",
-            **forecast_period(days_72h),
+            **period,
             "program": "vis",
             "title": title,
             "summary": summary,
@@ -318,9 +361,9 @@ def build_feed(forecast_doc: dict) -> dict:
                 },
             ],
             "resolution": {
-                "rule": _resolution_rule(station, icao, hdef, level, peak_day),
+                "rule": _resolution_rule(station, icao, hdef, level, peak_day, best_day.get("from")),
                 "source": f"NOAA Aviation Weather Center METAR / SYNOP archive for {icao} (https://aviationweather.gov/data/metar/?ids={icao})",
-                "known_at": valid_until,
+                "known_at": known_at,
                 "resolve_by": resolve_dt,
             },
             "sources": sources_all,
