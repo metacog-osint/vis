@@ -1041,6 +1041,48 @@ class GefsCeilingTests(unittest.TestCase):
         self.assertEqual(verify.resolve_level(hz, hz["amber"], steps, reps)[:3], (1, 8, 243.8))
         self.assertEqual(verify.resolve_level(hz, hz["red"], steps, reps)[0], 0)
 
+    def test_a_forecast_built_before_a_hazard_existed_does_not_leave_it_unobserved(self):
+        # The shared observation line for a point, day and window start is written once, from the first forecast file
+        # (oldest name first). A build from before the ceiling trial carries no "ceiling" hazard; the line must still
+        # observe the ceiling, so the later ceiling forecasts for that day resolve.
+        import gzip
+        import tempfile
+        defs = [h for h in forecast.HAZARDS if h["id"] != "ceiling"]
+        day, start = "2026-11-28", "2026-11-28T00:00Z"
+
+        def doc(gen, hazards, with_ceiling):
+            fc = {"vis": {"p_amber": 0.1, "p_red": 0.0, "members": 82}}
+            if with_ceiling:
+                fc["ceiling"] = {"p_amber": 0.6, "p_red": 0.2, "members": 31}
+            return {"generated_at": gen, "hazards": hazards,
+                    "zones": [{"id": "eyvi", "icao": "EYVI", "days": [{"day": day, "from": start, "hazards": fc}]}]}
+
+        with tempfile.TemporaryDirectory() as d:
+            fdir, mdir, vdir = Path(d) / "fc", Path(d) / "metar", Path(d) / "verify"
+            fdir.mkdir()
+            for name, body in (
+                    ("20261126T1800Z.forecast.gen-20261127T013200Z.json.gz", doc("2026-11-27T01:32:00Z", defs, False)),
+                    ("20261127T0000Z.forecast.gen-20261127T032700Z.json.gz",
+                     doc("2026-11-27T03:27:00Z", forecast.HAZARDS, True))):
+                (fdir / name).write_bytes(gzip.compress(json.dumps(body).encode("utf-8")))
+            reps = [{"icao": "EYVI", "obs_time": f"{day}T{h:02d}:00:00Z", "type": "METAR", "temp_c": 3,
+                     "wspd_kt": 5, "wgst_kt": None, "visib": "6+",
+                     "raw": f"METAR EYVI 28{h:02d}00Z 00005KT 9999 {'OVC008' if h in (6, 9) else 'SCT030'} 03/02 Q1000"}
+                    for h in range(0, 24, 3)]
+            metar.append(mdir, reps)
+            now = datetime(2026, 11, 29, 7, 0, tzinfo=timezone.utc)
+            obs, pairs = verify.resolve(fdir, mdir, vdir, now=now)
+            self.assertEqual(len(obs), 1)          # one shared line for the point, day and window start
+            self.assertEqual(len(pairs), 2)
+            self.assertEqual(set(obs[0]["obs"]), set(verify.SCORED))
+            self.assertEqual(set(verify.SCORED_DEFS), set(verify.SCORED))
+            rows = [r for r in verify.joined(vdir) if r["hazard"] == "ceiling"]
+            self.assertEqual({(r["level"], r["outcome"]) for r in rows}, {("amber", 1), ("red", 0)})
+            # A second run adds nothing and rewrites nothing.
+            before = (vdir / "observed.jsonl").read_bytes()
+            self.assertEqual(verify.resolve(fdir, mdir, vdir, now=now), ([], []))
+            self.assertEqual((vdir / "observed.jsonl").read_bytes(), before)
+
 
 class _Resp:
     status = 200
