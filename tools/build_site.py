@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import feed_v2  # noqa: E402
+import gefs  # noqa: E402
 import locations  # noqa: E402
 import verify  # noqa: E402
 import wxmap  # noqa: E402
@@ -159,6 +160,7 @@ INDEX_HTML = """<!doctype html>
           <li>Each point is read from a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
           <li>Visibility comes from GEFS alone, where it is a diagnosed field that often runs too low in fog and rain.</li>
           <li>Only <!--VIS-CHECKED--> can be checked against METARs, and only at stations that report; the sample since 19 Nov 2026 is small, and “Measured skill” says where it is too small to read.</li>
+          <!--VIS-CEILING-LIMITS-->
           <li>On the weather map, only the coloured points are Vis’s forecast. The imagery, radar, lightning, smoke and hail are observations, and the jet stream and snow depth are NOAA GFS model values. Its imagery and radar come straight from NASA, EUMETSAT, NOAA and Environment and Climate Change Canada; when a service is down, its part of the map goes blank. Radar covers only the US, its territories and Canada; lightning only Europe, Africa, the Middle East and Canada; hail reports and smoke only North America. The jet stream, snow, smoke and hail layers are as fresh as the last site build. Radar services keep only their last 2 to 3 hours, so a loop’s older frames can have no radar, and the map says so. The coastlines are coarse (Natural Earth’s 1:110m scale, off by up to about 10 km), so the map stops at a regional zoom. Opening the map has your browser fetch tiles from NASA, EUMETSAT, NOAA and Environment and Climate Change Canada.</li>
         </ul>
         <p class="small"><b>Terms.</b> Provided as is, without warranty. Code under the GNU AGPL-3.0; data under its sources’ licences, below.</p>
@@ -415,6 +417,11 @@ table.skill th, table.skill td { text-align: left; padding: 4px 8px; border-bott
 table.skill tr.skill-all td { border-top: 2px solid var(--rule); font-weight: 500; }
 .thresh-list { margin: 0; padding-left: 18px; font-size: 13px; }
 .thresh-list li { margin-bottom: 6px; }
+.cig-reach { display: block; margin-top: 3px; font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 11px;
+  color: var(--ink); text-decoration: underline dotted; text-underline-offset: 2px; cursor: help; }
+.reach-head { display: block; margin: 6px 0 2px; }
+.reach-list { margin: 2px 0 0; padding-left: 18px; }
+.reach-list li { margin-bottom: 3px; }
 .site-foot {
   padding: 14px 20px 28px;
   font-size: 12px;
@@ -611,10 +618,68 @@ function nightCell(n, tz) {
     <div>Sunrise ${timePair(n.sunset_dawn, tz)}</div></td>`;
 }
 
+// The low ceiling trial at each point, from the build's cell checks (tools/gefs.py add_reach): left out, or which of
+// its thresholds the GEFS field can reach above the station given the model's ground at the cell.
+let REACH = {};
+function ceilingReach(doc) {
+  const c = doc.ceiling || {};
+  if (c.state !== "used" || !Array.isArray(c.cells)) return {};
+  const left = new Set(c.left_out || []);
+  const out = {};
+  (doc.zones || []).forEach((z, i) => {
+    const cell = c.cells[i];
+    if (cell) out[z.id] = { left: left.has(z.icao) || left.has(z.id), r: cell.reach || null, z };
+  });
+  return out;
+}
+function reachShort(x) {
+  if (!x) return "";
+  if (x.left) return "Ceiling trial: not read here";
+  if (x.r && !x.r.amber) return "Ceiling trial: Amber and Red not reachable here";
+  if (x.r && !x.r.red) return "Ceiling trial: Red not reachable here";
+  return "";
+}
+function reachLong(x) {
+  if (!x) return "";
+  if (x.left) return "The low ceiling trial is not read here: the GEFS cell is more than 300 m from the station’s height.";
+  const r = x.r;
+  if (!r) return "";
+  const d = r.ground_minus_station_m;
+  const ground = `GEFS’s ground at this point’s cell is ${Math.abs(Math.round(d))} m ${d >= 0 ? "above" : "below"} the station`;
+  if (d >= 0) {
+    const lim = !r.amber ? "neither Amber (305 m) nor Red (152 m) can be reached"
+      : !r.red ? `Red (152 m) cannot be reached${r.lowest_layer_only.includes("amber") ? ", and Amber (305 m) only from the lowest model layer" : ""}`
+      : r.lowest_layer_only.length ? `${r.lowest_layer_only.includes("amber") ? "Amber (305 m)" : "Red (152 m)"} is reached only from the lowest model layer` : "";
+    return `${ground}; the ceiling field sits at least about 17 m above that ground, so the lowest ceiling it can give here is about ${r.lowest_agl_m} m above the station${lim ? `: ${lim}` : ""}.`;
+  }
+  return `${ground}, so ceilings read up to ${Math.abs(Math.round(d))} m lower here than above the model’s ground, and a base in the lowest model layer reads 0 m above the station (Red).`;
+}
+
+// Points where the model's ground and the station differ by more than 50 m, or a threshold is out of reach or the
+// trial is not read, for the thresholds list.
+function reachCompact(x) {
+  if (x.left) return "not read (the GEFS cell is more than 300 m from the station’s height).";
+  const r = x.r, d = Math.round(r.ground_minus_station_m);
+  if (d < 0) return `model ground ${-d} m below the station: ceilings read up to ${-d} m low, and a base in the lowest model layer reads 0 m (Red).`;
+  const lim = !r.amber ? "Amber and Red not reachable"
+    : !r.red ? `Red not reachable${r.lowest_layer_only.includes("amber") ? "; Amber only from the lowest model layer" : ""}`
+    : r.lowest_layer_only.length ? `${r.lowest_layer_only.includes("amber") ? "Amber" : "Red"} only from the lowest model layer` : "";
+  return `model ground ${d} m above the station; lowest ceiling about ${r.lowest_agl_m} m above it${lim ? `. ${lim}` : ""}.`;
+}
+function reachList() {
+  const rows = Object.values(REACH).filter((x) => x.left || (x.r && (Math.abs(x.r.ground_minus_station_m) > 50
+    || !x.r.amber || !x.r.red || x.r.lowest_layer_only.length)));
+  if (!rows.length) return "";
+  return `<span class="small reach-head">Where GEFS’s own ground at the point’s cell (its 0.25° terrain, HGT:surface) differs from the station’s height by more than 50 m, or a threshold is out of reach. The ceiling field sits at least about 17 m above that ground, which bounds the lowest ceiling it can give above the station (this build’s cells):</span><ul class="reach-list">${rows
+    .map((x) => `<li><b>${esc(x.z.station)} · ${esc(x.z.icao)}</b>: ${esc(reachCompact(x))}</li>`).join("")}</ul>`;
+}
+
 function rowHead(z) {
   // The station opens the point's detail pop-up (locdetail.js); the button carries the point id.
   const btn = `<button type="button" class="loc-open" data-loc="${esc(z.id)}" title="Forecast, charts and climate for ${esc(z.station)}">${esc(z.station)} · ${esc(z.icao)}</button>`;
-  const meta = `${btn} <span class="mono">(${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})</span>`;
+  const short = reachShort(REACH[z.id]);
+  const mark = short ? `<span class="cig-reach" title="${esc(reachLong(REACH[z.id]))}">${esc(short)}</span>` : "";
+  const meta = `${btn} <span class="mono">(${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})</span>${mark}`;
   if (z.role === "alternate") {
     return `<th scope="row" class="alt-head"><span class="sr">${esc(z.name)}, </span>Alternate point<span class="station-meta">${meta}</span></th>`;
   }
@@ -658,7 +723,8 @@ async function init() {
   }
 
   const hz = Object.fromEntries((doc.hazards || []).map((h) => [h.id, h]));
-  const days = (doc.zones[0]?.days || []).map((d) => d.day);
+  REACH = ceilingReach(doc);
+  const days =(doc.zones[0]?.days || []).map((d) => d.day);
   const dayHours = doc.zones[0]?.days?.[0]?.hours ?? 24;   // today's column counts only the hours still ahead
   const dayFrom = doc.zones[0]?.days?.[0]?.from;
   const thead = document.getElementById("vis-thead");
@@ -681,7 +747,8 @@ async function init() {
     .map((h) => {
       const lim = limit(h);
       const n = first[h.id]?.members;
-      return `<li><b>${esc(h.name)}</b>: Amber <span class="mono">${esc(lim("amber"))}</span>, Red <span class="mono">${esc(lim("red"))}</span>${n ? ` (${n} members)` : ""}. ${esc(h.why)}.</li>`;
+      const extra = h.id === "ceiling" ? reachList() : "";
+      return `<li><b>${esc(h.name)}</b>: Amber <span class="mono">${esc(lim("amber"))}</span>, Red <span class="mono">${esc(lim("red"))}</span>${n ? ` (${n} members)` : ""}. ${esc(h.why)}.${extra}</li>`;
     })
     .join("");
   return doc;
@@ -762,6 +829,40 @@ def checked_text(scored=None) -> str:
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 
+def ceiling_unreachable(forecast_doc: dict) -> tuple[list[str], list[str]]:
+    """Trial points where the GEFS ceiling cannot reach Amber and Red, and Red only, as "Station (ICAO)"."""
+    both, red = gefs.unreachable(forecast_doc)
+    name = lambda z: f'{z.get("station")} ({z.get("icao")})'  # noqa: E731
+    return [name(z) for z in both], [name(z) for z in red]
+
+
+def _and(names: list[str]) -> str:
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def ceiling_limits_html(forecast_doc: dict) -> str:
+    """The Limits list's line on the low ceiling trial: what it is scored against, its two measured limits with the
+    points they hit, and what is scored where (Vis's own score, low cloud cover, Verdict's re-score)."""
+    from html import escape
+    both, red = ceiling_unreachable(forecast_doc)
+    where = []
+    if both:
+        where.append(f"Amber and Red cannot be reached at {_and(both)}")
+    if red:
+        where.append(f"Red cannot be reached at {_and(red)}")
+    where_txt = ", and ".join(where) if where else "no trial point is out of reach in this build"
+    return ('<li><b>Low ceiling trial.</b> Vis scores it against the METAR ceiling (the lowest broken, overcast or '
+            'obscured layer), but NOAA’s GEFS ceiling field can show only part of what a ceiling forecast should, for '
+            'two reasons measured in NOAA’s own files. First, GEFS v12 sets the field only where surface-based CAPE '
+            '(convective available potential energy, a measure of how unstable the air near the ground is) is at '
+            'least about 0.5 J/kg, so stratus and fog in stable air read as no ceiling. Second, the field cannot sit '
+            'lower than about 17 m above the model’s own ground, which at some points is well above the station: '
+            f'{escape(where_txt)}; “Hazard thresholds” under “How to read it” lists each point. Its scores therefore measure '
+            'these limits as much as ceiling skill. Low cloud cover is not scored: it is a model cloud fraction, and '
+            'a METAR gives each layer’s amount in eighths of the sky and its base, not a fraction. Verdict’s '
+            'independent re-score of Vis covers wind, visibility, heat and cold, not the ceiling trial.</li>')
+
+
 def _num(v, fmt="{:.3f}"):
     return "–" if v is None else fmt.format(v)
 
@@ -783,7 +884,9 @@ def verification_html(doc: dict | None) -> str:
            f'rate. A row is marked too few to read unless it has {escape(str(r.get("readable_when", "")))}. '
            f'Rain, snow, low cloud cover and icing are not scored: METARs do not measure them the way the forecast '
            f'states them. The low ceiling trial is scored against the METAR ceiling (lowest broken, overcast or '
-           f'obscured layer). Thresholds are indicative; not for flight planning.</p>',
+           f'obscured layer); its rows measure the GEFS field’s two known limits (no ceiling in stable air, and '
+           f'points where the model’s ground sits well above the station; see “Hazard thresholds” above) as much '
+           f'as ceiling skill. Thresholds are indicative; not for flight planning.</p>',
            '<div class="table-wrap"><table class="skill"><thead><tr><th>Hazard</th><th>Threshold</th>'
            '<th>Lead (days)</th><th>Forecasts</th><th>Observed</th><th>Points (with events)</th><th>Brier</th>'
            '<th>Skill</th><th>Read</th></tr></thead><tbody>']
@@ -848,6 +951,7 @@ def build(forecast_doc: dict, out_dir: Path | None = None, verification: dict | 
         "index.html": INDEX_HTML.replace("<!--VIS-VERIFY-->", verification_html(verification)).replace(
             "<!--VIS-C3S-YEAR-->", c3s_year(locations_doc, forecast_doc)).replace(
             "<!--VIS-CHECKED-->", checked_text()).replace(
+            "<!--VIS-CEILING-LIMITS-->", ceiling_limits_html(forecast_doc)).replace(
             "<!--VIS-GIBS-->", wxmap.gibs_sources_span(wxmap_doc)),
         "style.css": STYLE_CSS,
         "vis.js": VIS_JS,

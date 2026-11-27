@@ -267,8 +267,14 @@ class VisTests(unittest.TestCase):
         self.assertIn("from 03:00 on 2026-11-27 UTC", rule)
         self.assertEqual(verify.steps_for("2026-11-27", "2026-11-27T03:00Z")[0].hour, 3)
         ceiling = next(h for h in forecast.HAZARDS if h["id"] == "ceiling")
-        self.assertIn("at or below 305 m (1,000 ft) above the aerodrome",
+        self.assertIn("at or below 305 m (1,000 ft or lower in the report's 100 ft steps) above the aerodrome",
                       feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", ceiling, "amber", "2026-11-28"))
+        # 500 ft is 152.4 m, over the 152 m line, so the Red rule names 400 ft as verify scores it.
+        self.assertIn("at or below 152 m (400 ft or lower",
+                      feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", ceiling, "red", "2026-11-28"))
+        self.assertGreater(verify.ceiling_m({"raw": "METAR UKBB 280600Z 00000KT 9999 OVC005 01/01 Q1000"}), 152.0)
+        self.assertLessEqual(verify.ceiling_m({"raw": "METAR UKBB 280600Z 00000KT 9999 OVC004 01/01 Q1000"}), 152.0)
+        self.assertLessEqual(verify.ceiling_m({"raw": "METAR UKBB 280600Z 00000KT 9999 OVC010 01/01 Q1000"}), 305.0)
 
     def test_fetch_waits_and_retries_when_open_meteo_refuses(self):
         import io
@@ -1148,6 +1154,54 @@ class GefsCeilingTests(unittest.TestCase):
             before = (vdir / "observed.jsonl").read_bytes()
             self.assertEqual(verify.resolve(fdir, mdir, vdir, now=now), ([], []))
             self.assertEqual((vdir / "observed.jsonl").read_bytes(), before)
+
+    def test_reach_marks_thresholds_the_model_ground_puts_out_of_reach(self):
+        hz = next(h for h in forecast.HAZARDS if h["id"] == "ceiling")
+        # reach() defaults are the hazard's own thresholds.
+        self.assertEqual(gefs.reach(0, 0, 17)["lowest_agl_m"], 17)
+        self.assertEqual((hz["amber"], hz["red"]), (305.0, 152.0))
+        visr = gefs.reach(1658.0, 2175.5, 17.0)           # Srinagar: ground 518 m above the field
+        self.assertEqual((visr["amber"], visr["red"], visr["lowest_agl_m"]), (False, False, 534))
+        fzna = gefs.reach(1526.0, 1796.0, 17.0)           # Goma: Amber only from the lowest layer, Red never
+        self.assertEqual((fzna["amber"], fzna["red"], fzna["lowest_layer_only"]), (True, False, ["amber"]))
+        haab = gefs.reach(2326.0, 2424.7, 17.0)
+        self.assertEqual((haab["amber"], haab["red"], haab["lowest_layer_only"]), (True, True, ["red"]))
+        opis = gefs.reach(535.0, 468.8, 17.0)             # ground below the station: lowest layer reads 0
+        self.assertEqual((opis["lowest_agl_m"], opis["red"], opis["ground_minus_station_m"]), (0, True, -66.2))
+        self.assertIsNone(gefs.reach(None, 100.0, 17.0))
+
+    def test_terrain_file_covers_every_point_at_its_nearest_cell(self):
+        terrain, lowest = gefs.load_terrain()
+        self.assertEqual(lowest, 17.0)
+        doc = json.loads((ROOT / "config" / "gefs_terrain.json").read_text(encoding="utf-8"))
+        pts = forecast.expand_points(forecast.load_zones(str(ROOT / "config" / "points.json")))
+        self.assertEqual(set(terrain), {p["id"] for p in pts})
+        for p in pts:
+            cell = doc["points"][p["id"]]["cell"]
+            self.assertEqual(doc["points"][p["id"]]["icao"], p["icao"])
+            self.assertAlmostEqual(cell[0], round(p["lat"] * 4) / 4)
+            self.assertAlmostEqual(cell[1] % 360, (round(p["lon"] * 4) / 4) % 360)
+
+    def test_page_and_feed_name_the_points_out_of_reach(self):
+        pts = forecast.expand_points(forecast.load_zones(str(ROOT / "config" / "points.json")))
+        doc = {"zones": [{"id": p["id"], "icao": p["icao"], "station": p.get("station") or p["name"]} for p in pts]}
+        both, red = gefs.unreachable(doc)        # no ceiling read: from the config file, 300 m rule applied
+        self.assertEqual([z["icao"] for z in both], ["VISR"])
+        self.assertEqual(sorted(z["icao"] for z in red), ["FZNA", "LLBG", "RCTP", "RPLB"])
+        html = build_site.ceiling_limits_html(doc)
+        self.assertIn("surface-based CAPE", html)
+        self.assertIn("Amber and Red cannot be reached at Srinagar (VISR)", html)
+        self.assertIn("Verdict’s independent re-score of Vis covers wind, visibility, heat and cold", html)
+        # A build's own cell checks win over the file: here every point reaches both.
+        used = {**doc, "ceiling": {"state": "used", "left_out": [], "cells": [
+            {"reach": gefs.reach(10.0, 10.0, 17.0)} for _ in pts]}}
+        self.assertEqual(gefs.unreachable(used), ([], []))
+        self.assertIn("no trial point is out of reach", build_site.ceiling_limits_html(used))
+        self.assertIn("Red cannot be reached at RCTP, RPLB, LLBG, FZNA)", feed_v2.ceiling_limits(doc))
+        # add_reach puts the mark on each cell check, without touching the check itself.
+        checks = [{"station_elevation_m": 1658.0, "ok": True}]
+        gefs.add_reach([{"id": "x"}], checks, {"x": 2175.5}, 17.0)
+        self.assertEqual((checks[0]["ok"], checks[0]["reach"]["amber"]), (True, False))
 
 
 class _Resp:

@@ -79,10 +79,68 @@ function nightCell(n, tz) {
     <div>Sunrise ${timePair(n.sunset_dawn, tz)}</div></td>`;
 }
 
+// The low ceiling trial at each point, from the build's cell checks (tools/gefs.py add_reach): left out, or which of
+// its thresholds the GEFS field can reach above the station given the model's ground at the cell.
+let REACH = {};
+function ceilingReach(doc) {
+  const c = doc.ceiling || {};
+  if (c.state !== "used" || !Array.isArray(c.cells)) return {};
+  const left = new Set(c.left_out || []);
+  const out = {};
+  (doc.zones || []).forEach((z, i) => {
+    const cell = c.cells[i];
+    if (cell) out[z.id] = { left: left.has(z.icao) || left.has(z.id), r: cell.reach || null, z };
+  });
+  return out;
+}
+function reachShort(x) {
+  if (!x) return "";
+  if (x.left) return "Ceiling trial: not read here";
+  if (x.r && !x.r.amber) return "Ceiling trial: Amber and Red not reachable here";
+  if (x.r && !x.r.red) return "Ceiling trial: Red not reachable here";
+  return "";
+}
+function reachLong(x) {
+  if (!x) return "";
+  if (x.left) return "The low ceiling trial is not read here: the GEFS cell is more than 300 m from the station’s height.";
+  const r = x.r;
+  if (!r) return "";
+  const d = r.ground_minus_station_m;
+  const ground = `GEFS’s ground at this point’s cell is ${Math.abs(Math.round(d))} m ${d >= 0 ? "above" : "below"} the station`;
+  if (d >= 0) {
+    const lim = !r.amber ? "neither Amber (305 m) nor Red (152 m) can be reached"
+      : !r.red ? `Red (152 m) cannot be reached${r.lowest_layer_only.includes("amber") ? ", and Amber (305 m) only from the lowest model layer" : ""}`
+      : r.lowest_layer_only.length ? `${r.lowest_layer_only.includes("amber") ? "Amber (305 m)" : "Red (152 m)"} is reached only from the lowest model layer` : "";
+    return `${ground}; the ceiling field sits at least about 17 m above that ground, so the lowest ceiling it can give here is about ${r.lowest_agl_m} m above the station${lim ? `: ${lim}` : ""}.`;
+  }
+  return `${ground}, so ceilings read up to ${Math.abs(Math.round(d))} m lower here than above the model’s ground, and a base in the lowest model layer reads 0 m above the station (Red).`;
+}
+
+// Points where the model's ground and the station differ by more than 50 m, or a threshold is out of reach or the
+// trial is not read, for the thresholds list.
+function reachCompact(x) {
+  if (x.left) return "not read (the GEFS cell is more than 300 m from the station’s height).";
+  const r = x.r, d = Math.round(r.ground_minus_station_m);
+  if (d < 0) return `model ground ${-d} m below the station: ceilings read up to ${-d} m low, and a base in the lowest model layer reads 0 m (Red).`;
+  const lim = !r.amber ? "Amber and Red not reachable"
+    : !r.red ? `Red not reachable${r.lowest_layer_only.includes("amber") ? "; Amber only from the lowest model layer" : ""}`
+    : r.lowest_layer_only.length ? `${r.lowest_layer_only.includes("amber") ? "Amber" : "Red"} only from the lowest model layer` : "";
+  return `model ground ${d} m above the station; lowest ceiling about ${r.lowest_agl_m} m above it${lim ? `. ${lim}` : ""}.`;
+}
+function reachList() {
+  const rows = Object.values(REACH).filter((x) => x.left || (x.r && (Math.abs(x.r.ground_minus_station_m) > 50
+    || !x.r.amber || !x.r.red || x.r.lowest_layer_only.length)));
+  if (!rows.length) return "";
+  return `<span class="small reach-head">Where GEFS’s own ground at the point’s cell (its 0.25° terrain, HGT:surface) differs from the station’s height by more than 50 m, or a threshold is out of reach. The ceiling field sits at least about 17 m above that ground, which bounds the lowest ceiling it can give above the station (this build’s cells):</span><ul class="reach-list">${rows
+    .map((x) => `<li><b>${esc(x.z.station)} · ${esc(x.z.icao)}</b>: ${esc(reachCompact(x))}</li>`).join("")}</ul>`;
+}
+
 function rowHead(z) {
   // The station opens the point's detail pop-up (locdetail.js); the button carries the point id.
   const btn = `<button type="button" class="loc-open" data-loc="${esc(z.id)}" title="Forecast, charts and climate for ${esc(z.station)}">${esc(z.station)} · ${esc(z.icao)}</button>`;
-  const meta = `${btn} <span class="mono">(${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})</span>`;
+  const short = reachShort(REACH[z.id]);
+  const mark = short ? `<span class="cig-reach" title="${esc(reachLong(REACH[z.id]))}">${esc(short)}</span>` : "";
+  const meta = `${btn} <span class="mono">(${z.lat.toFixed(2)}, ${z.lon.toFixed(2)})</span>${mark}`;
   if (z.role === "alternate") {
     return `<th scope="row" class="alt-head"><span class="sr">${esc(z.name)}, </span>Alternate point<span class="station-meta">${meta}</span></th>`;
   }
@@ -126,7 +184,8 @@ async function init() {
   }
 
   const hz = Object.fromEntries((doc.hazards || []).map((h) => [h.id, h]));
-  const days = (doc.zones[0]?.days || []).map((d) => d.day);
+  REACH = ceilingReach(doc);
+  const days =(doc.zones[0]?.days || []).map((d) => d.day);
   const dayHours = doc.zones[0]?.days?.[0]?.hours ?? 24;   // today's column counts only the hours still ahead
   const dayFrom = doc.zones[0]?.days?.[0]?.from;
   const thead = document.getElementById("vis-thead");
@@ -149,7 +208,8 @@ async function init() {
     .map((h) => {
       const lim = limit(h);
       const n = first[h.id]?.members;
-      return `<li><b>${esc(h.name)}</b>: Amber <span class="mono">${esc(lim("amber"))}</span>, Red <span class="mono">${esc(lim("red"))}</span>${n ? ` (${n} members)` : ""}. ${esc(h.why)}.</li>`;
+      const extra = h.id === "ceiling" ? reachList() : "";
+      return `<li><b>${esc(h.name)}</b>: Amber <span class="mono">${esc(lim("amber"))}</span>, Red <span class="mono">${esc(lim("red"))}</span>${n ? ` (${n} members)` : ""}. ${esc(h.why)}.${extra}</li>`;
     })
     .join("");
   return doc;

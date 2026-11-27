@@ -67,13 +67,20 @@ HAZARDS = [
             "and VFR flying, but it is cover, not ceiling height, so it shows at most Yellow"},
     # On trial from 27 Nov 2026: NOAA's own GEFS cloud ceiling (tools/gefs.py), above the station, scored against
     # METAR ceilings in tools/verify.py. Capped at Yellow during the trial; it comes from one model, so under method 1.1
-    # it never reaches COP as a warning.
+    # it never reaches COP as a warning. The two limits in `why` are measured (tools/gefs.py docstring).
     {"id": "ceiling", "name": "Low ceiling (trial)", "var": "ceiling_agl", "agg": "min", "dir": "below", "min_steps": 2,
      "amber": 305.0, "red": 152.0, "unit": "m", "max_colour": "yellow", "trial": True,
-     "why": "GEFS cloud ceiling at or below 305 m (about 1,000 ft, the IFR bound) or 152 m (about 500 ft, LIFR) above "
-            "the station on two consecutive 3-hourly steps (GEFS members, read from NOAA's own files). On trial and "
-            "shown at most Yellow until it is scored against METAR ceilings; the model ceiling is the lowest layer "
-            "holding cloud when the column is at least half covered, not the METAR definition"},
+     "why": "GEFS cloud ceiling above the station at or below 305 m (1,000 ft or lower, so a reported 1,000 ft ceiling "
+            "counts) or 152 m (a reported 500 ft ceiling, 152.4 m, does not count) on two consecutive 3-hourly steps, "
+            "read from NOAA's own GEFS files. On trial, shown at most Yellow, and scored against METAR ceilings. "
+            "Two known limits. First, NOAA's GEFS v12 post-processing sets this ceiling only where surface-based CAPE "
+            "(convective available potential energy, a measure of how unstable the air near the ground is) is at "
+            "least about 0.5 J/kg. Stratus and fog in stable air have none, so they read as no ceiling: under full "
+            "cloud cover about 4% of model points with no CAPE carry a ceiling, against about 98% with some. Second, "
+            "the field is a height above sea level that cannot sit lower than about 17 m above the model's own "
+            "ground, and at some points that ground is well above the station, so Amber or Red cannot be reached "
+            "there (listed below). The model ceiling is the mid-point of the lowest model layer holding cloud, not "
+            "the METAR ceiling (the lowest layer covering more than half the sky)"},
     {"id": "vis", "name": "Poor visibility", "var": "visibility", "agg": "min", "dir": "below", "min_steps": 2,
      "amber": 3000.0, "red": 1000.0, "unit": "m",
      "why": "Surface visibility < 3 km (amber) or < 1 km (red) on two consecutive 3-hourly steps (fog, mist, dust, "
