@@ -20,7 +20,9 @@ jobs:
       - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - name: Tests
-        run: python tests/test_vis.py
+        run: |
+          python tests/test_vis.py
+          python tests/test_archive_lanes.py
       - name: Doctrine and kit copy
         run: python doctrine/kit/tic.py kitcheck
       # Live probes of the location sources (22 Nov 2026). Informational: a network problem never fails the check,
