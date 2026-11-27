@@ -22,6 +22,9 @@ import locations  # noqa: E402
 import metar  # noqa: E402
 import release_cache  # noqa: E402
 import verify  # noqa: E402
+import gfs  # noqa: E402
+import wxmap  # noqa: E402
+import wxobs  # noqa: E402
 from tic_doctrine import contract, registers  # noqa: E402
 
 
@@ -219,6 +222,53 @@ class VisTests(unittest.TestCase):
         h = next(h for h in forecast.HAZARDS if h["id"] == "lowcloud")
         self.assertIn("BKN or OVC", feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", h, "amber", "2026-11-09"))
         self.assertIn("(OVC)", feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", h, "red", "2026-11-09"))
+
+    def test_items_stay_valid_for_their_window_and_resolve_on_the_driving_day(self):
+        # Amber wind on every day: the driving day is day 0, so the old valid_until (end of the driving day) would
+        # have expired the item two days before its window ended.
+        zones = forecast.load_zones()[:2]
+        m = _synthetic_model(hours=72, members=4, gust=70.0)
+        ok = {"cell": "land", "lat": 50.25, "lon": 31.0, "cell_elevation_m": 120.0, "station_elevation_m": 127.0,
+              "diff_m": -7.0, "ok": True}
+        doc = forecast.build_forecast_doc(zones, {"ncep_gefs025": [m, m], "ecmwf_ifs025": [m, m]}, days=3,
+                                          generated_at="2026-10-31T18:00:00Z", grids=[ok, ok])
+        fc = feed_v2.build_feed(doc)
+        self.assertEqual(fc["dropped"], [])
+        items = [f["properties"] for f in fc["features"] if f["properties"]["kind"] == "forecast"]
+        self.assertEqual(len(items), 2)
+        for p in items:
+            day = p["measures"]["driver_day"]
+            self.assertEqual(p["valid_until"], p["event_end"])
+            self.assertEqual(p["event_end"], f"{doc['zones'][0]['days'][2]['day']}T23:59:59Z")
+            self.assertEqual(day, doc["zones"][0]["days"][0]["day"])
+            self.assertEqual(p["resolution"]["known_at"], f"{day}T23:59:59Z")
+            self.assertLess(p["resolution"]["known_at"], p["valid_until"])
+            self.assertIn(f"on {day}", p["title"])
+
+    def test_resolution_rule_states_the_persistence_verify_scores(self):
+        for h in forecast.HAZARDS:
+            for lvl in ("amber", "red"):
+                rule = feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", h, lvl, "2026-11-28")
+                self.assertNotIn("hours", rule, (h["id"], rule))
+                if h.get("min_steps") == 2:
+                    self.assertIn("on two consecutive 3-hourly steps (00, 03 ... 21 UTC) on 2026-11-28 UTC", rule)
+                if h["id"] in verify.SCORED:
+                    self.assertIn(f"within {verify.NEAR_MIN} minutes", rule)
+                    self.assertIn("otherwise unresolved", rule)
+                else:
+                    self.assertIn("Vis does not score this from METARs", rule)
+        # verify scores the same step count the rule states.
+        self.assertTrue(all(h.get("min_steps") == 2 for h in forecast.HAZARDS if h["id"] in verify.SCORED))
+        wind = next(h for h in forecast.HAZARDS if h["id"] == "wind")
+        self.assertIn("a mean wind or gust >= 65 km/h (about 35 kt)",
+                      feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", wind, "amber", "2026-11-28"))
+        # Day 0 opens at the build hour: the rule counts only the steps from there, as verify does.
+        rule = feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", wind, "amber", "2026-11-27", "2026-11-27T03:00Z")
+        self.assertIn("from 03:00 on 2026-11-27 UTC", rule)
+        self.assertEqual(verify.steps_for("2026-11-27", "2026-11-27T03:00Z")[0].hour, 3)
+        ceiling = next(h for h in forecast.HAZARDS if h["id"] == "ceiling")
+        self.assertIn("at or below 305 m (1,000 ft) above the aerodrome",
+                      feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", ceiling, "amber", "2026-11-28"))
 
     def test_fetch_waits_and_retries_when_open_meteo_refuses(self):
         import io
@@ -460,6 +510,314 @@ class VerifyTests(unittest.TestCase):
         self.assertNotIn("<script", html)
 
 
+GIBS_CAPS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<Capabilities xmlns="http://www.opengis.net/wmts/1.0" xmlns:ows="http://www.opengis.net/ows/1.1" version="1.0.0">
+ <Contents>
+  <Layer>
+   <ows:Identifier>GOES-East_ABI_Band13_Clean_Infrared</ows:Identifier>
+   <Format>image/png</Format>
+   <Dimension><ows:Identifier>Time</ows:Identifier><Default>2026-11-22T01:50:00Z</Default>
+    <Value>2026-11-21T00:00:00Z/2026-11-22T01:50:00Z/PT10M</Value></Dimension>
+   <TileMatrixSetLink><TileMatrixSet>GoogleMapsCompatible_Level7</TileMatrixSet></TileMatrixSetLink>
+   <ResourceURL format="image/png" resourceType="tile" template="https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_Band13_Clean_Infrared/default/{Time}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png"/>
+  </Layer>
+  <Layer>
+   <ows:Identifier>GOES-East_ABI_Band8_6.2um_Upper_Level_Water_Vapor</ows:Identifier>
+   <Dimension><ows:Identifier>Time</ows:Identifier><Value>2026-11-22T00:00:00Z/2026-11-22T02:00:00Z/PT10M</Value></Dimension>
+   <TileMatrixSetLink><TileMatrixSet>GoogleMapsCompatible_Level7</TileMatrixSet></TileMatrixSetLink>
+   <ResourceURL format="image/png" resourceType="tile" template="https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/WV/default/{Time}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png"/>
+  </Layer>
+  <Layer>
+   <ows:Identifier>BlueMarble_NextGeneration</ows:Identifier>
+   <TileMatrixSetLink><TileMatrixSet>GoogleMapsCompatible_Level7</TileMatrixSet></TileMatrixSetLink>
+   <ResourceURL format="image/jpeg" resourceType="tile" template="https://example.invalid/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.jpg"/>
+  </Layer>
+  <TileMatrixSet><ows:Identifier>GoogleMapsCompatible_Level7</ows:Identifier>
+   <TileMatrix><ows:Identifier>0</ows:Identifier></TileMatrix><TileMatrix><ows:Identifier>7</ows:Identifier></TileMatrix>
+  </TileMatrixSet>
+ </Contents>
+</Capabilities>"""
+
+EUMETVIEW_CAPS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities xmlns="http://www.opengis.net/wms" version="1.3.0"><Capability><Layer>
+ <Layer><Name>ir105_hrfi</Name><Dimension name="time" default="2026-11-22T02:00:00Z" units="ISO8601">2024-09-23T00:00:00.000Z/2026-11-22T02:00:00.000Z/PT10M</Dimension></Layer>
+ <Layer><Name>li_afa</Name><Dimension name="time" units="ISO8601">2026-11-22T01:50:00.000Z,2026-11-22T01:55:00.000Z,2026-11-22T02:00:00.000Z</Dimension></Layer>
+ <Layer><Name>rgb_airmass</Name></Layer>
+</Layer></Capability></WMS_Capabilities>"""
+
+
+NCEP_CAPS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms"><Capability><Layer><Title>conus</Title>
+<Layer queryable="1"><Name>conus_bref_qcd</Name><Title>radar_reflectivity</Title>
+<Dimension name="time" default="2026-11-22T02:20:04Z" units="ISO8601" nearestValue="1">2026-11-22T02:16:10.000Z,2026-11-22T02:18:06.000Z,2026-11-22T02:20:04.000Z</Dimension>
+</Layer></Layer></Capability></WMS_Capabilities>"""
+
+GEOMET_CAPS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms"><Capability><Layer><Title>MSC GeoMet</Title>
+<Layer><Name>RADAR</Name><Title>Radar</Title>
+<Layer queryable="1"><Name>RADAR_1KM_RRAI</Name><Title>Radar precipitation rate for rain</Title>
+<Dimension name="time" units="ISO8601" default="2026-11-22T02:24:00Z" nearestValue="0">2026-11-21T23:24:00Z/2026-11-22T02:24:00Z/PT6M</Dimension>
+</Layer></Layer></Layer></Capability></WMS_Capabilities>"""
+
+
+class GfsTests(unittest.TestCase):
+    NOW = datetime(2026, 11, 22, 3, 0, tzinfo=timezone.utc)
+
+    @staticmethod
+    def field(short, level, fn, ni=360, nj=181):
+        return {"short": short, "level": level, "ni": ni, "nj": nj, "lat0": 90.0, "lon0": 0.0, "dlat": -1.0,
+                "dlon": 1.0, "values": [float(fn(90 - j, i)) for j in range(nj) for i in range(ni)]}
+
+    def test_candidates_try_the_newest_run_first_at_the_nearest_three_hours(self):
+        got = list(gfs.candidates(self.NOW))[:3]
+        self.assertEqual([(c.hour, f) for c, f in got], [(0, 3), (18, 9), (12, 15)])
+
+    def test_grid_thins_to_two_degrees_and_rounds_to_whole_metres_per_second(self):
+        msgs = [self.field("u", 250, lambda la, lo: 40.4 if la == 40 else 5.0),
+                self.field("v", 250, lambda la, lo: -3.6), self.field("u", 500, lambda la, lo: 99)]
+        g = gfs.grid(msgs)
+        self.assertEqual((g["nx"], g["ny"], g["dlat"], g["dlon"]), (180, 91, -2.0, 2.0))
+        self.assertEqual(g["u"][25 * 180], 40)     # row 25 is 40 N
+        self.assertEqual(g["u"][0], 5)
+        self.assertEqual(set(g["v"]), {-4})
+        with self.assertRaises(ValueError):
+            gfs.grid(msgs[:1])
+
+    def test_build_tries_older_runs_and_writes_snow_depth_in_centimetres(self):
+        msgs = [self.field("u", 250, lambda la, lo: 30), self.field("v", 250, lambda la, lo: 0),
+                self.field("sde", 0, lambda la, lo: 0.42 if la > 60 else 0.0)]
+        msgs[2]["values"][-1] = None                  # masked (sea) point
+        calls = []
+
+        def get(url):
+            calls.append(url)
+            if "gfs.20261122/00" in url:
+                raise OSError("not yet published")
+            return b":UGRD:250 mb:\n:VGRD:250 mb:" if url.endswith(".idx") else b"GRIB"
+        wind, snow = gfs.build(self.NOW, get=get, decoder=lambda raw: msgs, log=lambda *_: None)
+        self.assertTrue(wind["ok"] and snow["ok"])
+        self.assertEqual((wind["run"], wind["lead_h"], wind["valid"]), ("2026-11-21T18:00:00Z", 9, "2026-11-22T03:00:00Z"))
+        self.assertIn("var_SNOD=on", calls[-1])
+        self.assertEqual(max(snow["cm"]), 42)
+        self.assertEqual(snow["cm"][-1], 0)
+
+    def test_build_without_a_decoder_says_so_and_does_not_raise(self):
+        def no_decoder(raw):
+            raise ModuleNotFoundError("No module named 'eccodes'")
+        wind, snow = gfs.build(self.NOW, get=lambda url: b":UGRD:250 mb:\n:VGRD:250 mb:", decoder=no_decoder,
+                               log=lambda *_: None)
+        self.assertFalse(wind["ok"] or snow["ok"])
+        self.assertIn("eccodes", wind["error"])
+
+
+SMOKE_KML = b"""<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>HMS Smoke Mapping-20261121</name>
+<Folder><name>Smoke (Light)</name>
+<Placemark><description><![CDATA[Start Time: 2026325 1300UTC<br>Density: Light<br>Satellite: GOES-WEST]]></description>
+<styleUrl>#Smoke_Light_style</styleUrl><Polygon><outerBoundaryIs><LinearRing><coordinates>
+-64.615070,42.945717,0 -67.484865,45.230924,0 -70.354662,47.037833,0 -64.615070,42.945717,0
+</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
+<Folder><name>Smoke (Heavy)</name><Placemark><styleUrl>#Smoke_Heavy_style</styleUrl><Polygon><outerBoundaryIs><LinearRing>
+<coordinates>-120,40,0 -121,41,0 -119,41,0 -120,40,0</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Folder>
+</Document></kml>"""
+
+
+class WxObsTests(unittest.TestCase):
+    def test_hail_reports_carry_inches_and_times_across_midnight(self):
+        day = wxobs.convective_day(datetime(2026, 5, 21, 3, 0, tzinfo=timezone.utc), 0)
+        self.assertEqual(wxobs.iso(day), "2026-05-20T12:00:00Z")
+        rows = wxobs.parse_hail("Time,Size,Location,County,State,Lat,Lon,Comments\n"
+                                "1824,200,JACKSONVILLE,Morgan,IL,39.73,-90.23,(ILX)\n"
+                                "0105,125,South Jacksonville,Morgan,IL,39.71,-90.23,Largest stone 1.18 in\n"
+                                "bad,row\n", day)
+        self.assertEqual([(r["in"], r["time"], r["place"]) for r in rows],
+                         [(2.0, "2026-05-20T18:24:00Z", "Jacksonville, IL"), (1.25, "2026-05-21T01:05:00Z", "South Jacksonville, IL")])
+
+    def test_smoke_polygons_by_density(self):
+        polys = wxobs.parse_smoke(SMOKE_KML)
+        self.assertEqual([p["density"] for p in polys], ["Light", "Heavy"])
+        self.assertEqual(polys[0]["ring"][0], [-64.62, 42.95])
+
+    def test_smoke_falls_back_to_yesterday(self):
+        def get(url):
+            if "20261122" in url:
+                raise OSError("404")
+            return SMOKE_KML
+        doc = wxobs.smoke(datetime(2026, 11, 22, 3, tzinfo=timezone.utc), get=get, log=lambda *_: None)
+        self.assertEqual((doc["ok"], doc["date"], len(doc["polygons"])), (True, "2026-11-21", 2))
+
+
+class WxMapTests(unittest.TestCase):
+    NOW = datetime(2026, 11, 22, 2, 30, tzinfo=timezone.utc)
+
+    def test_durations_and_time_extents(self):
+        self.assertEqual(wxmap.duration_s("PT10M"), 600)
+        self.assertEqual(wxmap.duration_s("PT1H30M"), 5400)
+        self.assertEqual(wxmap.duration_s("P1D"), 86400)
+        self.assertIsNone(wxmap.duration_s(""))
+        latest, step = wxmap.time_extent(["2026-11-20T00:00:00Z/2026-11-21T00:00:00Z/PT30M",
+                                          "2026-11-21T06:00:00Z/2026-11-22T01:30:00Z/PT30M"])
+        self.assertEqual((wxmap.iso(latest), step), ("2026-11-22T01:30:00Z", 1800))
+        latest, step = wxmap.time_extent(["2026-11-22T01:50:00Z,2026-11-22T01:55:00Z"])
+        self.assertEqual((wxmap.iso(latest), step), ("2026-11-22T01:55:00Z", 300))
+
+    def test_manifest_resolves_layers_and_names_what_it_left_out(self):
+        doc = wxmap.build_manifest(wxmap.gibs_layers(GIBS_CAPS), wxmap.wms_layers(EUMETVIEW_CAPS), now=self.NOW)
+        self.assertTrue(doc["ok"])
+        ir = next(p for p in doc["products"] if p["id"] == "ir")
+        by = {l["sector"]: l for l in ir["layers"]}
+        self.assertEqual(sorted(by), ["goes_east", "meteosat"])   # GOES-West and Himawari absent from the fixture
+        ge = by["goes_east"]
+        self.assertEqual(ge["url"], "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_Band13_Clean_Infrared"
+                                    "/default/{time}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png")
+        self.assertEqual((ge["max_zoom"], ge["step_s"], ge["lag_s"]), (7, 600, 2400))
+        self.assertEqual((by["meteosat"]["layer"], by["meteosat"]["lag_s"]), ("mtg_fd:ir105_hrfi", 1800))
+        wv = next(p for p in doc["products"] if p["id"] == "wv")
+        self.assertEqual(wv["layers"][0]["name"], "GOES-East_ABI_Band8_6.2um_Upper_Level_Water_Vapor")  # by pattern
+        lt = next(p for p in doc["products"] if p["id"] == "lightning")
+        self.assertEqual([(l["sector"], l["step_s"]) for l in lt["layers"]], [("meteosat", 300)])
+        why = {(d["product"], d["sector"]): d["why"] for d in doc["dropped"]}
+        self.assertIn("no usable time dimension", why[("airmass", "meteosat")])   # listed, but no time
+        self.assertEqual(why[("ir", "himawari")], "no gibs layer matched")
+        self.assertEqual(why[("ir", "iodc")], "no eumetview layer matched")
+        self.assertIn("Contains modified EUMETSAT Meteosat data 2026", [c["text"] for c in doc["credits"]])
+
+    def test_manifest_without_services_is_not_ok_and_never_raises(self):
+        doc = wxmap.build_manifest(None, None, now=self.NOW)
+        self.assertFalse(doc["ok"])
+        self.assertEqual(doc["products"], [])
+        self.assertTrue(all("capabilities not read" in d["why"] for d in doc["dropped"]))
+
+    def test_radar_from_noaa_and_eccc_takes_their_bounds_server_and_credit(self):
+        ncep = wxmap.wms_layers(NCEP_CAPS, "conus")
+        geomet = wxmap.wms_layers(GEOMET_CAPS, "geomet", qualify=False)
+        self.assertIn("RADAR_1KM_RRAI", geomet)
+        doc = wxmap.build_manifest(None, None, now=self.NOW, ncep=ncep, geomet=geomet)
+        radar = next(p for p in doc["products"] if p["id"] == "radar")
+        by = {l["sector"]: l for l in radar["layers"]}
+        self.assertEqual(sorted(by), ["canada", "conus"])
+        self.assertEqual((by["conus"]["wms"], by["conus"]["layer"]), (wxmap.NCEP_WMS, "conus:conus_bref_qcd"))
+        self.assertEqual((by["conus"]["south"], by["conus"]["north"]), (20, 55))
+        self.assertEqual(by["conus"]["step_s"], 118)      # irregular scans: the gap between the last two
+        self.assertEqual((by["canada"]["wms"], by["canada"]["layer"], by["canada"]["step_s"]),
+                         (wxmap.GEOMET_WMS, "RADAR_1KM_RRAI", 360))
+        texts = [c["text"] for c in doc["credits"]]
+        self.assertIn("Data Source: Environment and Climate Change Canada", texts)
+        self.assertIn("Radar: NOAA MRMS", texts)
+        self.assertIsNone(radar["frames"])
+
+    def test_site_has_map_above_the_table_and_csp_allows_only_the_tile_hosts(self):
+        doc = forecast.build_forecast_doc(forecast.load_zones()[:1], {
+            "ncep_gefs025": [_synthetic_model(hours=72)], "ecmwf_ifs025": [_synthetic_model(hours=72)]},
+            days=3, generated_at="2026-10-31T18:00:00Z")
+        files = build_site.build(doc)
+        html = files["index.html"]
+        self.assertLess(html.index('id="wx-map"'), html.index('id="vis-table"'))
+        self.assertIn('src="wxmap.js"', html)
+        csp = next(l for l in files["_headers"].splitlines() if "Content-Security-Policy" in l)
+        self.assertIn("img-src 'self' data: https://gibs.earthdata.nasa.gov https://view.eumetsat.int "
+                      "https://opengeo.ncep.noaa.gov https://geo.weather.gc.ca;", csp)
+        self.assertIn('id="wx-overlays"', html)
+        self.assertIn("script-src 'self';", csp)
+        self.assertTrue((ROOT / "site" / "wxmap.js").exists())
+        self.assertTrue((ROOT / "site" / "vendor" / "leaflet" / "leaflet.js").exists())
+        outlines = json.loads((ROOT / "site" / "geo" / "outlines.json").read_text(encoding="utf-8"))
+        self.assertGreater(len(outlines["land"]), 50)
+        self.assertGreater(len(outlines["borders"]), 100)
+        # Nothing of the map loads with the page: no Leaflet stylesheet in the head, the map body hidden until
+        # "Show the map", and the caption names the UTC day the points are coloured for.
+        self.assertNotIn("leaflet.css", html.split("</head>")[0])
+        self.assertIn('id="wx-open"', html)
+        self.assertIn('<div id="wx-body" hidden>', html)
+        self.assertIn("outlook for the current UTC day", html)
+        self.assertNotIn("today’s outlook", html)
+        self.assertNotIn("minutes after the scan", html)
+
+    def test_layers_record_how_far_back_each_service_keeps_frames(self):
+        ncep = wxmap.wms_layers(NCEP_CAPS, "conus")
+        geomet = wxmap.wms_layers(GEOMET_CAPS, "geomet", qualify=False)
+        doc = wxmap.build_manifest(None, None, now=self.NOW, ncep=ncep, geomet=geomet)
+        by = {l["sector"]: l for l in next(p for p in doc["products"] if p["id"] == "radar")["layers"]}
+        self.assertEqual((by["conus"]["first"], by["conus"]["keep_s"]), ("2026-11-22T02:16:10Z", 234))
+        self.assertEqual((by["canada"]["first"], by["canada"]["keep_s"]), ("2026-11-21T23:24:00Z", 3 * 3600))
+        gibs = wxmap.build_manifest(wxmap.gibs_layers(GIBS_CAPS), None, now=self.NOW)
+        ir = next(p for p in gibs["products"] if p["id"] == "ir")["layers"][0]
+        self.assertEqual((ir["first"], ir["keep_s"]), ("2026-11-21T00:00:00Z", 26 * 3600 - 600))
+        first, latest, step = wxmap.time_range(["2026-11-22T01:50:00Z,2026-11-22T01:55:00Z,2026-11-22T02:00:00Z"])
+        self.assertEqual((wxmap.iso(first), wxmap.iso(latest), step), ("2026-11-22T01:50:00Z", "2026-11-22T02:00:00Z", 300))
+
+    def test_page_times_come_from_the_readers_clock(self):
+        import shutil
+        import subprocess
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not installed")
+        r = subprocess.run([node, str(ROOT / "tests" / "wxmap_check.mjs")], capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_a_host_that_times_out_is_not_asked_again(self):
+        from unittest import mock
+        for mod in (wxmap, gfs, wxobs):
+            calls = []
+
+            def hang(req, timeout=None):
+                calls.append((req.full_url, timeout))
+                raise TimeoutError("timed out")
+            mod._HUNG.clear()
+            with mock.patch.object(mod.urllib.request, "urlopen", hang):
+                with self.assertRaises(TimeoutError):
+                    mod.fetch("https://slow.example.invalid/a")
+                with self.assertRaises(TimeoutError):
+                    mod.fetch("https://slow.example.invalid/b")
+            self.assertEqual(calls, [("https://slow.example.invalid/a", mod.TIMEOUT_S)], mod.__name__)
+            self.assertLessEqual(mod.TIMEOUT_S, 20)
+            mod._HUNG.clear()
+
+    def test_map_build_steps_cannot_stop_the_deploy(self):
+        wf = (ROOT / ".github" / "workflows" / "build.yml").read_text(encoding="utf-8")
+        steps = wf.split("\n      - ")
+        for name in ("Weather map layers", "Jet stream and snow depth", "Hail reports and smoke"):
+            step = next(s for s in steps if s.startswith(f"name: {name}"))
+            self.assertIn("continue-on-error: true", step, name)
+            self.assertRegex(step, r"timeout-minutes: [1-3]\b", name)
+        self.assertLess(wf.index("Hail reports and smoke"), wf.index("Deploy site/ to Cloudflare Pages"))
+
+
+class GfsDecodeTests(unittest.TestCase):
+    @staticmethod
+    def msg(body: bytes) -> bytes:
+        n = 16 + len(body) + 4
+        return b"GRIB\0\0\0\x02" + n.to_bytes(8, "big") + body + b"7777"
+
+    def test_messages_split_on_their_own_lengths(self):
+        a, b = self.msg(b"one"), self.msg(b"second")
+        self.assertEqual(list(gfs.messages(a + b)), [a, b])
+        self.assertEqual(list(gfs.messages(b"")), [])
+        with self.assertRaises(ValueError):
+            list(gfs.messages(a[:-2]))
+
+    def test_decode_reads_from_memory_with_no_temporary_file(self):
+        # eccodes keeps a file it reads open, and Windows can neither reopen nor remove an open file; decode() hands
+        # each message to eccodes from memory. A stand-in for eccodes records what it was given.
+        import types
+        from unittest import mock
+        given = []
+        keys = {"latitudeOfFirstGridPointInDegrees": 90.0, "latitudeOfLastGridPointInDegrees": -90.0,
+                "missingValue": 9999.0, "shortName": "u", "level": 250, "Ni": 2, "Nj": 1,
+                "longitudeOfFirstGridPointInDegrees": 0.0, "jDirectionIncrementInDegrees": 1.0,
+                "iDirectionIncrementInDegrees": 1.0}
+        fake = types.SimpleNamespace(
+            codes_new_from_message=lambda m: given.append(m) or len(given),
+            codes_get=lambda gid, k: keys[k], codes_get_values=lambda gid: [3.0, 9999.0],
+            codes_release=lambda gid: None)
+        a, b = self.msg(b"one"), self.msg(b"two")
+        with mock.patch.dict(sys.modules, {"eccodes": fake}):
+            out = gfs.decode(a + b)
+        self.assertEqual(given, [a, b])
+        self.assertEqual([m["values"] for m in out], [[3.0, None], [3.0, None]])
+        self.assertEqual(out[0]["dlat"], -1.0)
+
+
 def _grib53(values, ni, nj, la1=10.0, lo1=0.0, step=0.25, group=3, order=2):
     """A tiny GRIB2 message, grid 3.0 and data template 5.3 (second-order spatial differencing, no missing values),
     holding integer `values` (R=0, E=0, D=0). Written from the WMO template layout, for the decoder's tests."""
@@ -682,6 +1040,48 @@ class GefsCeilingTests(unittest.TestCase):
         reps = [mk(h, "OVC008" if h in (6, 9) else "SCT030") for h in range(0, 24, 3)]
         self.assertEqual(verify.resolve_level(hz, hz["amber"], steps, reps)[:3], (1, 8, 243.8))
         self.assertEqual(verify.resolve_level(hz, hz["red"], steps, reps)[0], 0)
+
+    def test_a_forecast_built_before_a_hazard_existed_does_not_leave_it_unobserved(self):
+        # The shared observation line for a point, day and window start is written once, from the first forecast file
+        # (oldest name first). A build from before the ceiling trial carries no "ceiling" hazard; the line must still
+        # observe the ceiling, so the later ceiling forecasts for that day resolve.
+        import gzip
+        import tempfile
+        defs = [h for h in forecast.HAZARDS if h["id"] != "ceiling"]
+        day, start = "2026-11-28", "2026-11-28T00:00Z"
+
+        def doc(gen, hazards, with_ceiling):
+            fc = {"vis": {"p_amber": 0.1, "p_red": 0.0, "members": 82}}
+            if with_ceiling:
+                fc["ceiling"] = {"p_amber": 0.6, "p_red": 0.2, "members": 31}
+            return {"generated_at": gen, "hazards": hazards,
+                    "zones": [{"id": "eyvi", "icao": "EYVI", "days": [{"day": day, "from": start, "hazards": fc}]}]}
+
+        with tempfile.TemporaryDirectory() as d:
+            fdir, mdir, vdir = Path(d) / "fc", Path(d) / "metar", Path(d) / "verify"
+            fdir.mkdir()
+            for name, body in (
+                    ("20261126T1800Z.forecast.gen-20261127T013200Z.json.gz", doc("2026-11-27T01:32:00Z", defs, False)),
+                    ("20261127T0000Z.forecast.gen-20261127T032700Z.json.gz",
+                     doc("2026-11-27T03:27:00Z", forecast.HAZARDS, True))):
+                (fdir / name).write_bytes(gzip.compress(json.dumps(body).encode("utf-8")))
+            reps = [{"icao": "EYVI", "obs_time": f"{day}T{h:02d}:00:00Z", "type": "METAR", "temp_c": 3,
+                     "wspd_kt": 5, "wgst_kt": None, "visib": "6+",
+                     "raw": f"METAR EYVI 28{h:02d}00Z 00005KT 9999 {'OVC008' if h in (6, 9) else 'SCT030'} 03/02 Q1000"}
+                    for h in range(0, 24, 3)]
+            metar.append(mdir, reps)
+            now = datetime(2026, 11, 29, 7, 0, tzinfo=timezone.utc)
+            obs, pairs = verify.resolve(fdir, mdir, vdir, now=now)
+            self.assertEqual(len(obs), 1)          # one shared line for the point, day and window start
+            self.assertEqual(len(pairs), 2)
+            self.assertEqual(set(obs[0]["obs"]), set(verify.SCORED))
+            self.assertEqual(set(verify.SCORED_DEFS), set(verify.SCORED))
+            rows = [r for r in verify.joined(vdir) if r["hazard"] == "ceiling"]
+            self.assertEqual({(r["level"], r["outcome"]) for r in rows}, {("amber", 1), ("red", 0)})
+            # A second run adds nothing and rewrites nothing.
+            before = (vdir / "observed.jsonl").read_bytes()
+            self.assertEqual(verify.resolve(fdir, mdir, vdir, now=now), ([], []))
+            self.assertEqual((vdir / "observed.jsonl").read_bytes(), before)
 
 
 class _Resp:

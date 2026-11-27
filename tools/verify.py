@@ -22,7 +22,8 @@ What METARs can resolve, and how (method `vis-verify/1`):
   do not report), low cloud cover (a model cloud fraction, not a ceiling) and icing (needs a precipitation rate).
 
 Stores (append-only, written after the day ends plus 6 hours; a stored line is never rewritten):
-`history/verify/observed.jsonl` holds what the station showed, once per point, UTC day and window start;
+`history/verify/observed.jsonl` holds what the station showed, once per point, UTC day and window start, for every
+scored hazard (also those a forecast file built before the hazard existed does not list);
 `history/verify/pairs.jsonl` holds each forecast's probabilities for that point and day. Scores use one forecast per model run (the latest build of it), so repeat builds of the same
 run are not counted twice. Standard library only.
 """
@@ -41,6 +42,7 @@ import metar  # noqa: E402
 
 METHOD = "vis-verify/1"
 SCORED = ("wind", "vis", "heat", "cold", "ceiling")
+SCORED_DEFS = {h["id"]: h for h in forecast.HAZARDS if h["id"] in SCORED}
 NOT_RESOLVABLE = {
     "rain": "24-hour rainfall: most of these stations report no precipitation amount in METARs",
     "snow": "24-hour snowfall: METARs carry no snowfall amount",
@@ -233,7 +235,10 @@ def resolve(forecast_dir, obs_base, verify_dir, now=None):
         name = f.name
         m = NAME_RE.match(name)
         doc = json.loads(gzip.decompress(f.read_bytes()).decode("utf-8"))
-        hazards = {h["id"]: h for h in doc.get("hazards", [])}
+        # The observation line is shared by every forecast with that point, day and window start, and is written
+        # once, from the first file that reaches it. A file built before a scored hazard existed does not list it,
+        # so the hazard's definition comes from forecast.HAZARDS; a hazard the file does list keeps the file's own.
+        hazards = {**SCORED_DEFS, **{h["id"]: h for h in doc.get("hazards", [])}}
         gen = doc["generated_at"]
         for z in doc.get("zones", []):
             for d in z.get("days", []):

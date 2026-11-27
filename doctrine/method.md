@@ -56,6 +56,7 @@ The thresholds are one generic, indicative set (Tom, 8 Nov 2026). Platform profi
   - **Amber** (*Be prepared*): moderate threshold is *Roughly even chance* or higher ($p_{\text{amber}} \ge 0.45$), or severe threshold is *Unlikely* or higher ($p_{\text{red}} \ge 0.20$).
   - **Yellow** (*Be aware*): moderate threshold is *Unlikely* or higher ($p_{\text{amber}} \ge 0.20$), or severe threshold is *Very unlikely* or higher ($p_{\text{red}} \ge 0.05$).
   - **Green** (*No significant impact*): below Yellow on every hazard.
+- **Feed items** (`site/data/feed.geojson`, tic-feed/2): one forecast per point covers the 72-hour window from the first scored hour (`event_start` to `event_end`), and `valid_until` is the end of that window; each build replaces the items before then. The probability is for the driving hazard on the driving day, and `resolution.known_at` is the end of that day. The resolution rule states the test `tools/verify.py` applies (the report nearest each 3-hourly step, two consecutive steps), or says that Vis does not score that hazard from METARs.
 - **Confidence**: Scored separately by the house confidence rubric (`tic_doctrine.confidence`). With two independent numerical weather prediction centres (NOAA GEFS and ECMWF IFS) agreeing, confidence is **Moderate**; per house doctrine, confidence cannot reach **High** until the ensemble's calibration is scored in **Verdict**.
 
 ## Night illumination (`tools/astro.py`)

@@ -223,6 +223,75 @@ table.skill tr.skill-all td { border-top: 2px solid var(--rule); font-weight: 50
   padding-left: 20px;
 }
 .vis-table tbody tr.ref-row th { border-top: 2px solid var(--rule); }
+/* Weather map (wxmap.js) */
+.wx-card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 14px 16px 10px;
+  margin: 16px 0 4px;
+}
+.wx-card h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+.wx-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.wx-top .small { max-width: 760px; }
+.wx-loop { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wx-loop input[type=range] { width: 150px; accent-color: var(--accent); }
+.wx-time { font-size: 12px; color: var(--muted); min-width: 12ch; }
+.wx-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 8px 0 10px;
+}
+.wx-products { display: flex; flex-wrap: wrap; gap: 6px; }
+.wx-btn {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 4px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: #F3F4F1;
+  color: var(--ink);
+  cursor: pointer;
+}
+.wx-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wx-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wx-btn:disabled { opacity: 0.5; cursor: default; }
+.wx-play { min-width: 92px; }
+.wx-open { font-weight: 600; }
+.wx-open[hidden], .wx-loop[hidden], #wx-body[hidden] { display: none; }
+.wx-otime { margin: 0 0 6px; color: var(--muted); }
+.wx-otime[hidden] { display: none; }
+.wx-check { font-size: 12.5px; color: var(--ink); display: inline-flex; align-items: center; gap: 4px; }
+.wx-map {
+  height: 520px;
+  border-radius: 4px;
+  background: #101C2C;
+  border: 1px solid var(--rule);
+}
+.wx-map .leaflet-container, .wx-map.leaflet-container { background: #101C2C; font: 12px/1.4 "IBM Plex Sans", system-ui, sans-serif; }
+.wx-map .leaflet-control-attribution { font-size: 10.5px; max-width: 70%; }
+.wx-map .leaflet-popup-content { font-size: 12.5px; }
+.wx-status { margin: 8px 0 0; color: #5A2C00; }
+.wx-status[hidden] { display: none; }
+.wx-foot { margin: 8px 0 0; }
+.wx-overlays { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: -2px 0 10px; }
+.wx-notes { margin: 8px 0 0; padding-left: 18px; }
+.wx-notes li { margin: 2px 0; }
+.wx-notes[hidden] { display: none; }
+.wx-canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+.wx-canvas[hidden] { display: none; }
+@media (max-width: 640px) {
+  .wx-map { height: 360px; }
+  .wx-loop input[type=range] { width: 110px; }
+}
 .sr {
   position: absolute;
   width: 1px;
