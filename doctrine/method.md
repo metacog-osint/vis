@@ -11,7 +11,7 @@ Each conflict zone is anchored at a named operational airfield or port with an I
 - the forecast samples an actual operational hub rather than an uninhabited desert or mountain midpoint; and
 - every forecast can be checked against the station's METAR reports (see "Verification" below).
 
-Since 8 Nov 2026 (Tom's decision) each zone's alternates are forecast too, as rows of their own: 16 reference points and 15 alternates, 31 in all. An alternate's row id is `<zone id>-<ICAO>`.
+Since 8 Nov 2026 each zone's alternates are forecast too, as rows of their own: 16 reference points and 15 alternates, 31 in all. An alternate's row id is `<zone id>-<ICAO>`.
 
 ## Multi-model ensemble (`tools/forecast.py`)
 
@@ -19,13 +19,13 @@ Vis queries two independent global ensemble systems through the Open-Meteo Ensem
 - **NOAA NCEP GEFS (`ncep_gefs025`)**: 31 members at 0.25° resolution.
 - **ECMWF IFS (`ecmwf_ifs025`)**: 51 members at 0.25° resolution.
 
-Across the members of every model whose run is current (all 82 when both are; a model whose newest run on Open-Meteo is more than 24 hours old, read from Open-Meteo's `static/meta.json`, is left out and named in the feed and on the page), each UTC day and hazard is scored by the share of members that reach the **Amber** (moderate operational degradation) or **Red** (severe operational degradation) threshold, **each model weighted equally** (the mean of the two models' own shares, each kept beside it as `by_model`; since `vis-ensemble-1.1`, 16 Nov 2026, Tom's yes: pooled by count, ECMWF's 51 members had carried 62% of the weight). Both ensembles are **3-hourly** on Open-Meteo (`temporal_resolution_seconds` 10800); the hours between steps are interpolated. So the transient hazards (`wind`, `lowcloud`, `vis`, `heat`, `cold`, `icing`) must hold on **two consecutive 3-hourly model steps** (00, 03, ... 21 UTC) in the UTC day; until 1.1 the rule counted 3 interpolated hours (2 for icing), which one strong step could meet on its own.
+Across the members of every model whose run is current (all 82 when both are; a model whose newest run on Open-Meteo is more than 24 hours old, read from Open-Meteo's `static/meta.json`, is left out and named in the feed and on the page), each UTC day and hazard is scored by the share of members that reach the **Amber** (moderate operational degradation) or **Red** (severe operational degradation) threshold, **each model weighted equally** (the mean of the two models' own shares, each kept beside it as `by_model`; since `vis-ensemble-1.1`, 16 Nov 2026: pooled by count, ECMWF's 51 members had carried 62% of the weight). Both ensembles are **3-hourly** on Open-Meteo (`temporal_resolution_seconds` 10800); the hours between steps are interpolated. So the transient hazards (`wind`, `lowcloud`, `vis`, `heat`, `cold`, `icing`) must hold on **two consecutive 3-hourly model steps** (00, 03, ... 21 UTC) in the UTC day; until 1.1 the rule counted 3 interpolated hours (2 for icing), which one strong step could meet on its own.
 
 **Grid cells (1.1).** Each point names the Open-Meteo cell to read (`cell` in `config/points.json`: land by default, sea for Caracas SVMI and Beirut OLBA, whose land cells sat 879 m and 333 m above the runway on 16 Nov 2026), and every run compares the elevation of the cell's centre with the station's (Open-Meteo's elevation API, one call; `grid` on each point). **Amber or Red goes to COP as a warning only when two models supply the driving hazard and the cell is within 300 m of the station;** otherwise the item is routine and its summary says why. On 16 Nov 2026, 30 of 31 points passed; Asmara (HHAS) sits 446 m above its cell on land or sea, so its warnings are held. Visibility (GEFS only) never makes a warning. The first day counts only the hours from the current UTC hour on, so hours already past never raise a forecast. Confidence counts as independent lines only the models that supply the driving hazard (visibility comes from GEFS alone, low cloud from ECMWF alone).
 
 Two hazards use one model only, because each is published by only one ensemble on Open-Meteo: visibility (GEFS, 31 members) and low cloud cover (ECMWF, 51 members).
 
-**Low cloud cover shows at most Yellow** (Tom, 8 Nov 2026). It is the cover of the lowest 3 km (`cloud_cover_low`), not ceiling height, and neither ensemble on Open-Meteo carries cloud base (checked 8 Nov 2026). Before the cap, low cloud drove all 31 Amber and Red zone-days in the 8 Nov 17Z run, and Kyiv read Red all week. A true ceiling needs another source.
+**Low cloud cover shows at most Yellow** (8 Nov 2026). It is the cover of the lowest 3 km (`cloud_cover_low`), not ceiling height, and neither ensemble on Open-Meteo carries cloud base (checked 8 Nov 2026). Before the cap, low cloud drove all 31 Amber and Red zone-days in the 8 Nov 17Z run, and Kyiv read Red all week. A true ceiling needs another source.
 
 **Low ceiling (trial, from 27 Nov 2026; `tools/gefs.py`).** Neither ensemble on Open-Meteo carries cloud base, so the
 ceiling comes from NOAA's own GEFS files on AWS Open Data (`noaa-gefs-pds`, 0.25-degree `pgrb2sp25`, 31 members,
@@ -73,7 +73,7 @@ forecast; the page and the feed name the run used.
 So the trial's Measured skill rows measure these two limits as much as ceiling skill: a score at or above the
 sample's own climatology after two weeks would not by itself show that the field detects low ceilings.
 
-The thresholds are one generic, indicative set (Tom, 8 Nov 2026). Platform profiles (rotary-wing, small UAS, maritime with sea state) and a heat-stress measure (WBGT) are later work. A thunderstorm hazard (CAPE with rain in the same hour; both ensembles carry CAPE) comes back only after a week of test runs.
+The thresholds are one generic, indicative set (8 Nov 2026). Platform profiles (rotary-wing, small UAS, maritime with sea state) and a heat-stress measure (WBGT) are later work. A thunderstorm hazard (CAPE with rain in the same hour; both ensembles carry CAPE) comes back only after a week of test runs.
 
 ## Likelihood, impact matrix and confidence
 

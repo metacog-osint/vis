@@ -1,5 +1,6 @@
 name: tests
-# Runs the same tests as build.yml on every pull request to main, so a PR has a check to read at its head sha.
+# Runs the same tests as build.yml, plus the name check (tests/test_no_names.py), on every pull request to main, so
+# a PR has a check to read at its head sha.
 # No secrets, no deploy, no release writes, and a read-only token.
 on:
   pull_request:
@@ -23,6 +24,7 @@ jobs:
         run: |
           python tests/test_vis.py
           python tests/test_archive_lanes.py
+          python tests/test_no_names.py
       - name: Doctrine and kit copy
         run: python doctrine/kit/tic.py kitcheck
       # Live probes of the location sources (22 Nov 2026). Informational: a network problem never fails the check,
