@@ -1,4 +1,7 @@
-"""NOAA GEFS cloud ceiling for Vis's points, read straight from NOAA's public files (the "Low ceiling" trial hazard).
+"""NOAA GEFS low cloud for Vis's points, read straight from NOAA's public files (the "Low ceiling" trial hazard).
+
+The trial reads RH at the four lowest model levels (`rh_ceiling_series`, below). `ceiling_series` reads the GEFS
+ceiling field, which the trial read first; it is kept for comparison, and its limits are described here.
 
     python tools/gefs.py [--points config/points.json] [--days 7]     # prints the newest usable run and its ceilings
 
@@ -309,7 +312,7 @@ def needed_steps(run, valid_times):
     return out
 
 
-def latest_run(now, last_valid, opener=None, max_age=MAX_RUN_AGE_HOURS):
+def latest_run(now, last_valid, opener=None, max_age=MAX_RUN_AGE_HOURS, url=None):
     """Newest 00Z/12Z run, at most `max_age` hours old, whose file for `last_valid` is up for every member (checked
     on the `.idx`, 2.5 KB each). Returns the run as YYYYMMDDHH, or None."""
     c = now.replace(minute=0, second=0, microsecond=0)
@@ -321,7 +324,7 @@ def latest_run(now, last_valid, opener=None, max_age=MAX_RUN_AGE_HOURS):
         step -= step % STEP_HOURS
         try:
             with cf.ThreadPoolExecutor(THREADS) as ex:
-                list(ex.map(lambda m: _get(file_url(run, m, step) + ".idx", opener=opener, timeout=20), MEMBERS))
+                list(ex.map(lambda m: _get((url or file_url)(run, m, step) + ".idx", opener=opener, timeout=20), MEMBERS))
             return run
         except Exception:  # noqa: BLE001 - a missing file (403/404 on this bucket) means the run is not complete
             c -= timedelta(hours=12)
@@ -518,6 +521,180 @@ def ceiling_series(points, times, now, opener=None, procs=PROCS, budget=BUDGET_S
             col = [None] * len(times)
             for k, h in at.items():
                 col[k] = agl(got[(m, h)][i], st)
+            row[key] = col
+        series.append(row)
+    info.update({"state": "used", "steps": len(steps), "seconds": round(time.monotonic() - t_start, 1),
+                 "cells": checks, "points_used": sum(1 for s in series if s),
+                 "left_out": [p.get("icao") or p.get("id") for p, s in zip(points, series) if not s]})
+    return series, info
+
+
+# ---- low cloud from relative humidity at the lowest model levels (no CAPE gate) ----
+#
+# The 0.5-degree "b" files carry RH and geopotential height at the four lowest model (hybrid) levels, about 22, 71, 126
+# and 190 m above the model's ground (median of 11,933 station reads, 17-26 Nov 2026). A level at or over RH_CLOUD
+# reads as cloud at that height above the model's ground; the lowest such level is the base. Nothing here goes through
+# UPP's CALCEILING, so stable-air stratus and fog count. Back-test against METAR ceilings (353 stations, 40 valid
+# times, control member, 3 and 9 h leads): doctrine/method.md. The model's ground is the reference, not the station's
+# height; each point reads the one of its four surrounding 0.5-degree cells whose ground is nearest the station's
+# height, and a point whose best cell is more than CELL_MAX_DIFF_M away is left out.
+
+FILE_B = "{bucket}/gefs.{ymd}/{hh}/atmos/pgrb2bp5/{member}.t{hh}z.pgrb2b.0p50.f{step:03d}"
+RH_RECORDS = ["RH:%d hybrid level" % k for k in (1, 2, 3, 4)]
+HGT_RECORDS = ["HGT:%d hybrid level" % k for k in (1, 2, 3, 4)]
+GROUND_RECORD = "HGT:surface"
+RH_CLOUD = 95.0           # chosen on 17-21 Nov (best equitable threat score at both thresholds), held on 22-26 Nov
+CELL_MAX_DIFF_M = 100.0
+RH_BUDGET_S = 480.0
+SOURCE_RH = {
+    "id": "noaa-gefs-aws",
+    "publisher": "NOAA NCEP (AWS Open Data)",
+    "title": "NOAA GEFS 0.5 deg relative humidity at the lowest four model levels (31 members, trial)",
+    "url": "https://registry.opendata.aws/noaa-gefs/",
+    "licence": "NOAA NCEP, US public domain",
+}
+
+
+def file_url_b(run, member, step):
+    return FILE_B.format(bucket=BUCKET, ymd=run[:8], hh=run[8:10], member=member, step=step)
+
+
+def record_ranges(idx_text, wants):
+    return [record_range(idx_text, w) for w in wants]
+
+
+def best_cells(g, ground_vals, latlons, station_m):
+    """For each point, the grid index of the one of its 4 surrounding cells whose ground is nearest the station's
+    height, with that cell's ground and centre. `ground_vals` maps grid index -> metres."""
+    out = []
+    for (lat, lon), st in zip(latlons, station_m):
+        j0 = int((g["la1"] - lat) // g["dj"])
+        i0 = int(((lon - g["lo1"]) % 360.0) // g["di"])
+        cand = [(min(g["nj"] - 1, max(0, j)), i % g["ni"]) for j in (j0, j0 + 1) for i in (i0, i0 + 1)]
+        idx = [j * g["ni"] + i for j, i in cand]
+        if st is None:
+            k = 0
+        else:
+            k = min(range(4), key=lambda n: abs(ground_vals[idx[n]] - st))
+        j, i = cand[k]
+        clon = (g["lo1"] + i * g["di"]) % 360.0
+        out.append({"index": idx[k], "lat": round(g["la1"] - j * g["dj"], 4),
+                    "lon": round(clon - 360.0 if clon > 180.0 else clon, 4), "ground_m": round(ground_vals[idx[k]], 1)})
+    return out
+
+
+def candidate_indices(g, latlons):
+    out = []
+    for lat, lon in latlons:
+        j0 = int((g["la1"] - lat) // g["dj"])
+        i0 = int(((lon - g["lo1"]) % 360.0) // g["di"])
+        out.extend(min(g["nj"] - 1, max(0, j)) * g["ni"] + i % g["ni"] for j in (j0, j0 + 1) for i in (i0, i0 + 1))
+    return out
+
+
+def rh_base(heights, rhs, thr=RH_CLOUD):
+    """Height above the model's ground of the lowest level at or over `thr` % RH; NO_CEILING_M when none is."""
+    for z, rh in zip(heights, rhs):
+        if z is not None and rh is not None and rh >= thr:
+            return round(max(0.0, z), 1)
+    return NO_CEILING_M
+
+
+def _values_job(args):
+    msg, indices = args
+    return values_at(decode(msg, max(indices)), indices)
+
+
+def station_heights(latlons, opener=None):
+    q = urllib.parse.urlencode({"latitude": ",".join(f"{a:.4f}" for a, _ in latlons),
+                                "longitude": ",".join(f"{b:.4f}" for _, b in latlons)})
+    return json.loads(_get(f"{ELEVATION_URL}?{q}", opener=opener, timeout=30).decode("utf-8"))["elevation"]
+
+
+def rh_ceiling_series(points, times, now, opener=None, procs=PROCS, threads=THREADS, budget=RH_BUDGET_S):
+    """The trial hazard's input from RH at the lowest model levels: same shape as ceiling_series, heights above the
+    model's ground. Per member and step it reads RH at the four levels; per step it reads the control member's level
+    heights (they differ across members by a few metres) and, once, the control's ground."""
+    info = {"source": SOURCE_RH["id"], "record": "RH:1-4 hybrid level >= %g%%" % RH_CLOUD, "run_time": None,
+            "age_hours": None, "members": len(MEMBERS), "state": "unavailable", "why": None, "steps": 0,
+            "seconds": None, "cells": None, "method": "rh-lowest-levels"}
+    t_start = time.monotonic()
+    t_end = t_start + budget
+    cut = now.replace(minute=0, second=0, microsecond=0)
+    valid = [datetime.strptime(t[:16], "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc) for t in times]
+    want = [v for v in valid if v.hour % STEP_HOURS == 0 and v >= cut]
+    if not want:
+        info["why"] = "no 3-hourly step left in the forecast window"
+        return None, info
+    pool = None
+    try:
+        run = latest_run(now, want[-1], opener=opener, url=file_url_b)
+        if not run:
+            info["why"] = f"no complete 00Z or 12Z run in the last {MAX_RUN_AGE_HOURS:g} hours"
+            return None, info
+        info["run_time"] = run_time(run).strftime("%Y-%m-%dT%H:%M:%SZ")
+        info["age_hours"] = round((now - run_time(run)).total_seconds() / 3600.0, 1)
+        steps = needed_steps(run, want)
+        latlons = [(p["lat"], p["lon"]) for p in points]
+        st_m = station_heights(latlons, opener=opener)
+        # The control's ground at the first step picks each point's cell.
+        u0 = file_url_b(run, MEMBERS[0], steps[0])
+        rng = record_range(_get(u0 + ".idx", opener=opener).decode("ascii"), GROUND_RECORD)
+        gmsg = _get(u0, rng, opener=opener)
+        g = grid(sections(gmsg)[3])
+        cand = candidate_indices(g, latlons)
+        gvals = dict(zip(cand, values_at(decode(gmsg, max(cand)), cand)))
+        cells = best_cells(g, gvals, latlons, st_m)
+        idx = [c["index"] for c in cells]
+        pool = cf.ProcessPoolExecutor(procs) if procs > 1 else None
+
+        def vals(msg):
+            if pool:
+                return pool.submit(_values_job, (msg, idx)).result(timeout=max(1.0, t_end - time.monotonic()))
+            return _values_job((msg, idx))
+
+        def one(job):
+            member, step = job
+            if time.monotonic() > t_end:
+                raise TimeoutError("ceiling time budget spent")
+            url = file_url_b(run, member, step)
+            text = _get(url + ".idx", opener=opener).decode("ascii")
+            rh = [vals(_get(url, r, opener=opener)) for r in record_ranges(text, RH_RECORDS)]
+            hgt = [vals(_get(url, r, opener=opener)) for r in record_ranges(text, HGT_RECORDS)] \
+                if member == MEMBERS[0] else None
+            return job, (rh, hgt)
+
+        with cf.ThreadPoolExecutor(threads) as ex:
+            got = dict(ex.map(one, [(m, s) for m in MEMBERS for s in steps]))
+    except Exception as e:  # noqa: BLE001 - never a stop for the forecast
+        info["why"] = f"{type(e).__name__}: {e}"[:300]
+        info["seconds"] = round(time.monotonic() - t_start, 1)
+        return None, info
+    finally:
+        if pool:
+            pool.shutdown(cancel_futures=True)
+    checks = []
+    for c, st in zip(cells, st_m):
+        diff = None if st is None else round(c["ground_m"] - st, 1)
+        checks.append({"lat": c["lat"], "lon": c["lon"], "station_elevation_m": st, "cell_elevation_m": c["ground_m"],
+                       "diff_m": diff, "ok": None if diff is None else abs(diff) <= CELL_MAX_DIFF_M,
+                       "ground": "GEFS HGT:surface"})
+    t0 = run_time(run)
+    at = {k: int((v - t0).total_seconds() // 3600) for k, v in enumerate(valid)
+          if int((v - t0).total_seconds() // 3600) in steps and v >= cut}
+    series = []
+    for i, chk in enumerate(checks):
+        if chk["ok"] is not True:
+            series.append(None)
+            continue
+        row = {}
+        for mi, m in enumerate(MEMBERS):
+            key = "ceiling_agl" if mi == 0 else "ceiling_agl_member%02d" % mi
+            col = [None] * len(times)
+            for k, h in at.items():
+                rh, _ = got[(m, h)]
+                hgt = got[(MEMBERS[0], h)][1]
+                col[k] = rh_base([hz[i] - chk["cell_elevation_m"] for hz in hgt], [r[i] for r in rh])
             row[key] = col
         series.append(row)
     info.update({"state": "used", "steps": len(steps), "seconds": round(time.monotonic() - t_start, 1),

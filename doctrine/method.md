@@ -27,26 +27,47 @@ Two hazards use one model only, because each is published by only one ensemble o
 
 **Low cloud cover shows at most Yellow** (Tom, 8 Nov 2026). It is the cover of the lowest 3 km (`cloud_cover_low`), not ceiling height, and neither ensemble on Open-Meteo carries cloud base (checked 8 Nov 2026). Before the cap, low cloud drove all 31 Amber and Red zone-days in the 8 Nov 17Z run, and Kyiv read Red all week. A true ceiling needs another source.
 
-**Low ceiling (trial, from 27 Nov 2026; `tools/gefs.py`).** Neither ensemble on Open-Meteo carries cloud base, so the
-ceiling comes from NOAA's own GEFS files on AWS Open Data (`noaa-gefs-pds`, 0.25-degree `pgrb2sp25`, 31 members,
-3-hourly; US public domain). Each build reads the newest 00Z or 12Z run, at most 24 hours old, whose files reach the end
-of the forecast for every member, and fetches only the `HGT:cloud ceiling` record of each file through its `.idx`
-byte ranges (about 1 MB of 19.5 MB). The records are GRIB2 template 5.3 (complex packing with spatial differencing),
-decoded with the standard library; the decoder matched ecCodes 2.50.1 exactly at every grid point of real records.
-Each point takes its nearest 0.25-degree cell, with its own elevation check (one Open-Meteo elevation call): a cell
-more than 300 m from the station's height is left out of the trial (on 27 Nov 2026 Caracas SVMI, Asmara HHAS and
-Beirut OLBA). The field is NOAA's Unified Post Processor (UPP) ceiling: the height above mean sea level of the
-mid-point of the lowest model layer holding cloud, and 20,000 m ("no ceiling") otherwise. Vis subtracts the station's
-elevation, since a METAR reports heights above the aerodrome. This is not the METAR or ICAO ceiling (the lowest layer
-covering more than half the sky). Thresholds, indicative and not for flight planning: Amber at or below 305 m (a
-reported 1,000 ft ceiling counts; IFR is below 1,000 ft) and Red at or below 152 m (a reported 500 ft ceiling,
-152.4 m, does not count, so 400 ft or lower; LIFR is below 500 ft) on two consecutive 3-hourly steps. During the
-trial it shows at most Yellow; it comes from one model, so it never makes a COP warning. The trial is read from its
-Measured skill rows: if they score at least as well as the sample's own climatology, the cap lifts and the ceiling
-replaces low cloud cover. A failure to read the files leaves the ceiling out of that build and never stops the
-forecast; the page and the feed name the run used.
+**Low ceiling (trial, from 27 Nov 2026; `tools/gefs.py`, `rh_ceiling_series`).** Neither ensemble on Open-Meteo carries
+cloud base, so the trial reads NOAA's own GEFS files on AWS Open Data (`noaa-gefs-pds`, 0.5-degree `pgrb2bp5`, 31
+members, 3-hourly; US public domain). Each build reads the newest 00Z or 12Z run, at most 24 hours old, whose files reach
+the end of the forecast for every member, and fetches only the records it needs through each file's `.idx` byte ranges:
+relative humidity (RH) at the four lowest model (hybrid) levels for every member, and the control member's heights of
+those levels and its ground (`HGT:surface`). The records are GRIB2 template 5.3, decoded with the standard library (the
+decoder matched ecCodes 2.50.1 exactly at every point of real 0.5-degree records, 27 Nov 2026).
 
-**Two known limits of the trial (measured 26-27 Nov 2026).**
+The low-cloud base is the lowest of those four levels, about 22, 71, 126 and 190 m above the model's own ground (median
+of 11,933 reads, 17-26 Nov 2026), where RH is at least 95%; with none, there is no ceiling. Heights are above the
+model's ground, not above the station. Each point reads the one of its four surrounding 0.5-degree cells whose ground is
+nearest the station's height (Open-Meteo's elevation for the station, one call), and a point whose best cell is more than
+100 m off is left out (on 27 Nov 2026 Srinagar VISR, +548 m; Asmara HHAS, -443 m; Goma FZNA, +141 m). This is not the
+METAR or ICAO ceiling (the lowest layer covering more than half the sky). Levels above about 200 m are not read, so in
+practice Amber means near-saturated air within about 200 m of the ground and Red within about 130 m: a base between 200
+and 305 m counts only when the air below it is also near saturation, and a deck over drier air is missed.
+
+Thresholds, indicative and not for flight planning: Amber at or below 305 m (a reported 1,000 ft ceiling counts; IFR is
+below 1,000 ft) and Red at or below 152 m (a reported 500 ft ceiling, 152.4 m, does not count, so 400 ft or lower; LIFR
+is below 500 ft) on two consecutive 3-hourly steps. During the trial it shows at most Yellow; it comes from one model,
+so it never makes a COP warning. The trial is read from its Measured skill rows: if they score at least as well as the
+sample's own climatology, the cap lifts and the ceiling replaces low cloud cover. A failure to read the files leaves
+the ceiling out of that build and never stops the forecast; the page and the feed name the run used.
+
+**Back-test (17-26 Nov 2026).** GEFS control member, 0.5 degree, 20 runs (00Z and 12Z) at 3 and 9 h leads, so 40 valid
+times; METARs from the Iowa Environmental Mesonet archive at 353 stations in 11 regions, the report nearest each valid
+time within 30 minutes, ceiling read by Vis's own parser (`tools/verify.py`). The RH threshold (90, 95 or 98%) was
+chosen on 17-21 Nov by equitable threat score and held on 22-26 Nov. All 40 times, stations whose best cell is within
+100 m (10,626 pairs at 316 stations):
+
+| Ceiling at or below | METAR events | RH 95% at the lowest levels: hit rate / false alarm ratio / bias | GEFS ceiling field, same cells: hit rate / false alarm ratio / bias |
+|---|---|---|---|
+| 305 m (Amber) | 582 | 0.46 / 0.52 / 0.95 | 0.16 / 0.64 / 0.43 |
+| 152 m (Red) | 198 | 0.40 / 0.81 / 2.1 | 0.06 / 0.89 / 0.54 |
+
+Of the 305 m events where the model's surface CAPE was 0, the GEFS ceiling field caught none (0 of 316); the RH
+reading caught 50%. Most events were in Europe (Baltics and Poland, Western Europe, Black Sea and Balkans) and
+North America; the Middle East had none and every other region fewer than 15, too few to read there. One model run per
+time and short leads only: the trial itself scores every member and lead.
+
+**Why not the GEFS ceiling field (`HGT:cloud ceiling`), which the trial read on 27 Nov 2026.**
 - **The field is set only where the air is at least slightly unstable.** UPP's `CALCEILING` (AVIATION.f) keeps the
   height only where `TCLD >= 50`, meant as a column cloud fraction of at least 50%. In the UPP that GEFS v12 runs
   (tags `gefs_v12.3.0` to `gefs_v12.3.22`; `CLDRAD.f` and `AVIATION.f` are the same in all of them), nothing on the
@@ -61,17 +82,16 @@ forecast; the page and the feed name the run used.
   (https://github.com/NOAA-EMC/UPP/blob/gefs_v12.3.22/sorc/ncep_post.fd/CLDRAD.f and `AVIATION.f`), NOAA notice
   SCN 26-57 (GEFS v12.3.20, 15 Jun 2026).
 - **At some points the model's ground sits well above the station.** The field cannot sit lower than about 17 m above
-  GEFS's own ground (0.1% of 2.6 million values sat lower), and Vis takes heights above the station. Where the model's
+  GEFS's own ground (0.1% of 2.6 million values sat lower), and Vis took heights above the station. Where the model's
   ground at the point's cell is well above the station, the lowest above-station value is high: at Srinagar (VISR)
   the ground is about 518 m above the field, so neither Amber nor Red can be reached; Red cannot be reached at Goma
   (FZNA, +270 m), Tel Aviv Ben Gurion (LLBG, +193 m), Taipei Taoyuan (RCTP, +171 m) or Subic Bay (RPLB, +136 m).
   Where the ground is below the station (Islamabad OPIS, 66 m), ceilings read lower and a base in the lowest model
   layer reads 0 m (Red). The model ground is GEFS's 0.25-degree `HGT:surface` at each point's cell
   (`config/gefs_terrain.json`, read 27 Nov 2026); the 300 m rule above compares a different terrain model (Open-Meteo's
-  elevation at the cell centre), so it does not see this. The page marks each affected point.
+  elevation at the cell centre), so it does not see this.
 
-So the trial's Measured skill rows measure these two limits as much as ceiling skill: a score at or above the
-sample's own climatology after two weeks would not by itself show that the field detects low ceilings.
+Scores of forecasts built from that field measure these two limits as much as ceiling skill.
 
 The thresholds are one generic, indicative set (Tom, 8 Nov 2026). Platform profiles (rotary-wing, small UAS, maritime with sea state) and a heat-stress measure (WBGT) are later work. A thunderstorm hazard (CAPE with rain in the same hour; both ensembles carry CAPE) comes back only after a week of test runs.
 

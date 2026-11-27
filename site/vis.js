@@ -89,7 +89,7 @@ function ceilingReach(doc) {
   const out = {};
   (doc.zones || []).forEach((z, i) => {
     const cell = c.cells[i];
-    if (cell) out[z.id] = { left: left.has(z.icao) || left.has(z.id), r: cell.reach || null, z };
+    if (cell) out[z.id] = { left: left.has(z.icao) || left.has(z.id), r: cell.reach || null, diff: cell.diff_m, z };
   });
   return out;
 }
@@ -102,7 +102,7 @@ function reachShort(x) {
 }
 function reachLong(x) {
   if (!x) return "";
-  if (x.left) return "The low ceiling trial is not read here: the GEFS cell is more than 300 m from the station’s height.";
+  if (x.left) return `The low ceiling trial is not read here: the best GEFS cell’s ground is ${x.diff == null ? "unknown" : `${Math.abs(Math.round(x.diff))} m ${x.diff >= 0 ? "above" : "below"} the station`}, more than 100 m off.`;
   const r = x.r;
   if (!r) return "";
   const d = r.ground_minus_station_m;
@@ -119,7 +119,7 @@ function reachLong(x) {
 // Points where the model's ground and the station differ by more than 50 m, or a threshold is out of reach or the
 // trial is not read, for the thresholds list.
 function reachCompact(x) {
-  if (x.left) return "not read (the GEFS cell is more than 300 m from the station’s height).";
+  if (x.left) return `not read: the best cell’s ground is ${x.diff == null ? "unknown" : `${Math.abs(Math.round(x.diff))} m ${x.diff >= 0 ? "above" : "below"} the station`}.`;
   const r = x.r, d = Math.round(r.ground_minus_station_m);
   if (d < 0) return `model ground ${-d} m below the station: ceilings read up to ${-d} m low, and a base in the lowest model layer reads 0 m (Red).`;
   const lim = !r.amber ? "Amber and Red not reachable"
@@ -131,7 +131,7 @@ function reachList() {
   const rows = Object.values(REACH).filter((x) => x.left || (x.r && (Math.abs(x.r.ground_minus_station_m) > 50
     || !x.r.amber || !x.r.red || x.r.lowest_layer_only.length)));
   if (!rows.length) return "";
-  return `<span class="small reach-head">Where GEFS’s own ground at the point’s cell (its 0.25° terrain, HGT:surface) differs from the station’s height by more than 50 m, or a threshold is out of reach. The ceiling field sits at least about 17 m above that ground, which bounds the lowest ceiling it can give above the station (this build’s cells):</span><ul class="reach-list">${rows
+  return `<span class="small reach-head">Each point reads the one of its four surrounding 0.5° GEFS cells whose model ground (HGT:surface) is nearest the station’s height. These points are left out, because their best cell is more than 100 m off (this build’s cells):</span><ul class="reach-list">${rows
     .map((x) => `<li><b>${esc(x.z.station)} · ${esc(x.z.icao)}</b>: ${esc(reachCompact(x))}</li>`).join("")}</ul>`;
 }
 
