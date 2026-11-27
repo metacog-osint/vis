@@ -94,11 +94,11 @@
    "name": "NASA Global Imagery Browse Services (GIBS) WMTS, EPSG:3857",
    "publisher": "NASA ESDIS",
    "url": "https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api",
-   "licence": "Through GIBS, each layer keeps its own source's terms: NOAA GOES and GLM, US public domain; JMA Himawari, JMA Public Data License 1.0 (source must be cited; compatible with CC BY 4.0); NASA GPM IMERG and VIIRS aerosol, NASA data CC0. GIBS asks for its acknowledgement sentence (GIBS API page and NASA data use guidance, read 26 Nov 2026)",
+   "licence": "Through GIBS, each layer keeps its own source's terms: NOAA GOES, US public domain; JMA Himawari, JMA Public Data License 1.0 (source must be cited; compatible with CC BY 4.0); NASA GPM IMERG and VIIRS aerosol, NASA data CC0. GIBS asks for its acknowledgement sentence (GIBS API page and NASA data use guidance, read 26 Nov 2026)",
    "use": "visual",
    "grade": "A1",
    "independence_group": "nasa",
-   "descriptor": "Weather map tiles shown in the viewer's browser: GOES-East, GOES-West and Himawari imagery, GPM IMERG precipitation, VIIRS daily aerosol and GOES GLM lightning. Not ingested or scored."
+   "descriptor": "Weather map tiles shown in the viewer's browser: GOES-East, GOES-West and Himawari imagery, GPM IMERG precipitation and VIIRS daily aerosol; the page's Sources list names the layers each build's map resolved. Not ingested or scored."
   },
   {
    "id": "eumetsat-eumetview",

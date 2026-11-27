@@ -16,6 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import feed_v2  # noqa: E402
 import locations  # noqa: E402
+import verify  # noqa: E402
+import wxmap  # noqa: E402
 
 INDEX_HTML = """<!doctype html>
 <html lang="en">
@@ -156,7 +158,7 @@ INDEX_HTML = """<!doctype html>
           <li>Thresholds are indicative. Joint doctrine (JP 3-59) names the parameters that matter but publishes no numeric limits, and real limits depend on the platform.</li>
           <li>Each point is read from a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
           <li>Visibility comes from GEFS alone, where it is a diagnosed field that often runs too low in fog and rain.</li>
-          <li>Only wind, visibility, heat and cold can be checked against METARs, and only at stations that report; the sample since 19 Nov 2026 is small, and “Measured skill” says where it is too small to read.</li>
+          <li>Only <!--VIS-CHECKED--> can be checked against METARs, and only at stations that report; the sample since 19 Nov 2026 is small, and “Measured skill” says where it is too small to read.</li>
           <li>On the weather map, only the coloured points are Vis’s forecast. The imagery, radar, lightning, smoke and hail are observations, and the jet stream and snow depth are NOAA GFS model values. Its imagery and radar come straight from NASA, EUMETSAT, NOAA and Environment and Climate Change Canada; when a service is down, its part of the map goes blank. Radar covers only the US, its territories and Canada; lightning only Europe, Africa, the Middle East and Canada; hail reports and smoke only North America. The jet stream, snow, smoke and hail layers are as fresh as the last site build. Radar services keep only their last 2 to 3 hours, so a loop’s older frames can have no radar, and the map says so. The coastlines are coarse (Natural Earth’s 1:110m scale, off by up to about 10 km), so the map stops at a regional zoom. Opening the map has your browser fetch tiles from NASA, EUMETSAT, NOAA and Environment and Climate Change Canada.</li>
         </ul>
         <p class="small"><b>Terms.</b> Provided as is, without warranty. Code under the GNU AGPL-3.0; data under its sources’ licences, below.</p>
@@ -168,7 +170,7 @@ INDEX_HTML = """<!doctype html>
           <li><b>NOAA NCEP GEFS</b> 0.25°, 31 members: US public domain.</li>
           <li><b>ECMWF IFS ensemble</b> 0.25°, 51 members: ECMWF open data, CC BY 4.0.</li>
           <li><b>Observations:</b> METARs from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US public domain, kept in Vis’s own store: they score the forecasts, and each point’s detail shows the newest one with its age. TAFs from the same service for each point’s detail, while they are valid.</li>
-          <li><b>Weather map imagery:</b> <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" rel="noopener">NASA GIBS</a> (we acknowledge the use of imagery provided by services from NASA’s Global Imagery Browse Services, part of NASA’s Earth Science Data and Information System): NOAA GOES-East and GOES-West, JMA Himawari, NASA GPM IMERG and GOES GLM lightning. <a href="https://view.eumetsat.int/" rel="noopener">EUMETSAT EUMETView</a>: Meteosat imagery (Third Generation at 0°, second generation at 0° and over the Indian Ocean) and the Lightning Imager, CC BY 4.0; contains modified EUMETSAT Meteosat data; also H SAF rain rate and rapidly developing thunderstorms. <b>Radar:</b> <a href="https://opengeo.ncep.noaa.gov/" rel="noopener">NOAA MRMS</a> through NCEP’s open map server, public domain. <b>Canada radar and lightning:</b> Data Source: Environment and Climate Change Canada (<a href="https://eccc-msc.github.io/open-data/licence/readme_en/" rel="noopener">Data Server End-use Licence</a>). <b>Jet stream and snow depth:</b> NOAA GFS through NOMADS, public domain. <b>Hail reports:</b> NOAA Storm Prediction Center preliminary local storm reports. <b>Smoke:</b> NOAA NESDIS Hazard Mapping System. <b>Daily aerosol (smoke and haze):</b> NASA VIIRS aerosol optical depth through GIBS. RainViewer radar tiles are not used: RainViewer limits them to personal and educational use.</li>
+          <li><b>Weather map imagery:</b> <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" rel="noopener">NASA GIBS</a> (we acknowledge the use of imagery provided by services from NASA’s Global Imagery Browse Services, part of NASA’s Earth Science Data and Information System): <!--VIS-GIBS-->. <a href="https://view.eumetsat.int/" rel="noopener">EUMETSAT EUMETView</a>: Meteosat imagery (Third Generation at 0°, second generation at 0° and over the Indian Ocean) and the Lightning Imager, CC BY 4.0; contains modified EUMETSAT Meteosat data; also H SAF rain rate and rapidly developing thunderstorms. <b>Radar:</b> <a href="https://opengeo.ncep.noaa.gov/" rel="noopener">NOAA MRMS</a> through NCEP’s open map server, public domain. <b>Canada radar and lightning:</b> Data Source: Environment and Climate Change Canada (<a href="https://eccc-msc.github.io/open-data/licence/readme_en/" rel="noopener">Data Server End-use Licence</a>). <b>Jet stream and snow depth:</b> NOAA GFS through NOMADS, public domain. <b>Hail reports:</b> NOAA Storm Prediction Center preliminary local storm reports. <b>Smoke:</b> NOAA NESDIS Hazard Mapping System. RainViewer radar tiles are not used: RainViewer limits them to personal and educational use.</li>
           <li><b>Map outlines:</b> Natural Earth, public domain. <b>Map library:</b> Leaflet, BSD 2-Clause.</li>
           <li><b>Sun and moon:</b> computed by Vis from Jean Meeus, <i>Astronomical Algorithms</i>.</li>
           <li><b>Point detail forecast:</b> <a href="https://open-meteo.com/en/docs" rel="noopener">Open-Meteo Forecast API</a> (best-match national and global models), CC BY 4.0, free for non-commercial use.</li>
@@ -749,6 +751,15 @@ HEADERS = """/*
 
 HAZ_NAMES = {"wind": "Strong wind (gusts)", "vis": "Poor visibility", "heat": "Extreme heat", "cold": "Extreme cold",
              "ceiling": "Low ceiling (trial)"}
+# How the "About and limits" list names each hazard tools/verify.py scores (verify.SCORED).
+CHECKED_NAMES = {"wind": "wind", "vis": "visibility", "heat": "heat", "cold": "cold",
+                 "ceiling": "the low ceiling trial"}
+
+
+def checked_text(scored=None) -> str:
+    """The hazards METARs can check, in verify.SCORED's order, so the limits list follows what is scored."""
+    names = [CHECKED_NAMES.get(h) or HAZ_NAMES.get(h, h).lower() for h in (verify.SCORED if scored is None else scored)]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 
 def _num(v, fmt="{:.3f}"):
@@ -829,11 +840,15 @@ def location_files(locations_doc: dict | None) -> dict[str, str]:
 
 
 def build(forecast_doc: dict, out_dir: Path | None = None, verification: dict | None = None,
-          locations_doc: dict | None = None) -> dict[str, str]:
+          locations_doc: dict | None = None, wxmap_doc: dict | None = None) -> dict[str, str]:
+    """wxmap_doc is the site's data/wxmap.json when it exists; without it the Sources list points to that file,
+    and tools/wxmap.py fills in the layers it resolved when it writes the file (wxmap.stamp_page)."""
     fc = feed_v2.build_feed(forecast_doc)
     files = {
         "index.html": INDEX_HTML.replace("<!--VIS-VERIFY-->", verification_html(verification)).replace(
-            "<!--VIS-C3S-YEAR-->", c3s_year(locations_doc, forecast_doc)),
+            "<!--VIS-C3S-YEAR-->", c3s_year(locations_doc, forecast_doc)).replace(
+            "<!--VIS-CHECKED-->", checked_text()).replace(
+            "<!--VIS-GIBS-->", wxmap.gibs_sources_span(wxmap_doc)),
         "style.css": STYLE_CSS,
         "vis.js": VIS_JS,
         "_headers": HEADERS,
@@ -866,7 +881,12 @@ def main(argv=None) -> int:
     loc_path = Path(a.locations)
     loc = json.loads(loc_path.read_text(encoding="utf-8")) if loc_path.exists() else None
     out_dir = Path(a.out)
-    files = build(doc, out_dir, ver, loc)
+    wx_path = out_dir / "data" / "wxmap.json"
+    try:
+        wx = json.loads(wx_path.read_text(encoding="utf-8")) if wx_path.exists() else None
+    except ValueError:
+        wx = None
+    files = build(doc, out_dir, ver, loc, wx)
     print(f"built {len(files)} files in {out_dir}")
     return 0
 

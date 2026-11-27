@@ -688,6 +688,72 @@ class WxMapTests(unittest.TestCase):
         self.assertEqual(doc["products"], [])
         self.assertTrue(all("capabilities not read" in d["why"] for d in doc["dropped"]))
 
+    def _site_doc(self):
+        return forecast.build_forecast_doc(forecast.load_zones()[:1], {
+            "ncep_gefs025": [_synthetic_model(hours=72)], "ecmwf_ifs025": [_synthetic_model(hours=72)]},
+            days=3, generated_at="2026-10-31T18:00:00Z")
+
+    def test_gibs_credit_and_sources_name_only_the_layers_resolved(self):
+        # The fixture, like GIBS when read on 27 Nov 2026, lists no GOES GLM layer: lightning's GOES sectors are
+        # dropped, so neither the map credit nor the page's Sources list may name GLM.
+        doc = wxmap.build_manifest(wxmap.gibs_layers(GIBS_CAPS), wxmap.wms_layers(EUMETVIEW_CAPS), now=self.NOW)
+        why = {(d["product"], d["sector"]): d["why"] for d in doc["dropped"]}
+        self.assertEqual(why[("lightning", "goes_east")], "no gibs layer matched")
+        self.assertEqual(doc["gibs_suppliers"], ["NOAA GOES-East"])
+        self.assertIn("Imagery: NASA GIBS (ESDIS), NOAA GOES-East", [c["text"] for c in doc["credits"]])
+        html = build_site.build(self._site_doc(), wxmap_doc=doc)["index.html"]
+        sources = html[html.index('id="sources"'):]
+        self.assertIn('<span id="wx-gibs-layers">NOAA GOES-East</span>', sources)
+        self.assertNotIn("GLM", html)
+        self.assertNotIn("Himawari, NASA GPM IMERG", html)
+        # A GLM layer, if GIBS lists one, is credited because it is drawn; an unknown layer is named as itself.
+        products = [{"layers": [{"source": "gibs", "name": "GOES-West_GLM_Flash_Extent_Density"},
+                                {"source": "gibs", "name": "IMERG_Precipitation_Rate_30min"},
+                                {"source": "gibs", "name": "New_Layer"},
+                                {"source": "eumetview", "name": "mtg_fd:li_afa"}]}]
+        self.assertEqual(wxmap.gibs_suppliers(products), ["NOAA GOES GLM lightning", "NASA GPM IMERG", "New_Layer"])
+        self.assertEqual(wxmap.gibs_sources_span({"products": products}),
+                         '<span id="wx-gibs-layers">NOAA GOES GLM lightning, NASA GPM IMERG and New_Layer</span>')
+        self.assertEqual(wxmap.gibs_sources_span(wxmap.build_manifest(None, None, now=self.NOW)),
+                         '<span id="wx-gibs-layers">no layer in this build</span>')
+        # The doctrine source registry credits no GLM layer either.
+        reg = json.loads((ROOT / "doctrine" / "sources.json").read_text(encoding="utf-8"))
+        gibs = next(s for s in (reg["sources"] if isinstance(reg, dict) else reg) if s["id"] == "nasa-gibs")
+        self.assertNotIn("GLM", gibs["descriptor"] + gibs["licence"])
+
+    def test_wxmap_rewrites_the_built_pages_gibs_sources(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            site = Path(tmp) / "site"
+            build_site.build(self._site_doc(), site)   # built before the manifest exists, as in the CI build
+            page = (site / "index.html").read_text(encoding="utf-8")
+            self.assertIn('<span id="wx-gibs-layers">the layers listed in this build’s '
+                          '<a href="data/wxmap.json">map manifest</a></span>', page)
+            (Path(tmp) / "gibs.xml").write_bytes(GIBS_CAPS)
+            (Path(tmp) / "eum.xml").write_bytes(EUMETVIEW_CAPS)
+            from contextlib import redirect_stdout
+            from io import StringIO
+            with redirect_stdout(StringIO()):
+                wxmap.main(["--out", str(site / "data" / "wxmap.json"), "--gibs", str(Path(tmp) / "gibs.xml"),
+                            "--eumetview", str(Path(tmp) / "eum.xml"), "--offline"])
+            page = (site / "index.html").read_text(encoding="utf-8")
+            self.assertEqual(page.count('id="wx-gibs-layers"'), 1)
+            self.assertIn('<span id="wx-gibs-layers">NOAA GOES-East</span>', page)
+            # A later local build reads the manifest beside it and writes the same list.
+            manifest = json.loads((site / "data" / "wxmap.json").read_text(encoding="utf-8"))
+            self.assertEqual(build_site.build(self._site_doc(), wxmap_doc=manifest)["index.html"].count(
+                '<span id="wx-gibs-layers">NOAA GOES-East</span>'), 1)
+            self.assertFalse(wxmap.stamp_page(Path(tmp) / "missing.html", manifest))
+
+    def test_limits_list_names_every_hazard_verify_scores(self):
+        for h in verify.SCORED:
+            self.assertIn(h, build_site.CHECKED_NAMES, f"{h} is scored but the limits list has no name for it")
+        html = build_site.build(self._site_doc())["index.html"]
+        self.assertIn("<li>Only wind, visibility, heat, cold and the low ceiling trial can be checked against "
+                      "METARs,", html)
+        self.assertEqual(build_site.checked_text(("wind", "vis")), "wind and visibility")
+        self.assertNotIn("<!--VIS-", html)
+
     def test_radar_from_noaa_and_eccc_takes_their_bounds_server_and_credit(self):
         ncep = wxmap.wms_layers(NCEP_CAPS, "conus")
         geomet = wxmap.wms_layers(GEOMET_CAPS, "geomet", qualify=False)
