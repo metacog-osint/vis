@@ -887,7 +887,9 @@ def verification_html(doc: dict | None) -> str:
            f'obscured layer); its rows measure the GEFS field’s two known limits (no ceiling in stable air, and '
            f'points where the model’s ground sits well above the station; see “Hazard thresholds” above) as much '
            f'as ceiling skill. Thresholds are indicative; not for flight planning.</p>',
-           '<div class="table-wrap"><table class="skill"><thead><tr><th>Hazard</th><th>Threshold</th>'
+           # Wider than a phone: the box scrolls sideways, so it takes keyboard focus and a name (WCAG 2.1.1).
+           '<div class="table-wrap" tabindex="0" role="region" aria-label="Measured skill scores, scrolls sideways">'
+           '<table class="skill"><thead><tr><th>Hazard</th><th>Threshold</th>'
            '<th>Lead (days)</th><th>Forecasts</th><th>Observed</th><th>Points (with events)</th><th>Brier</th>'
            '<th>Skill</th><th>Read</th></tr></thead><tbody>']
     for c in doc["scores"]:

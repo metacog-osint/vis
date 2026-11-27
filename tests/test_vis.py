@@ -751,6 +751,12 @@ class WxMapTests(unittest.TestCase):
                 '<span id="wx-gibs-layers">NOAA GOES-East</span>'), 1)
             self.assertFalse(wxmap.stamp_page(Path(tmp) / "missing.html", manifest))
 
+    def test_skill_table_box_takes_focus_and_a_name(self):
+        html = build_site.verification_html({"scores": [{"hazard": "wind", "level": "amber", "lead_days": "all",
+                                                         "threshold": 65.0, "unit": "km/h", "n": 1, "events": 0}],
+                                              "rules": {}})
+        self.assertIn('<div class="table-wrap" tabindex="0" role="region" aria-label="Measured skill scores', html)
+
     def test_limits_list_names_every_hazard_verify_scores(self):
         for h in verify.SCORED:
             self.assertIn(h, build_site.CHECKED_NAMES, f"{h} is scored but the limits list has no name for it")
