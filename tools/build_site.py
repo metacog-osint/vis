@@ -74,6 +74,32 @@ INDEX_HTML = """<!doctype html>
     <!-- Sections row (tic-tabs.js from the hub): one group at a time on a phone, a jumping row wider -->
     <div data-tic-tabs>
     <div id="sec-forecast" data-tab-label="Forecast">
+    <section class="wx-card" id="weather-map" aria-labelledby="wx-title">
+      <div class="wx-top">
+        <div>
+          <h2 id="wx-title">Weather map</h2>
+          <p class="small" id="wx-note">Recent satellite imagery, radar, lightning, the jet stream, snow, smoke and hail, with Vis’s forecast points coloured by its outlook for the current UTC day.</p>
+        </div>
+        <button type="button" id="wx-open" class="wx-btn wx-open">Show the map</button>
+        <div class="wx-loop" id="wx-loop" hidden>
+          <button type="button" id="wx-play" class="wx-btn wx-play">Play loop</button>
+          <input type="range" id="wx-frame" min="0" max="0" value="0" disabled aria-label="Frame">
+          <span id="wx-time" class="mono wx-time" aria-live="polite">–</span>
+        </div>
+      </div>
+      <div id="wx-body" hidden>
+        <div class="wx-controls">
+          <div id="wx-products" class="wx-products" role="group" aria-label="Imagery"></div>
+        </div>
+        <div id="wx-overlays" class="wx-overlays" role="group" aria-label="Overlays"><label class="wx-check"><input type="checkbox" id="wx-points" checked> Forecast points</label></div>
+        <p id="wx-otime" class="small wx-otime" hidden></p>
+        <div id="wx-map" class="wx-map" role="region" aria-label="Weather map"></div>
+        <ul id="wx-overlay-notes" class="small wx-notes" hidden></ul>
+        <p id="wx-status" class="small wx-status" role="status" hidden></p>
+      </div>
+      <p class="small wx-foot">The map loads only when you open it (about 2 MB of imagery); a loop loads only when you press Play. What it shows was measured, then reached the map later: NASA’s GOES and Himawari imagery about an hour after the scan, Meteosat about 30 minutes, radar a few minutes, IMERG precipitation several hours. Each frame names its own time. Jet stream, snow, smoke and hail come from the last site build. Not for flight planning.</p>
+    </section>
+
     <section class="legend-bar" aria-label="Colour key">
       <div class="matrix-pills">
         <span class="pill col-green"><b>Green</b> · No significant impact</span>
@@ -131,6 +157,7 @@ INDEX_HTML = """<!doctype html>
           <li>Each point is read from a model grid of about 25 km, so local effects such as valley fog, sea breezes and single thunderstorms are not resolved. There is no thunderstorm hazard yet.</li>
           <li>Visibility comes from GEFS alone, where it is a diagnosed field that often runs too low in fog and rain.</li>
           <li>Only wind, visibility, heat and cold can be checked against METARs, and only at stations that report; the sample since 19 Nov 2026 is small, and “Measured skill” says where it is too small to read.</li>
+          <li>On the weather map, only the coloured points are Vis’s forecast. The imagery, radar, lightning, smoke and hail are observations, and the jet stream and snow depth are NOAA GFS model values. Its imagery and radar come straight from NASA, EUMETSAT, NOAA and Environment and Climate Change Canada; when a service is down, its part of the map goes blank. Radar covers only the US, its territories and Canada; lightning only Europe, Africa, the Middle East and Canada; hail reports and smoke only North America. The jet stream, snow, smoke and hail layers are as fresh as the last site build. Radar services keep only their last 2 to 3 hours, so a loop’s older frames can have no radar, and the map says so. The coastlines are coarse (Natural Earth’s 1:110m scale, off by up to about 10 km), so the map stops at a regional zoom. Opening the map has your browser fetch tiles from NASA, EUMETSAT, NOAA and Environment and Climate Change Canada.</li>
         </ul>
         <p class="small"><b>Terms.</b> Provided as is, without warranty. Code under the GNU AGPL-3.0; data under its sources’ licences, below.</p>
       </div>
@@ -141,6 +168,8 @@ INDEX_HTML = """<!doctype html>
           <li><b>NOAA NCEP GEFS</b> 0.25°, 31 members: US public domain.</li>
           <li><b>ECMWF IFS ensemble</b> 0.25°, 51 members: ECMWF open data, CC BY 4.0.</li>
           <li><b>Observations:</b> METARs from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US public domain, kept in Vis’s own store: they score the forecasts, and each point’s detail shows the newest one with its age. TAFs from the same service for each point’s detail, while they are valid.</li>
+          <li><b>Weather map imagery:</b> <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" rel="noopener">NASA GIBS</a> (we acknowledge the use of imagery provided by services from NASA’s Global Imagery Browse Services, part of NASA’s Earth Science Data and Information System): NOAA GOES-East and GOES-West, JMA Himawari, NASA GPM IMERG and GOES GLM lightning. <a href="https://view.eumetsat.int/" rel="noopener">EUMETSAT EUMETView</a>: Meteosat imagery (Third Generation at 0°, second generation at 0° and over the Indian Ocean) and the Lightning Imager, CC BY 4.0; contains modified EUMETSAT Meteosat data; also H SAF rain rate and rapidly developing thunderstorms. <b>Radar:</b> <a href="https://opengeo.ncep.noaa.gov/" rel="noopener">NOAA MRMS</a> through NCEP’s open map server, public domain. <b>Canada radar and lightning:</b> Data Source: Environment and Climate Change Canada (<a href="https://eccc-msc.github.io/open-data/licence/readme_en/" rel="noopener">Data Server End-use Licence</a>). <b>Jet stream and snow depth:</b> NOAA GFS through NOMADS, public domain. <b>Hail reports:</b> NOAA Storm Prediction Center preliminary local storm reports. <b>Smoke:</b> NOAA NESDIS Hazard Mapping System. <b>Daily aerosol (smoke and haze):</b> NASA VIIRS aerosol optical depth through GIBS. RainViewer radar tiles are not used: RainViewer limits them to personal and educational use.</li>
+          <li><b>Map outlines:</b> Natural Earth, public domain. <b>Map library:</b> Leaflet, BSD 2-Clause.</li>
           <li><b>Sun and moon:</b> computed by Vis from Jean Meeus, <i>Astronomical Algorithms</i>.</li>
           <li><b>Point detail forecast:</b> <a href="https://open-meteo.com/en/docs" rel="noopener">Open-Meteo Forecast API</a> (best-match national and global models), CC BY 4.0, free for non-commercial use.</li>
           <li><b>Climatology:</b> ERA5 reanalysis through <a href="https://open-meteo.com/en/docs/historical-weather-api" rel="noopener">Open-Meteo’s Historical Weather API</a>, CC BY 4.0; contains modified Copernicus Climate Change Service information <!--VIS-C3S-YEAR-->; neither the European Commission nor ECMWF is responsible for any use that may be made of the Copernicus information or data it contains. Normals 1991–2020; records 1991–2025, for the 25 km grid cell, not the station.</li>
@@ -169,7 +198,7 @@ INDEX_HTML = """<!doctype html>
   </dialog>
 
   <footer class="wrap site-foot">
-    <p>A project of <a href="https://theintelligence.company">The Intelligence Company</a>. Forecast generated <span id="vis-asof">…</span>. <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a> (GNU AGPL-3.0). Weather data: <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> (CC BY 4.0), from NOAA GEFS and ECMWF IFS. <a href="#about">About and limits</a> · <a href="#sources">Sources</a>.</p>
+    <p>A project of <a href="https://theintelligence.company">The Intelligence Company</a>. Forecast generated <span id="vis-asof">…</span>. <a href="https://github.com/metacog-osint/vis" rel="noopener">Source code</a> (GNU AGPL-3.0). Weather data: <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> (CC BY 4.0), from NOAA GEFS and ECMWF IFS. Map imagery: NASA GIBS, EUMETSAT, NOAA and ECCC. <a href="#about">About and limits</a> · <a href="#sources">Sources</a>.</p>
     <nav class="tic-data" aria-label="Data and downloads"><span class="tic-data-k">Data and downloads</span>
       <a href="data/feed.geojson">Feed (GeoJSON)</a>
       <a href="data/forecast.json">Forecast data (JSON)</a>
@@ -184,6 +213,7 @@ INDEX_HTML = """<!doctype html>
   <script src="tic-fold.js" defer></script>
   <script src="tic-nav.js" data-current="vis" defer data-health="on"></script>
   <script type="module" src="vis.js"></script>
+  <script type="module" src="wxmap.js"></script>
 </body>
 </html>
 """
@@ -413,6 +443,75 @@ table.skill tr.skill-all td { border-top: 2px solid var(--rule); font-weight: 50
   padding-left: 20px;
 }
 .vis-table tbody tr.ref-row th { border-top: 2px solid var(--rule); }
+/* Weather map (wxmap.js) */
+.wx-card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 14px 16px 10px;
+  margin: 16px 0 4px;
+}
+.wx-card h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+.wx-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.wx-top .small { max-width: 760px; }
+.wx-loop { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wx-loop input[type=range] { width: 150px; accent-color: var(--accent); }
+.wx-time { font-size: 12px; color: var(--muted); min-width: 12ch; }
+.wx-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 8px 0 10px;
+}
+.wx-products { display: flex; flex-wrap: wrap; gap: 6px; }
+.wx-btn {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 4px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: #F3F4F1;
+  color: var(--ink);
+  cursor: pointer;
+}
+.wx-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wx-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wx-btn:disabled { opacity: 0.5; cursor: default; }
+.wx-play { min-width: 92px; }
+.wx-open { font-weight: 600; }
+.wx-open[hidden], .wx-loop[hidden], #wx-body[hidden] { display: none; }
+.wx-otime { margin: 0 0 6px; color: var(--muted); }
+.wx-otime[hidden] { display: none; }
+.wx-check { font-size: 12.5px; color: var(--ink); display: inline-flex; align-items: center; gap: 4px; }
+.wx-map {
+  height: 520px;
+  border-radius: 4px;
+  background: #101C2C;
+  border: 1px solid var(--rule);
+}
+.wx-map .leaflet-container, .wx-map.leaflet-container { background: #101C2C; font: 12px/1.4 "IBM Plex Sans", system-ui, sans-serif; }
+.wx-map .leaflet-control-attribution { font-size: 10.5px; max-width: 70%; }
+.wx-map .leaflet-popup-content { font-size: 12.5px; }
+.wx-status { margin: 8px 0 0; color: #5A2C00; }
+.wx-status[hidden] { display: none; }
+.wx-foot { margin: 8px 0 0; }
+.wx-overlays { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: -2px 0 10px; }
+.wx-notes { margin: 8px 0 0; padding-left: 18px; }
+.wx-notes li { margin: 2px 0; }
+.wx-notes[hidden] { display: none; }
+.wx-canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+.wx-canvas[hidden] { display: none; }
+@media (max-width: 640px) {
+  .wx-map { height: 360px; }
+  .wx-loop input[type=range] { width: 110px; }
+}
 .sr {
   position: absolute;
   width: 1px;
@@ -638,7 +737,7 @@ NOT_FOUND_HTML = """<!doctype html>
 """
 
 HEADERS = """/*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cop.theintelligence.company; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://gibs.earthdata.nasa.gov https://view.eumetsat.int https://opengeo.ncep.noaa.gov https://geo.weather.gc.ca; connect-src 'self' https://cop.theintelligence.company; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), camera=(), microphone=()
