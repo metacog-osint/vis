@@ -4,9 +4,10 @@
 
 The map draws imagery straight from open tile services, so nothing is stored or proxied here:
 
-- NASA GIBS (WMTS, EPSG:3857): GOES-East, GOES-West and Himawari imagery, IMERG precipitation and GLM lightning.
-  Each layer keeps its source's terms (NOAA GOES public domain; JMA Himawari, JMA's Public Data License with the
-  source cited; NASA IMERG CC0); GIBS asks for an acknowledgement (shown on the map).
+- NASA GIBS (WMTS, EPSG:3857): GOES-East, GOES-West and Himawari imagery, IMERG precipitation and VIIRS daily
+  aerosol. Each layer keeps its source's terms (NOAA GOES public domain; JMA Himawari, JMA's Public Data License with
+  the source cited; NASA IMERG and VIIRS CC0); GIBS asks for an acknowledgement (shown on the map). The lightning
+  product also asks GIBS for GOES GLM layers, which GIBS did not list when read on 27 Nov 2026.
 - EUMETSAT EUMETView (WMS): Meteosat Third Generation (0 degrees) imagery and Lightning Imager flash area, which
   fill Europe, Africa and the Middle East. EUMETSAT data policy: WMS visualisations are free and unrestricted under
   CC BY 4.0, credited "Contains modified EUMETSAT Meteosat data <year>".
@@ -18,7 +19,9 @@ Each product lists candidate layer names per satellite sector. This script reads
 keeps the first candidate that exists, and records its tile address, time step and latest time. The page works
 out the newest frames from the clock and the observed delay (latest time against this run's time), so a manifest
 from the twice-daily build still gives current frames. A layer that a service no longer lists is left out and
-named under "dropped"; a service that cannot be reached leaves only the other one. Each layer also records the
+named under "dropped"; a service that cannot be reached leaves only the other one. The map's GIBS credit and the
+page's Sources list name only the suppliers of layers this run resolved ("gibs_suppliers"; the script rewrites that
+part of site/index.html when it sits next to the manifest), so a layer GIBS does not list is never credited. Each layer also records the
 first time its service still lists ("first", "keep_s"), so the page never asks a radar server for a scan it no
 longer keeps. The script never fails the build: with neither service it writes "ok": false and the page says
 imagery is unavailable. Socket reads time out after TIMEOUT_S seconds, and a host that times out once is skipped
@@ -176,6 +179,59 @@ PRODUCTS = [
          "meteosat": ("eumetview", ["msg_fes:rdt"]),
      }},
 ]
+
+# Who supplies each GIBS layer, matched on the layer's name, for the map's credit line and the page's Sources list.
+# Only layers a run resolved are named; a resolved layer matching none of these is named as itself.
+GIBS_SUPPLIERS = (
+    (r"GOES-East_ABI_[\w.]+", "NOAA GOES-East"),
+    (r"GOES-West_ABI_[\w.]+", "NOAA GOES-West"),
+    (r"GOES-(?:East|West)_GLM_[\w.]+", "NOAA GOES GLM lightning"),
+    (r"Himawari_AHI_[\w.]+", "JMA Himawari"),
+    (r"IMERG_[\w.]+", "NASA GPM IMERG"),
+    (r"VIIRS_[\w.]+_AOD_[\w.]+", "NASA VIIRS daily aerosol"),
+    (r"MODIS_[\w.]*AOD[\w.]*", "NASA MODIS daily aerosol"),
+)
+# The part of site/index.html's Sources list that names the GIBS suppliers (tools/build_site.py writes it).
+PAGE_SPAN = re.compile(r'(<span id="wx-gibs-layers">).*?(</span>)', re.S)
+
+
+def gibs_suppliers(products: list[dict]) -> list[str]:
+    """The suppliers of the GIBS layers in these resolved products, in GIBS_SUPPLIERS order."""
+    names = sorted({l["name"] for p in products for l in p.get("layers", []) if l.get("source") == "gibs"})
+    out = []
+    for rx, label in GIBS_SUPPLIERS:
+        if label not in out and any(re.fullmatch(rx, n) for n in names):
+            out.append(label)
+    return out + [n for n in names if not any(re.fullmatch(rx, n) for rx, _ in GIBS_SUPPLIERS)]
+
+
+def gibs_sources_span(doc: dict | None) -> str:
+    """The Sources list's GIBS suppliers as an HTML span, from a manifest (data/wxmap.json). Without one, the span
+    points to the manifest; with one that resolved no GIBS layer, it says so."""
+    from html import escape
+    if doc is None:
+        text = 'the layers listed in this build’s <a href="data/wxmap.json">map manifest</a>'
+    else:
+        names = doc.get("gibs_suppliers")
+        names = gibs_suppliers(doc.get("products") or []) if names is None else names
+        if not names:
+            text = "no layer in this build"
+        else:
+            text = escape(names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1])
+    return f'<span id="wx-gibs-layers">{text}</span>'
+
+
+def stamp_page(index: Path, doc: dict) -> bool:
+    """Rewrite the Sources list's GIBS suppliers in a built index.html from this run's manifest. False when the
+    page or its span is missing (nothing is written)."""
+    if not index.exists():
+        return False
+    html = index.read_text(encoding="utf-8")
+    new, n = PAGE_SPAN.subn(lambda m: gibs_sources_span(doc), html, count=1)
+    if n:
+        index.write_text(new, encoding="utf-8", newline="\n")
+    return bool(n)
+
 
 _DUR = re.compile(r"^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$")
 
@@ -353,8 +409,9 @@ def build_manifest(gibs: dict[str, dict] | None, eumetview: dict[str, dict] | No
             products.append({k: p[k] for k in ("id", "name", "group", "note")} | {"frames": p.get("frames")}
                             | {"layers": layers})
     credits = []
-    if any(l["source"] == "gibs" for p in products for l in p["layers"]):
-        credits.append({"text": "Imagery: NASA GIBS (ESDIS), NOAA GOES, JMA Himawari, NASA GPM IMERG",
+    suppliers = gibs_suppliers(products)
+    if suppliers:
+        credits.append({"text": "Imagery: NASA GIBS (ESDIS), " + ", ".join(suppliers),
                         "url": "https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api"})
     if any(l["source"] == "eumetview" for p in products for l in p["layers"]):
         credits.append({"text": f"Contains modified EUMETSAT Meteosat data {year}", "url": "https://view.eumetsat.int/"})
@@ -364,7 +421,7 @@ def build_manifest(gibs: dict[str, dict] | None, eumetview: dict[str, dict] | No
         credits.append({"text": "Data Source: Environment and Climate Change Canada",
                         "url": "https://eccc-msc.github.io/open-data/licence/readme_en/"})
     return {"generated_at": iso(now), "ok": bool(products), "products": products, "dropped": dropped,
-            "credits": credits}
+            "credits": credits, "gibs_suppliers": suppliers}
 
 
 def probe_url(layer: dict, now: datetime) -> str:
@@ -466,6 +523,12 @@ def main(argv=None) -> int:
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    try:
+        stamped = stamp_page(out.parent.parent / "index.html", doc)
+        print(f"Sources list GIBS suppliers: {', '.join(doc['gibs_suppliers']) or 'none'}"
+              f" ({'written to' if stamped else 'no page span at'} {out.parent.parent / 'index.html'})")
+    except OSError as e:  # the manifest is written; a page that cannot be rewritten keeps its pointer to it
+        print(f"Sources list not rewritten ({type(e).__name__}: {e})")
     for p in doc["products"]:
         print(f"  {p['id']}: " + "; ".join(
             f"{l['sector']} {l['name']} every {l['step_s'] // 60} min, latest {l['latest']} ({l['lag_s'] // 60} min "

@@ -193,6 +193,11 @@ table.skill th, table.skill td { text-align: left; padding: 4px 8px; border-bott
 table.skill tr.skill-all td { border-top: 2px solid var(--rule); font-weight: 500; }
 .thresh-list { margin: 0; padding-left: 18px; font-size: 13px; }
 .thresh-list li { margin-bottom: 6px; }
+.cig-reach { display: block; margin-top: 3px; font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 11px;
+  color: var(--ink); text-decoration: underline dotted; text-underline-offset: 2px; cursor: help; }
+.reach-head { display: block; margin: 6px 0 2px; }
+.reach-list { margin: 2px 0 0; padding-left: 18px; }
+.reach-list li { margin-bottom: 3px; }
 .site-foot {
   padding: 14px 20px 28px;
   font-size: 12px;

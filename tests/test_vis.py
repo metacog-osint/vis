@@ -267,8 +267,14 @@ class VisTests(unittest.TestCase):
         self.assertIn("from 03:00 on 2026-11-27 UTC", rule)
         self.assertEqual(verify.steps_for("2026-11-27", "2026-11-27T03:00Z")[0].hour, 3)
         ceiling = next(h for h in forecast.HAZARDS if h["id"] == "ceiling")
-        self.assertIn("at or below 305 m (1,000 ft) above the aerodrome",
+        self.assertIn("at or below 305 m (1,000 ft or lower in the report's 100 ft steps) above the aerodrome",
                       feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", ceiling, "amber", "2026-11-28"))
+        # 500 ft is 152.4 m, over the 152 m line, so the Red rule names 400 ft as verify scores it.
+        self.assertIn("at or below 152 m (400 ft or lower",
+                      feed_v2._resolution_rule("Kyiv Boryspil", "UKBB", ceiling, "red", "2026-11-28"))
+        self.assertGreater(verify.ceiling_m({"raw": "METAR UKBB 280600Z 00000KT 9999 OVC005 01/01 Q1000"}), 152.0)
+        self.assertLessEqual(verify.ceiling_m({"raw": "METAR UKBB 280600Z 00000KT 9999 OVC004 01/01 Q1000"}), 152.0)
+        self.assertLessEqual(verify.ceiling_m({"raw": "METAR UKBB 280600Z 00000KT 9999 OVC010 01/01 Q1000"}), 305.0)
 
     def test_fetch_waits_and_retries_when_open_meteo_refuses(self):
         import io
@@ -688,6 +694,78 @@ class WxMapTests(unittest.TestCase):
         self.assertEqual(doc["products"], [])
         self.assertTrue(all("capabilities not read" in d["why"] for d in doc["dropped"]))
 
+    def _site_doc(self):
+        return forecast.build_forecast_doc(forecast.load_zones()[:1], {
+            "ncep_gefs025": [_synthetic_model(hours=72)], "ecmwf_ifs025": [_synthetic_model(hours=72)]},
+            days=3, generated_at="2026-10-31T18:00:00Z")
+
+    def test_gibs_credit_and_sources_name_only_the_layers_resolved(self):
+        # The fixture, like GIBS when read on 27 Nov 2026, lists no GOES GLM layer: lightning's GOES sectors are
+        # dropped, so neither the map credit nor the page's Sources list may name GLM.
+        doc = wxmap.build_manifest(wxmap.gibs_layers(GIBS_CAPS), wxmap.wms_layers(EUMETVIEW_CAPS), now=self.NOW)
+        why = {(d["product"], d["sector"]): d["why"] for d in doc["dropped"]}
+        self.assertEqual(why[("lightning", "goes_east")], "no gibs layer matched")
+        self.assertEqual(doc["gibs_suppliers"], ["NOAA GOES-East"])
+        self.assertIn("Imagery: NASA GIBS (ESDIS), NOAA GOES-East", [c["text"] for c in doc["credits"]])
+        html = build_site.build(self._site_doc(), wxmap_doc=doc)["index.html"]
+        sources = html[html.index('id="sources"'):]
+        self.assertIn('<span id="wx-gibs-layers">NOAA GOES-East</span>', sources)
+        self.assertNotIn("GLM", html)
+        self.assertNotIn("Himawari, NASA GPM IMERG", html)
+        # A GLM layer, if GIBS lists one, is credited because it is drawn; an unknown layer is named as itself.
+        products = [{"layers": [{"source": "gibs", "name": "GOES-West_GLM_Flash_Extent_Density"},
+                                {"source": "gibs", "name": "IMERG_Precipitation_Rate_30min"},
+                                {"source": "gibs", "name": "New_Layer"},
+                                {"source": "eumetview", "name": "mtg_fd:li_afa"}]}]
+        self.assertEqual(wxmap.gibs_suppliers(products), ["NOAA GOES GLM lightning", "NASA GPM IMERG", "New_Layer"])
+        self.assertEqual(wxmap.gibs_sources_span({"products": products}),
+                         '<span id="wx-gibs-layers">NOAA GOES GLM lightning, NASA GPM IMERG and New_Layer</span>')
+        self.assertEqual(wxmap.gibs_sources_span(wxmap.build_manifest(None, None, now=self.NOW)),
+                         '<span id="wx-gibs-layers">no layer in this build</span>')
+        # The doctrine source registry credits no GLM layer either.
+        reg = json.loads((ROOT / "doctrine" / "sources.json").read_text(encoding="utf-8"))
+        gibs = next(s for s in (reg["sources"] if isinstance(reg, dict) else reg) if s["id"] == "nasa-gibs")
+        self.assertNotIn("GLM", gibs["descriptor"] + gibs["licence"])
+
+    def test_wxmap_rewrites_the_built_pages_gibs_sources(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            site = Path(tmp) / "site"
+            build_site.build(self._site_doc(), site)   # built before the manifest exists, as in the CI build
+            page = (site / "index.html").read_text(encoding="utf-8")
+            self.assertIn('<span id="wx-gibs-layers">the layers listed in this build’s '
+                          '<a href="data/wxmap.json">map manifest</a></span>', page)
+            (Path(tmp) / "gibs.xml").write_bytes(GIBS_CAPS)
+            (Path(tmp) / "eum.xml").write_bytes(EUMETVIEW_CAPS)
+            from contextlib import redirect_stdout
+            from io import StringIO
+            with redirect_stdout(StringIO()):
+                wxmap.main(["--out", str(site / "data" / "wxmap.json"), "--gibs", str(Path(tmp) / "gibs.xml"),
+                            "--eumetview", str(Path(tmp) / "eum.xml"), "--offline"])
+            page = (site / "index.html").read_text(encoding="utf-8")
+            self.assertEqual(page.count('id="wx-gibs-layers"'), 1)
+            self.assertIn('<span id="wx-gibs-layers">NOAA GOES-East</span>', page)
+            # A later local build reads the manifest beside it and writes the same list.
+            manifest = json.loads((site / "data" / "wxmap.json").read_text(encoding="utf-8"))
+            self.assertEqual(build_site.build(self._site_doc(), wxmap_doc=manifest)["index.html"].count(
+                '<span id="wx-gibs-layers">NOAA GOES-East</span>'), 1)
+            self.assertFalse(wxmap.stamp_page(Path(tmp) / "missing.html", manifest))
+
+    def test_skill_table_box_takes_focus_and_a_name(self):
+        html = build_site.verification_html({"scores": [{"hazard": "wind", "level": "amber", "lead_days": "all",
+                                                         "threshold": 65.0, "unit": "km/h", "n": 1, "events": 0}],
+                                              "rules": {}})
+        self.assertIn('<div class="table-wrap" tabindex="0" role="region" aria-label="Measured skill scores', html)
+
+    def test_limits_list_names_every_hazard_verify_scores(self):
+        for h in verify.SCORED:
+            self.assertIn(h, build_site.CHECKED_NAMES, f"{h} is scored but the limits list has no name for it")
+        html = build_site.build(self._site_doc())["index.html"]
+        self.assertIn("<li>Only wind, visibility, heat, cold and the low ceiling trial can be checked against "
+                      "METARs,", html)
+        self.assertEqual(build_site.checked_text(("wind", "vis")), "wind and visibility")
+        self.assertNotIn("<!--VIS-", html)
+
     def test_radar_from_noaa_and_eccc_takes_their_bounds_server_and_credit(self):
         ncep = wxmap.wms_layers(NCEP_CAPS, "conus")
         geomet = wxmap.wms_layers(GEOMET_CAPS, "geomet", qualify=False)
@@ -1082,6 +1160,54 @@ class GefsCeilingTests(unittest.TestCase):
             before = (vdir / "observed.jsonl").read_bytes()
             self.assertEqual(verify.resolve(fdir, mdir, vdir, now=now), ([], []))
             self.assertEqual((vdir / "observed.jsonl").read_bytes(), before)
+
+    def test_reach_marks_thresholds_the_model_ground_puts_out_of_reach(self):
+        hz = next(h for h in forecast.HAZARDS if h["id"] == "ceiling")
+        # reach() defaults are the hazard's own thresholds.
+        self.assertEqual(gefs.reach(0, 0, 17)["lowest_agl_m"], 17)
+        self.assertEqual((hz["amber"], hz["red"]), (305.0, 152.0))
+        visr = gefs.reach(1658.0, 2175.5, 17.0)           # Srinagar: ground 518 m above the field
+        self.assertEqual((visr["amber"], visr["red"], visr["lowest_agl_m"]), (False, False, 534))
+        fzna = gefs.reach(1526.0, 1796.0, 17.0)           # Goma: Amber only from the lowest layer, Red never
+        self.assertEqual((fzna["amber"], fzna["red"], fzna["lowest_layer_only"]), (True, False, ["amber"]))
+        haab = gefs.reach(2326.0, 2424.7, 17.0)
+        self.assertEqual((haab["amber"], haab["red"], haab["lowest_layer_only"]), (True, True, ["red"]))
+        opis = gefs.reach(535.0, 468.8, 17.0)             # ground below the station: lowest layer reads 0
+        self.assertEqual((opis["lowest_agl_m"], opis["red"], opis["ground_minus_station_m"]), (0, True, -66.2))
+        self.assertIsNone(gefs.reach(None, 100.0, 17.0))
+
+    def test_terrain_file_covers_every_point_at_its_nearest_cell(self):
+        terrain, lowest = gefs.load_terrain()
+        self.assertEqual(lowest, 17.0)
+        doc = json.loads((ROOT / "config" / "gefs_terrain.json").read_text(encoding="utf-8"))
+        pts = forecast.expand_points(forecast.load_zones(str(ROOT / "config" / "points.json")))
+        self.assertEqual(set(terrain), {p["id"] for p in pts})
+        for p in pts:
+            cell = doc["points"][p["id"]]["cell"]
+            self.assertEqual(doc["points"][p["id"]]["icao"], p["icao"])
+            self.assertAlmostEqual(cell[0], round(p["lat"] * 4) / 4)
+            self.assertAlmostEqual(cell[1] % 360, (round(p["lon"] * 4) / 4) % 360)
+
+    def test_page_and_feed_name_the_points_out_of_reach(self):
+        pts = forecast.expand_points(forecast.load_zones(str(ROOT / "config" / "points.json")))
+        doc = {"zones": [{"id": p["id"], "icao": p["icao"], "station": p.get("station") or p["name"]} for p in pts]}
+        both, red = gefs.unreachable(doc)        # no ceiling read: from the config file, 300 m rule applied
+        self.assertEqual([z["icao"] for z in both], ["VISR"])
+        self.assertEqual(sorted(z["icao"] for z in red), ["FZNA", "LLBG", "RCTP", "RPLB"])
+        html = build_site.ceiling_limits_html(doc)
+        self.assertIn("surface-based CAPE", html)
+        self.assertIn("Amber and Red cannot be reached at Srinagar (VISR)", html)
+        self.assertIn("Verdict’s independent re-score of Vis covers wind, visibility, heat and cold", html)
+        # A build's own cell checks win over the file: here every point reaches both.
+        used = {**doc, "ceiling": {"state": "used", "left_out": [], "cells": [
+            {"reach": gefs.reach(10.0, 10.0, 17.0)} for _ in pts]}}
+        self.assertEqual(gefs.unreachable(used), ([], []))
+        self.assertIn("no trial point is out of reach", build_site.ceiling_limits_html(used))
+        self.assertIn("Red cannot be reached at RCTP, RPLB, LLBG, FZNA)", feed_v2.ceiling_limits(doc))
+        # add_reach puts the mark on each cell check, without touching the check itself.
+        checks = [{"station_elevation_m": 1658.0, "ok": True}]
+        gefs.add_reach([{"id": "x"}], checks, {"x": 2175.5}, 17.0)
+        self.assertEqual((checks[0]["ok"], checks[0]["reach"]["amber"]), (True, False))
 
 
 class _Resp:

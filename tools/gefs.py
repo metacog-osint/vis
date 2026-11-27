@@ -8,11 +8,21 @@ Open Data (bucket `noaa-gefs-pds`, no account, US public domain): the 0.25-degre
 and step. Each file's `.idx` gives the byte range of the `HGT:cloud ceiling` record, so one range request per file
 reads about 1 MB of the file's 19.5 MB.
 
-What the field is (NOAA UPP, `CALCEILING` and `CLDRAD`): the height above mean sea level of the mid-point of the
-lowest model layer holding cloud water or ice, set when the column's largest layer cloud fraction is at least 50%,
-and 20,000 m when there is none. It is not the METAR or ICAO ceiling (the lowest layer covering more than half the
-sky), so it is scored against METARs on trial (`tools/verify.py`). Vis subtracts the station's elevation, since a
-METAR gives heights above the aerodrome.
+What the field is (NOAA UPP `CALCEILING` in AVIATION.f and `CLDRAD.f`, at the GEFS v12 tags 12.3.0 to 12.3.22):
+the height above mean sea level of the mid-point of the lowest model layer holding cloud water or ice, and 20,000 m
+("no ceiling") otherwise. `CALCEILING` keeps that height only where `TCLD >= 50`. On the GFS path of the GEFS UPP,
+nothing writes a cloud fraction into `TCLD`: it holds surface-based CAPE x 100 left over from `CALCAPE`, so in
+practice the ceiling is set only where surface CAPE is at least about 0.5 J/kg. In the operational files, under 100%
+total cloud, about 4% of points with CAPE 0 carry a ceiling against about 98% with CAPE of 1 J/kg or more: stratus
+and fog in stable air read as "no ceiling". It is not the METAR or ICAO ceiling (the lowest layer covering more than
+half the sky). It is scored against METAR ceilings on trial (`tools/verify.py`), and that score measures these limits
+as much as ceiling skill.
+
+Vis subtracts the station's elevation, since a METAR gives heights above the aerodrome. The field cannot sit below
+the model's own ground (`config/gefs_terrain.json`, GEFS `HGT:surface` at each point's cell), and its lowest values
+are about 17 m above it, so where that ground is well above the station the lowest above-station value is high:
+`reach()` says which thresholds a point can reach (Srinagar VISR: neither). Where the ground is below the station, a
+base at or under the station's height reads 0 and counts as Red.
 
 The records use GRIB2 data template 5.3 (complex packing with second-order spatial differencing), decoded here with
 the standard library: WMO Manual on Codes, FM 92 GRIB edition 2, templates 3.0, 5.2/5.3 and 7.2/7.3. Other templates,
@@ -373,6 +383,75 @@ def check_cells(latlons, cells, opener=None):
     return rows
 
 
+TERRAIN_FILE = os.path.join(ROOT, "config", "gefs_terrain.json")
+NEXT_LAYER_M = 40.0
+
+
+def load_terrain(path=TERRAIN_FILE):
+    """GEFS model ground at each point's cell ({point id: metres}) and the field's lowest height above it."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            doc = json.load(f)
+        return ({k: v["model_terrain_m"] for k, v in doc["points"].items()}, float(doc["lowest_layer_m"]))
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}, None
+
+
+def reach(station_elevation_m, model_terrain_m, lowest_layer_m, amber=305.0, red=152.0):
+    """Which trial thresholds the field can reach above the station, given the model's ground. The lowest value the
+    field gives is about `lowest_layer_m` above that ground, so a level is reachable when that value, taken above the
+    station, is at or under its threshold. None when an input is missing."""
+    if station_elevation_m is None or model_terrain_m is None or lowest_layer_m is None:
+        return None
+    lowest = max(0.0, model_terrain_m + lowest_layer_m - station_elevation_m)
+    out = {"model_terrain_m": round(model_terrain_m, 1),
+           "ground_minus_station_m": round(model_terrain_m - station_elevation_m, 1),
+           "lowest_agl_m": round(lowest), "amber": lowest <= amber, "red": lowest <= red}
+    # The next model layer sits about 40 m above the lowest one (values cluster near 20 and 60 m above the ground),
+    # so a threshold within 40 m above the lowest value is reached only from the lowest layer.
+    out["lowest_layer_only"] = [lv for lv, thr in (("amber", amber), ("red", red))
+                                if out[lv] and lowest > thr - NEXT_LAYER_M]
+    return out
+
+
+def add_reach(points, checks, terrain=None, lowest_layer_m=None):
+    """Put `reach` on each cell check, in place; a point with no terrain entry gets None."""
+    if terrain is None:
+        terrain, lowest_layer_m = load_terrain()
+    for p, chk in zip(points, checks):
+        chk["reach"] = reach(chk.get("station_elevation_m"), terrain.get(p.get("id")), lowest_layer_m)
+    return checks
+
+
+def unreachable(forecast_doc, path=TERRAIN_FILE):
+    """Trial points (forecast_doc zones) where the field cannot reach Amber and Red, and where it cannot reach Red
+    only: from the build's cell checks when the ceiling was read, else from config/gefs_terrain.json with the same
+    300 m rule. Left-out points are not listed."""
+    c = forecast_doc.get("ceiling") or {}
+    zones = forecast_doc.get("zones") or []
+    rows = []
+    if c.get("state") == "used" and isinstance(c.get("cells"), list):
+        left = set(c.get("left_out") or [])
+        for z, cell in zip(zones, c["cells"]):
+            if z.get("icao") in left or z.get("id") in left or not isinstance(cell, dict):
+                continue
+            rows.append((z, cell.get("reach")))
+    else:
+        try:
+            with open(path, encoding="utf-8") as f:
+                doc = json.load(f)
+        except (OSError, ValueError):
+            return [], []
+        for z in zones:
+            t = (doc.get("points") or {}).get(z.get("id"))
+            if not t or abs(t["dem_cell_m"] - t["station_m"]) > GRID_MAX_DIFF_M:
+                continue
+            rows.append((z, reach(t["station_m"], t["model_terrain_m"], doc.get("lowest_layer_m"))))
+    both = [z for z, r in rows if r and not r["amber"]]
+    red = [z for z, r in rows if r and r["amber"] and not r["red"]]
+    return both, red
+
+
 def agl(msl, station_elevation_m):
     """Ceiling above the station: 20,000 m stays "none" (NO_CEILING_M); a base under the station's height reads 0."""
     if msl is None or station_elevation_m is None:
@@ -415,6 +494,10 @@ def ceiling_series(points, times, now, opener=None, procs=PROCS, budget=BUDGET_S
         info["why"] = f"{type(e).__name__}: {e}"[:300]
         info["seconds"] = round(time.monotonic() - t_start, 1)
         return None, info
+    try:
+        add_reach(points, checks)      # a mark for the page only: it changes no value and no score
+    except Exception:  # noqa: BLE001
+        pass
     t0 = run_time(run)
     at = {}
     for k, v in enumerate(valid):
