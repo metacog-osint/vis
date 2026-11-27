@@ -419,10 +419,10 @@ function sourceLine(doc) {
     if (s.disclaimer) notes.add(s.disclaimer);
     if (!text || seen.has(text)) continue;
     seen.add(text);
-    const lic = s.licence ? ` (${esc(s.licence)})` : "";
+    const lic = s.licence ? `, ${esc(s.licence)}` : "";
     parts.push(/^https:\/\//.test(s.url || "") ? `<a href="${esc(s.url)}" rel="noopener">${esc(text)}</a>${lic}` : `${esc(text)}${lic}`);
   }
-  return `<p class="small loc-src">Sources: ${parts.join("; ") || FALLBACK_SOURCES}. ${[...notes].map(esc).join(" ")}
+  return `<p class="small loc-src">Sources: ${parts.join(" · ") || FALLBACK_SOURCES}. ${[...notes].map(esc).join(" ")}
     Not an official forecast and not for flight planning; every threshold is indicative.
     <a href="data/locations/${esc(doc.id)}.json">This point's data (JSON)</a>.</p>`;
 }

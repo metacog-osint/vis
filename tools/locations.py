@@ -70,7 +70,7 @@ SOURCES = [
      "url": "https://open-meteo.com/en/docs/elevation-api", "licence": "CC BY 4.0 (Open-Meteo); Copernicus DEM licence",
      "attribution": "Copernicus DEM, ESA; via Open-Meteo.com"},
     {"id": "astro-meeus", "name": "Sun and moon computed by Vis (Meeus)", "url": "https://github.com/metacog-osint/vis",
-     "licence": "Computed by Vis (code GNU AGPL-3.0)", "attribution": "Vis"},
+     "licence": "code GNU AGPL-3.0", "attribution": "Sun and moon computed by Vis"},
 ]
 
 
