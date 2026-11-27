@@ -83,7 +83,7 @@ INDEX_HTML = """<!doctype html>
       </div>
       <div class="chips-note">
         <span class="chips-hint">Select a forecast point’s name for its forecast, charts and climate.</span>
-        <span class="chip chip-conf" title="Set by rule from the forecast centres that supply the hazard: moderate when both NOAA and ECMWF do, low when only one does (visibility comes from NOAA alone, low cloud from ECMWF alone, and a centre whose run is over 24 hours old is left out). It goes no higher until Vis's forecasts have been scored against observations.">Confidence: moderate with two centres, low with one (by rule; not yet scored)</span>
+        <span class="chip chip-conf" title="Set by rule from the forecast centres that supply the hazard: moderate when both NOAA and ECMWF do, low when only one does (visibility comes from NOAA alone, low cloud from ECMWF alone, and a centre whose run is over 24 hours old is left out). It goes no higher until the forecasts' calibration is measured: the scores against METARs in “Measured skill” have started, and most of their rows are still too few to read.">Confidence: moderate with two centres, low with one (set by rule, not from the scores)</span>
       </div>
     </section>
 
@@ -140,11 +140,10 @@ INDEX_HTML = """<!doctype html>
           <li><b>Ensemble forecasts:</b> <a href="https://open-meteo.com/en/docs/ensemble-api" rel="noopener">Open-Meteo Ensemble API</a>, CC BY 4.0, free for non-commercial use.</li>
           <li><b>NOAA NCEP GEFS</b> 0.25°, 31 members: US public domain.</li>
           <li><b>ECMWF IFS ensemble</b> 0.25°, 51 members: ECMWF open data, CC BY 4.0.</li>
-          <li><b>Observations for scoring:</b> METARs from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US public domain.</li>
+          <li><b>Observations:</b> METARs from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US public domain, kept in Vis’s own store: they score the forecasts, and each point’s detail shows the newest one with its age. TAFs from the same service for each point’s detail, while they are valid.</li>
           <li><b>Sun and moon:</b> computed by Vis from Jean Meeus, <i>Astronomical Algorithms</i>.</li>
           <li><b>Point detail forecast:</b> <a href="https://open-meteo.com/en/docs" rel="noopener">Open-Meteo Forecast API</a> (best-match national and global models), CC BY 4.0, free for non-commercial use.</li>
-          <li><b>Observations:</b> METAR and TAF from the <a href="https://aviationweather.gov/data/api/" rel="noopener">NOAA Aviation Weather Center</a>, US Government data (public domain).</li>
-          <li><b>Climatology:</b> ERA5 reanalysis through <a href="https://open-meteo.com/en/docs/historical-weather-api" rel="noopener">Open-Meteo’s Historical Weather API</a>, CC BY 4.0; contains modified Copernicus Climate Change Service information. Normals 1991–2020; records since 1991, for the 25 km grid cell, not the station.</li>
+          <li><b>Climatology:</b> ERA5 reanalysis through <a href="https://open-meteo.com/en/docs/historical-weather-api" rel="noopener">Open-Meteo’s Historical Weather API</a>, CC BY 4.0; contains modified Copernicus Climate Change Service information <!--VIS-C3S-YEAR-->; neither the European Commission nor ECMWF is responsible for any use that may be made of the Copernicus information or data it contains. Normals 1991–2020; records 1991–2025, for the 25 km grid cell, not the station.</li>
           <li><b>Elevation:</b> Copernicus DEM GLO-90 through Open-Meteo’s Elevation API.</li>
           <li><b>Zones:</b> Watchfloor’s conflict zones. <b>Reference points:</b> chosen by Vis (<a href="https://github.com/metacog-osint/vis/blob/main/config/points.json" rel="noopener">list</a>).</li>
           <li><b>Fonts:</b> IBM Plex, SIL Open Font License.</li>
@@ -696,6 +695,13 @@ def verification_html(doc: dict | None) -> str:
     return "".join(out)
 
 
+def c3s_year(locations_doc: dict | None, forecast_doc: dict) -> str:
+    """The year in the Copernicus notice (licence clause 5.1.2): when the climate cache was last built from ERA5,
+    else the forecast's year."""
+    y = str((locations_doc or {}).get("climate_updated_at") or "")[:4]
+    return y if y.isdigit() else str(forecast_doc.get("generated_at") or "")[:4]
+
+
 def location_files(locations_doc: dict | None) -> dict[str, str]:
     """data/locations.json (one compact row per point, schema vis-locations-index/1) and data/locations/<id>.json
     (the full detail, schema vis-location/1) from tools/locations.py's out/locations.json. Without it the page's
@@ -722,7 +728,8 @@ def build(forecast_doc: dict, out_dir: Path | None = None, verification: dict | 
           locations_doc: dict | None = None) -> dict[str, str]:
     fc = feed_v2.build_feed(forecast_doc)
     files = {
-        "index.html": INDEX_HTML.replace("<!--VIS-VERIFY-->", verification_html(verification)),
+        "index.html": INDEX_HTML.replace("<!--VIS-VERIFY-->", verification_html(verification)).replace(
+            "<!--VIS-C3S-YEAR-->", c3s_year(locations_doc, forecast_doc)),
         "style.css": STYLE_CSS,
         "vis.js": VIS_JS,
         "_headers": HEADERS,

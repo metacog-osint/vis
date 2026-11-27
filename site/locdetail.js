@@ -3,10 +3,12 @@
 // window.VisDetail.open(id) / a "vis:select" event with {detail: {id}}), and closed with Esc, the close button or a
 // click outside it. Reads data/locations/<id>.json (schema vis-location/1, docs/location-data.md), built by
 // tools/locations.py, and draws its charts as plain SVG (no library; the page's CSP allows only its own scripts).
-// Times show in the viewer's zone through tic-time.js; day boundaries and the daily table are the station's own local
-// days, as the forecast API returns them.
+// Times show in the viewer's zone through tic-time.js, with the zone named; sun and moon times show the point's own
+// clock first, then the viewer's. Day boundaries and the daily table are the station's own local days, as the
+// forecast API returns them. Anything that ages (the METAR's age, whether the TAF is still valid) is worked out when
+// the pop-up is drawn, never taken from the build.
 
-const T = window.TicTime;
+const T = globalThis.TicTime;   // window.TicTime in the page; absent when the helpers are tested outside a browser
 const NS = "http://www.w3.org/2000/svg";
 const WMO = {
   0: "Clear", 1: "Mostly clear", 2: "Partly cloudy", 3: "Overcast", 45: "Fog", 48: "Rime fog",
@@ -20,6 +22,9 @@ const HAZ_NAMES = { wind: "Strong wind", lowcloud: "Low cloud cover", vis: "Poor
   snow: "Heavy snow", icing: "Freezing rain / icing", heat: "Extreme heat", cold: "Extreme cold" };
 const RANK = { green: 0, yellow: 1, amber: 2, red: 3 };
 const MONTHS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+// A METAR older than this is marked old and its flight category is hidden: stations report every 30 or 60 minutes,
+// so past 90 minutes at least one routine report is missing.
+export const METAR_OLD_MIN = 90;
 const cache = new Map();
 let hazards = {};          // hazard thresholds from data/forecast.json, set by vis.js through setHazards()
 let current = null;        // the open point's id
@@ -37,6 +42,42 @@ function when(s, opts = {}) {
   return T ? T.format(v, opts) : v.replace("T", " ").slice(0, 16) + " UTC";
 }
 const timeOnly = (s) => when(s, { date: false });
+
+// Minutes from a UTC time to now (the viewer's clock), or null.
+export function ageMin(s, nowMs = Date.now()) {
+  const t = Date.parse(iso(s) || "");
+  return Number.isFinite(t) ? Math.round((nowMs - t) / 60000) : null;
+}
+export function ago(min) {
+  if (min === null || min === undefined) return "";
+  if (min < 0) return "time ahead of this device's clock";
+  if (min < 90) return `${min} min ago`;
+  if (min < 48 * 60) return `${(min / 60).toFixed(min < 600 ? 1 : 0)} h ago`;
+  return `${Math.round(min / 1440)} days ago`;
+}
+// "current" while the TAF's validity has not ended, "ended" once it has, "none" when there is no TAF.
+export function tafState(taf, nowMs = Date.now()) {
+  if (!taf || !taf.raw) return "none";
+  const end = Date.parse(iso(taf.valid_to) || "");
+  return Number.isFinite(end) && end > nowMs ? "current" : "ended";
+}
+// The point's own clock (an IANA zone), zone named, on the viewer's 12- or 24-hour setting; null when unknown.
+function placeTime(s, tz) {
+  if (!s || !tz) return null;
+  try {
+    const o = { timeZone: tz, hour: "numeric", minute: "2-digit", timeZoneName: "short" };
+    o.hourCycle = T && !T.hour12() ? "h23" : "h12";
+    return new Intl.DateTimeFormat(undefined, o).format(new Date(iso(s)));
+  } catch (e) { return null; }
+}
+let placeTz = null;        // the open point's zone, set in render()
+// The point's local time, then the viewer's; one time when the two read the same. Returns escaped HTML.
+function pair(s) {
+  if (!s) return "–";
+  const local = placeTime(s, placeTz), mine = timeOnly(s);
+  if (!local || local === mine) return esc(local || mine);
+  return `${esc(local)} local <span class="loc-also">· ${esc(mine)} yours</span>`;
+}
 const hm = (min) => (min === null || min === undefined ? "–" : `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, "0")}m`);
 const compass = (d) => (d === null || d === undefined ? "" : ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(d / 45) % 8]);
 
@@ -241,23 +282,30 @@ function perHour(doc, t, key) {
   });
 }
 
-function nowCard(doc) {
+function nowCard(doc, nowMs) {
   const m = doc.now?.metar;
   const mod = doc.now?.model;
   if (m) {
-    const wind = m.wind_kt == null ? "–" : `${m.wind_dir_deg === "VRB" ? "variable" : `${num(m.wind_dir_deg)}°`} ${num(m.wind_kt)} kt${m.gust_kt ? `, gusts ${num(m.gust_kt)} kt` : ""}`;
-    return `<div class="loc-card"><h3>Observed now <span class="loc-tag">${esc(m.flight_category || "METAR")}</span></h3>
+    const age = ageMin(m.obs_time, nowMs);
+    const old = age === null || age > METAR_OLD_MIN;
+    const wind = m.wind_kt == null ? "–" : `${m.wind_dir_deg === "VRB" ? "variable" : m.wind_dir_deg == null ? "" : `${num(m.wind_dir_deg)}°`} ${num(m.wind_kt)} kt${m.gust_kt ? `, gusts ${num(m.gust_kt)} kt` : ""}`;
+    const tag = old
+      ? `<span class="loc-tag loc-tag-old" title="Over ${METAR_OLD_MIN} minutes old, so its flight category is not shown">old report</span>`
+      : m.flight_category ? `<span class="loc-tag" title="Flight category in this report: VFR, MVFR, IFR or LIFR">${esc(m.flight_category)}</span>` : "";
+    return `<div class="loc-card"><h3>Latest METAR ${tag}</h3>
       <p class="loc-big">${deg(m.temp_c)} <span class="small">dew point ${deg(m.dewpoint_c)}</span></p>
-      <dl class="loc-dl"><dt>Wind</dt><dd>${esc(wind)}</dd><dt>Visibility</dt><dd>${esc(m.visibility ?? "–")} sm</dd>
+      <dl class="loc-dl"><dt>Report</dt><dd>${esc(when(m.obs_time))}${age !== null ? ` <span class="${old ? "loc-old" : ""}">(${esc(ago(age))})</span>` : ""}</dd>
+      <dt>Wind</dt><dd>${esc(wind)}</dd><dt>Visibility</dt><dd>${esc(m.visibility ?? "–")} sm</dd>
       <dt>Ceiling</dt><dd>${m.ceiling_ft == null ? "none reported" : `${num(m.ceiling_ft)} ft`}</dd>
-      <dt>Weather</dt><dd>${esc(m.weather || "nil")}</dd><dt>Report</dt><dd>${esc(when(m.obs_time))}${m.age_min != null ? ` (${num(m.age_min)} min ago)` : ""}</dd></dl>
+      <dt>Weather</dt><dd>${esc(m.weather || "nil")}</dd>${m.altimeter_hpa != null ? `<dt>Pressure</dt><dd>${num(m.altimeter_hpa)} hPa</dd>` : ""}</dl>
+      ${old ? `<p class="small loc-old">This is the station's newest report Vis holds, ${esc(ago(age))}: it may have stopped reporting.</p>` : ""}
       <p class="loc-raw mono">${esc(m.raw || "")}</p></div>`;
   }
-  return `<div class="loc-card"><h3>Now (model)</h3>
+  return `<div class="loc-card"><h3>Model values <span class="small">at the last build</span></h3>
     ${mod ? `<p class="loc-big">${deg(mod.temperature_2m)} <span class="small">feels ${deg(mod.apparent_temperature)}</span></p>
     <dl class="loc-dl"><dt>Weather</dt><dd>${esc(WMO[mod.weather_code] || "–")}</dd><dt>Wind</dt><dd>${esc(compass(mod.wind_direction_10m))} ${num(mod.wind_speed_10m)} km/h, gusts ${num(mod.wind_gusts_10m)} km/h</dd>
     <dt>Pressure</dt><dd>${num(mod.pressure_msl)} hPa</dd><dt>Valid</dt><dd>${esc(when(mod.time))}</dd></dl>` : `<p class="small">No current data.</p>`}
-    <p class="small">No recent METAR from ${esc(doc.icao)}: the station may not be reporting (many airfields in conflict zones are closed).</p></div>`;
+    <p class="small">No METAR from ${esc(doc.icao)} in the 48 hours before the last build: the station may not be reporting (many airfields in conflict zones are closed).</p></div>`;
 }
 
 function todayCard(doc) {
@@ -280,11 +328,11 @@ function sunCard(doc) {
   const n = doc.today?.night || {};
   const rise = s.polar === "polar_night" ? "no sunrise (polar night)" : s.polar === "midnight_sun" ? "sun up all day" : null;
   return `<div class="loc-card"><h3>Sun and moon</h3>
-    <dl class="loc-dl">${rise ? `<dt>Sun</dt><dd>${esc(rise)}</dd>` : `<dt>Sunrise</dt><dd>${esc(timeOnly(s.sunrise))}</dd><dt>Sunset</dt><dd>${esc(timeOnly(s.sunset))}</dd>`}
-    <dt>Day length</dt><dd>${hm(s.day_length_min)}</dd><dt>Solar noon</dt><dd>${esc(timeOnly(s.solar_noon))} (sun ${num(s.noon_altitude_deg, 0)}° up)</dd>
-    <dt>Civil dusk / dawn</dt><dd>${esc(timeOnly(n.civil_dusk))} / ${esc(timeOnly(n.civil_dawn))}</dd>
+    <dl class="loc-dl">${rise ? `<dt>Sun</dt><dd>${esc(rise)}</dd>` : `<dt>Sunrise</dt><dd>${pair(s.sunrise)}</dd><dt>Sunset</dt><dd>${pair(s.sunset)}</dd>`}
+    <dt>Day length</dt><dd>${hm(s.day_length_min)}</dd><dt>Solar noon</dt><dd>${pair(s.solar_noon)} (sun ${num(s.noon_altitude_deg, 0)}° up)</dd>
+    <dt>Civil dusk</dt><dd>${pair(n.civil_dusk)}</dd><dt>Civil dawn</dt><dd>${pair(n.civil_dawn)}</dd>
     <dt>Moon</dt><dd>${esc(n.moon_phase || "–")}, ${num((n.moon_lit || 0) * 100)}% lit</dd>
-    <dt>Moonrise / set</dt><dd>${esc((n.moonrise || []).map(timeOnly).join(", ") || "–")} / ${esc((n.moonset || []).map(timeOnly).join(", ") || "–")}</dd>
+    <dt>Moonrise</dt><dd>${(n.moonrise || []).map(pair).join(", ") || "–"}</dd><dt>Moonset</dt><dd>${(n.moonset || []).map(pair).join(", ") || "–"}</dd>
     <dt>Low-light dark</dt><dd>${hm(n.dark_low_light_min)}</dd></dl></div>`;
 }
 
@@ -342,29 +390,59 @@ function dailyTable(doc) {
       <td class="mono">${rec}</td>
       <td class="mono">${num(d.precipitation_sum?.[i], 1)} mm${d.precipitation_probability_max?.[i] != null ? ` (${num(d.precipitation_probability_max[i])}%)` : ""}</td>
       <td class="mono">${num(d.wind_gusts_10m_max?.[i])} km/h ${esc(compass(d.wind_direction_10m_dominant?.[i]))}</td>
-      <td class="mono">${e.sun ? `${esc(timeOnly(e.sun.sunrise))} / ${esc(timeOnly(e.sun.sunset))}` : "–"}</td>
+      <td class="mono">${e.sun ? `${esc(placeTime(e.sun.sunrise, placeTz) || timeOnly(e.sun.sunrise))} / ${esc(placeTime(e.sun.sunset, placeTz) || timeOnly(e.sun.sunset))}` : "–"}</td>
       <td>${e.night ? `${esc(e.night.moon_phase || "")} ${num((e.night.moon_lit || 0) * 100)}%` : "–"}</td></tr>`;
   }).join("");
   return `<div class="table-wrap loc-table-wrap" tabindex="0"><table class="loc-table"><thead><tr><th scope="col">Day (local)</th><th scope="col">Weather</th>
     <th scope="col">High / low °C</th><th scope="col">Normal</th><th scope="col">Record high / low (year)</th><th scope="col">Precipitation (chance)</th>
-    <th scope="col">Max gust</th><th scope="col">Sunrise / sunset</th><th scope="col">Moon</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <th scope="col">Max gust</th><th scope="col">Sunrise / sunset (local)</th><th scope="col">Moon</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function tafBlock(doc, nowMs) {
+  const t = doc.now?.taf;
+  const st = tafState(t, nowMs);
+  if (st === "current") {
+    return `<h3 class="loc-h">TAF <span class="small">issued ${esc(when(t.issued))}; valid ${esc(when(t.valid_from))} to ${esc(when(t.valid_to))}</span></h3>
+      <p class="loc-raw mono">${esc(t.raw)}</p>`;
+  }
+  const why = st === "ended" ? ` The last one Vis holds ran to ${esc(when(t.valid_to))}.` : "";
+  return `<h3 class="loc-h">TAF</h3><p class="small">No current TAF from ${esc(doc.icao)}.${why}</p>`;
+}
+
+const FALLBACK_SOURCES = 'forecast and elevation: <a href="https://open-meteo.com/" rel="noopener">Open-Meteo.com</a> (CC BY 4.0); METAR and TAF: NOAA Aviation Weather Center (public domain); normals and records: ERA5 via Open-Meteo, contains modified Copernicus Climate Change Service information; sun and moon computed by Vis';
+
+// The source line: each source once, linked, with its licence and any notice it asks for.
+function sourceLine(doc) {
+  const seen = new Set(), parts = [], notes = new Set();
+  for (const s of doc.sources || []) {
+    const text = s.attribution || s.name;
+    if (s.disclaimer) notes.add(s.disclaimer);
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    const lic = s.licence ? ` (${esc(s.licence)})` : "";
+    parts.push(/^https:\/\//.test(s.url || "") ? `<a href="${esc(s.url)}" rel="noopener">${esc(text)}</a>${lic}` : `${esc(text)}${lic}`);
+  }
+  return `<p class="small loc-src">Sources: ${parts.join("; ") || FALLBACK_SOURCES}. ${[...notes].map(esc).join(" ")}
+    Not an official forecast and not for flight planning; every threshold is indicative.
+    <a href="data/locations/${esc(doc.id)}.json">This point's data (JSON)</a>.</p>`;
 }
 
 function render(doc, body) {
   const h = doc.hourly || {};
   const t = (h.time || []).map((s) => Date.parse(iso(s)));
   const nowMs = Date.now();
+  placeTz = window.__visPoints?.[doc.id]?.tz || doc.site?.timezone || null;
   const ticks = dayTicks(doc);
   body.innerHTML = `
     ${doc.errors?.length ? `<p class="stale">${esc(doc.errors.filter((e) => !e.startsWith("climate")).length ? "Some of this location's data could not be fetched in the last build; the parts shown are what came back." : "Climatology for this point is still being built (a few points a day); normals and records follow.")}</p>` : ""}
-    <div class="loc-cards">${nowCard(doc)}${todayCard(doc)}${sunCard(doc)}${siteCard(doc)}</div>
+    <div class="loc-cards">${nowCard(doc, nowMs)}${todayCard(doc)}${sunCard(doc)}${siteCard(doc)}</div>
     <h3 class="loc-h">Ensemble outlook <span class="small">(the table's stoplight for this point)</span></h3>${outlook(doc)}
     <h3 class="loc-h">Forecast and the past week <span class="small">(Open-Meteo best-match models; times in your zone, days in the station's)</span></h3>
     <div id="loc-charts"></div>
     <h3 class="loc-h">Trend against normal</h3>${trendText(doc.trends)}
     <h3 class="loc-h">Day by day</h3>${dailyTable(doc)}
-    ${doc.now?.taf?.raw ? `<h3 class="loc-h">TAF</h3><p class="loc-raw mono">${esc(doc.now.taf.raw)}</p>` : ""}
-    <p class="small loc-src">Sources: ${(window.__visLocSources || []).map((s) => esc(s)).join("; ") || "Open-Meteo (CC BY 4.0), NOAA Aviation Weather Center (public domain), ERA5 via Open-Meteo (contains modified Copernicus Climate Change Service information), sun and moon computed by Vis"}. Not an official forecast. <a href="data/locations/${esc(doc.id)}.json">This point's data (JSON)</a>.</p>`;
+    ${tafBlock(doc, nowMs)}
+    ${sourceLine(doc)}`;
   const charts = body.querySelector("#loc-charts");
   if (t.length) {
     const normLo = perHour(doc, t, "normal_tmin_c"), normHi = perHour(doc, t, "normal_tmax_c");
@@ -387,8 +465,9 @@ function render(doc, body) {
         { y: h.wind_speed_10m || [], cls: "c-wind", label: "Wind", unit: " km/h", digits: 0 },
         { y: h.wind_gusts_10m || [], cls: "c-gust", label: "Gusts", unit: " km/h", digits: 0 },
       ],
-      hlines: [{ y: amber, cls: "c-amber", label: amber ? `Amber ${amber}` : "", include: false },
-        { y: red, cls: "c-red", label: red ? `Red ${red}` : "", include: false }],
+      // The lines are drawn only when the gusts reach them; the key names them, indicative, either way.
+      hlines: [{ y: amber, cls: "c-amber", label: amber ? `Amber ${amber}, indicative` : "", key: amber ? `Amber ${amber} km/h (indicative)` : "", include: false },
+        { y: red, cls: "c-red", label: red ? `Red ${red}, indicative` : "", key: red ? `Red ${red} km/h (indicative)` : "", include: false }],
     }));
     const pr = h.precipitation || [];
     const pMax = Math.max(1, ...pr.filter((v) => v != null));

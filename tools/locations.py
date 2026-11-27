@@ -1,19 +1,24 @@
 """Location detail for every forecast point (22 Nov 2026): what the pop-up on the page shows and what COP can read.
 
     python tools/locations.py [--forecast out/forecast.json] [--climate out/climate.json] [--out out/locations.json]
+                              [--metar history/metar]
     python tools/locations.py --probe      # fetch for real and print one line per point (an informational check)
 
-For each of Vis's points it gathers, in four calls for all points together:
-  - Open-Meteo's forecast API (its best-match deterministic models): hourly weather for the past 7 days and the next
-    7, daily highs and lows, and the current state, on the point's own grid cell choice (land, sea or nearest);
-  - the latest METAR and TAF for the station from the Aviation Weather Center (aviationweather.gov, US Government
-    data, public domain), when the station issues them;
+For each of Vis's points it gathers:
+  - Open-Meteo's forecast API (its best-match deterministic models), one call per grid-cell choice: hourly weather
+    for the past 7 days and the next 7, daily highs and lows, and the model's values at build time, on the point's
+    own cell choice (land, sea or nearest);
+  - the station's latest METAR from Vis's own append-only store (history/metar, filled by tools/metar.py earlier in
+    the same build), so the pop-up and the forecast scores read the same reports; the page works out its age when
+    it is read;
+  - the station's current TAF from the Aviation Weather Center (aviationweather.gov, US Government data, public
+    domain), one call for every station through tools/metar.py; a TAF whose validity has ended is left out;
 and joins what Vis already has: the ensemble hazard days and the sun and moon from out/forecast.json, the station
 and model-cell elevations from the forecast's grid check, and the climatology (normals, records for each calendar
 day, Köppen-Geiger class) from out/climate.json when tools/climate.py has built the point.
 
-A part that cannot be fetched is left null and named in `errors`; this step never fails the build, because the
-ensemble forecast is the product and this is its context. Output schema `vis-location/1` (docs/location-data.md).
+A part that cannot be fetched is left null and named in `errors`; this step is context for the ensemble forecast,
+which is the product, and the build step that runs it never stops the deploy. Output schema `vis-location/1` (docs/location-data.md).
 Standard library only.
 """
 from __future__ import annotations
@@ -29,11 +34,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import climate  # noqa: E402
 import fetch  # noqa: E402
+import metar  # noqa: E402
 
 SCHEMA = "vis-location/1"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
-METAR_URL = "https://aviationweather.gov/api/data/metar"
-TAF_URL = "https://aviationweather.gov/api/data/taf"
+METAR_DIR = os.path.join(ROOT, "history", "metar")
+METAR_LOOKBACK_HOURS = 48    # the newest stored report within this many hours is shown, with its age, on the page
 PAST_DAYS = 7
 FORECAST_DAYS = 7
 # 15 hourly variables over 14 days count as 1.5 Open-Meteo calls a point (pricing page, read 22 Nov 2026): about 50
@@ -51,9 +57,12 @@ UNITS = {"temperature_2m": "C", "dew_point_2m": "C", "relative_humidity_2m": "%"
          "wind_direction_10m": "deg", "wind_gusts_10m": "km/h", "pressure_msl": "hPa", "cape": "J/kg"}
 SOURCES = [
     {"id": "open-meteo-forecast", "name": "Open-Meteo Forecast API (best-match deterministic models)",
-     "url": "https://open-meteo.com/en/docs", "licence": "CC BY 4.0; free API for non-commercial use",
+     "url": "https://open-meteo.com/", "licence": "CC BY 4.0; free API for non-commercial use",
      "attribution": "Weather data by Open-Meteo.com"},
-    {"id": "awc-metar-taf", "name": "NOAA Aviation Weather Center data API (METAR, TAF)",
+    {"id": "awc-metar", "name": "NOAA Aviation Weather Center data API: METAR (Vis's store, history/metar)",
+     "url": "https://aviationweather.gov/data/api/", "licence": "US Government work, public domain",
+     "attribution": "NOAA/NWS Aviation Weather Center"},
+    {"id": "awc-taf", "name": "NOAA Aviation Weather Center data API: TAF",
      "url": "https://aviationweather.gov/data/api/", "licence": "US Government work, public domain",
      "attribution": "NOAA/NWS Aviation Weather Center"},
     climate.SOURCE,
@@ -95,48 +104,26 @@ def fetch_forecast(points, opener=None, wait=time.sleep):
     return out
 
 
-def fetch_awc(url, icaos, opener=None, wait=time.sleep, hours=None):
-    """Latest report per station from the Aviation Weather Center, {ICAO: report}. One call for every station; the
-    API answers at most 400 entries, far above 31 stations."""
-    params = {"ids": ",".join(sorted(set(icaos))), "format": "json"}
-    if hours:
-        params["hours"] = hours
-    doc = fetch.get_json(url, params, timeout=60, opener=opener, wait=wait, wait_s=30, empty_ok=True) or []
-    latest = {}
-    for r in doc if isinstance(doc, list) else []:
-        k = r.get("icaoId")
-        t = r.get("obsTime") or r.get("issueTime") or 0
-        if isinstance(t, str):                       # TAF issueTime is an ISO string
-            try:
-                t = datetime.fromisoformat(t.replace("Z", "+00:00")).timestamp()
-            except ValueError:
-                t = 0
-        if k and (k not in latest or t > latest[k][0]):
-            latest[k] = (t, r)
-    return {k: v[1] for k, v in latest.items()}
-
-
-def metar_view(r, now):
-    """The fields the pop-up shows from an AWC METAR, with its age; wind in knots as reported."""
+def metar_view(r):
+    """The fields the pop-up shows from a stored report (tools/metar.py); wind in knots as reported. No age: the page
+    works it out from obs_time when it is read, so a report never reads as current hours after the build."""
     if not r:
         return None
-    t = r.get("obsTime")
-    clouds = [{"cover": c.get("cover"), "base_ft": c.get("base")} for c in (r.get("clouds") or [])]
-    ceiling = min((c["base_ft"] for c in clouds if c["cover"] in ("BKN", "OVC", "OVX") and c["base_ft"] is not None),
-                  default=None)
-    return {"raw": r.get("rawOb"), "obs_time": _iso(t), "age_min": round((now.timestamp() - t) / 60) if t else None,
-            "temp_c": r.get("temp"), "dewpoint_c": r.get("dewp"), "wind_dir_deg": r.get("wdir"),
-            "wind_kt": r.get("wspd"), "gust_kt": r.get("wgst"), "visibility": r.get("visib"),
-            "altimeter_hpa": r.get("altim"), "weather": r.get("wxString"), "clouds": clouds, "ceiling_ft": ceiling,
-            "flight_category": r.get("fltCat"), "station_name": r.get("name")}
+    clouds = [c for c in (r.get("clouds") or []) if isinstance(c, dict)]
+    ceiling = min((c["base_ft"] for c in clouds if c.get("cover") in ("BKN", "OVC", "OVX", "VV")
+                   and isinstance(c.get("base_ft"), (int, float))), default=None)
+    return {"raw": r.get("raw"), "obs_time": r.get("obs_time"), "type": r.get("type"),
+            "temp_c": r.get("temp_c"), "dewpoint_c": r.get("dewp_c"), "wind_dir_deg": r.get("wdir"),
+            "wind_kt": r.get("wspd_kt"), "gust_kt": r.get("wgst_kt"), "visibility": r.get("visib"),
+            "altimeter_hpa": r.get("altim_hpa"), "weather": r.get("wx"), "clouds": clouds or None,
+            "ceiling_ft": ceiling, "flight_category": r.get("flt_cat")}
 
 
-def taf_view(r):
-    if not r:
+def taf_view(t, now):
+    """The TAF as the pop-up shows it, or None when there is none or its validity has ended at `now`."""
+    if not t or not t.get("raw") or not t.get("valid_to") or t["valid_to"] <= now.strftime("%Y-%m-%dT%H:%M:%SZ"):
         return None
-    return {"raw": r.get("rawTAF"), "issued": r.get("issueTime"),
-            "valid_from": _iso(r.get("validTimeFrom")) if isinstance(r.get("validTimeFrom"), (int, float)) else r.get("validTimeFrom"),
-            "valid_to": _iso(r.get("validTimeTo")) if isinstance(r.get("validTimeTo"), (int, float)) else r.get("validTimeTo")}
+    return {"raw": t["raw"], "issued": t.get("issued"), "valid_from": t.get("valid_from"), "valid_to": t["valid_to"]}
 
 
 def _mean(xs):
@@ -204,7 +191,7 @@ def hourly_block(om):
     return out
 
 
-def build_point(z, om, metar, taf, clim, now, errors):
+def build_point(z, om, metar_rep, taf, clim, now, errors):
     today_local = None
     if om and om.get("utc_offset_seconds") is not None:
         today_local = (now + timedelta(seconds=om["utc_offset_seconds"])).strftime("%Y-%m-%d")
@@ -234,7 +221,7 @@ def build_point(z, om, metar, taf, clim, now, errors):
             "biome": None,
         },
         "now": {
-            "metar": metar_view(metar, now), "taf": taf_view(taf),
+            "metar": metar_view(metar_rep), "taf": taf_view(taf, now),
             "model": ({"time": _iso(cur.get("time")), **{k: cur.get(k) for k in CURRENT}} if cur else None),
         },
         "today": {
@@ -258,7 +245,20 @@ def build_point(z, om, metar, taf, clim, now, errors):
     }
 
 
-def build(forecast_doc, clim_doc=None, now=None, opener=None, wait=time.sleep):
+def sources_for(clim_doc, now):
+    """SOURCES with the Copernicus notice's year (Licence to use Copernicus Products, clause 5.1.2): the year the
+    climate cache was last built from ERA5, else this build's year."""
+    year = str((clim_doc or {}).get("updated_at") or "")[:4] or now.strftime("%Y")
+    out = []
+    for src in SOURCES:
+        src = dict(src)
+        if src["id"] == climate.SOURCE["id"]:
+            src["attribution"] = climate.notice(year)
+        out.append(src)
+    return out
+
+
+def build(forecast_doc, clim_doc=None, now=None, opener=None, wait=time.sleep, metar_dir=METAR_DIR):
     now = now or datetime.now(timezone.utc)
     points = forecast_doc.get("zones") or []
     shared_errors = []
@@ -270,11 +270,11 @@ def build(forecast_doc, clim_doc=None, now=None, opener=None, wait=time.sleep):
     icaos = [z["icao"] for z in points if z.get("icao") and z["icao"] != "ZZZZ"]
     metars, tafs = {}, {}
     try:
-        metars = fetch_awc(METAR_URL, icaos, opener=opener, wait=wait, hours=3)
+        metars = metar.newest(metar_dir, icaos, now, METAR_LOOKBACK_HOURS)
     except Exception as e:  # noqa: BLE001
         shared_errors.append(f"metar: {e.__class__.__name__}: {e}")
     try:
-        tafs = fetch_awc(TAF_URL, icaos, opener=opener, wait=wait)
+        tafs = metar.fetch_tafs(icaos, now, opener=opener, wait=wait)
     except Exception as e:  # noqa: BLE001
         shared_errors.append(f"taf: {e.__class__.__name__}: {e}")
     cpts = (clim_doc or {}).get("points") or {}
@@ -290,7 +290,7 @@ def build(forecast_doc, clim_doc=None, now=None, opener=None, wait=time.sleep):
         "schema": "vis-locations/1", "program": "vis", "generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "forecast_generated_at": forecast_doc.get("generated_at"),
         "climate_updated_at": (clim_doc or {}).get("updated_at"),
-        "sources": SOURCES, "points": out,
+        "sources": sources_for(clim_doc, now), "points": out,
     }
 
 
@@ -320,6 +320,7 @@ def main(argv=None):
     ap.add_argument("--forecast", default=os.path.join(ROOT, "out", "forecast.json"))
     ap.add_argument("--climate", default=os.path.join(ROOT, "out", "climate.json"))
     ap.add_argument("--out", default=os.path.join(ROOT, "out", "locations.json"))
+    ap.add_argument("--metar", default=METAR_DIR, help="tools/metar.py's store")
     ap.add_argument("--probe", action="store_true", help="print one line per point after the fetch")
     a = ap.parse_args(argv)
     if os.path.exists(a.forecast):
@@ -333,10 +334,12 @@ def main(argv=None):
     if os.path.exists(a.climate):
         with open(a.climate, encoding="utf-8") as f:
             clim = json.load(f)
-    doc = build(fc, clim)
+    doc = build(fc, clim, metar_dir=a.metar)
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
-    with open(a.out, "w", encoding="utf-8", newline="\n") as f:
+    tmp = a.out + ".tmp"          # written whole, then moved, so a failure never leaves half a file for the site step
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
         json.dump(doc, f, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, a.out)
     n = len(doc["points"])
     om_ok = sum(1 for p in doc["points"] if p["hourly"]["time"])
     met = sum(1 for p in doc["points"] if p["now"]["metar"])

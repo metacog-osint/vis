@@ -82,14 +82,15 @@ jobs:
           done
           python tools/verify.py resolve --forecasts "$RUNNER_TEMP/forecasts" && python tools/verify.py score \
             || echo "::warning::verification failed this run"
-      # Location detail (22 Nov 2026): per-point forecast, METAR/TAF, normals and records for the pop-up. The climate
-      # cache comes from release vis-climate (filled by climate.yml); without it the pop-up shows no normals yet.
-      # locations.py never fails the build: a source that fails is written into the file's errors list.
+      # Location detail (22 Nov 2026): per-point forecast, the newest METAR from history/metar (stored by the step
+      # above), the current TAF, normals and records for the pop-up. The climate cache comes from release vis-climate
+      # (filled by climate.yml); without it the pop-up shows no normals yet. A source that fails is written into the
+      # file's errors list, and a failure of the step itself leaves the pop-up without data but never stops the deploy.
       - name: Climate cache from release vis-climate
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release download vis-climate -p climate.json -D out --clobber || echo "No climate cache yet"
-      - name: Location detail (Open-Meteo forecast, AWC METAR/TAF)
+      - name: Location detail (Open-Meteo forecast, METAR store, AWC TAF)
         run: python tools/locations.py || echo "::warning::location detail failed; the pop-up keeps no data this build"
       - name: Feed and site
         run: python tools/build_site.py

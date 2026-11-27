@@ -39,6 +39,9 @@
   font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 3px;
   border: 1px solid var(--rule); background: var(--card); color: var(--ink);
 }
+.loc-tag-old { border-color: #E0A867; background: #FFE6C7; color: #5A2C00; }
+.loc-old { color: #8A3B00; }
+.loc-also { color: #5A6B80; }
 .loc-dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; margin: 0; font-size: 12.5px; }
 .loc-dl dt { color: var(--muted); }
 .loc-dl dd { margin: 0; }

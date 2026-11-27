@@ -2,12 +2,18 @@
 and the Köppen-Geiger climate class, from the ERA5 reanalysis on Open-Meteo's Historical Weather API.
 
     python tools/climate.py [--cache out/climate.json] [--max-points 4] [--first-year 1991] [--last-year 2025]
+    python tools/climate.py --fresh ...    # start a new cache: only when no cache exists anywhere yet
     python tools/climate.py --probe        # one point, one year: checks the call and the answer's shape
 
 The cache is filled a few points per run and kept between runs (a release asset, `vis-climate`, in CI), because a
 multi-decade request counts as many Open-Meteo calls (requests over 2 weeks per location count as more than one
 call; free tier 600 a minute, 5,000 an hour, 10,000 a day, shared with the twice-daily ensemble run). A point whose
 entry matches the current period and method version is skipped, so a finished cache costs nothing.
+
+A cache file that is missing, unreadable or of another schema stops the run (exit 1) unless --fresh says there is
+none to keep: a failed or cut-short download must never turn into an empty cache that replaces the live one.
+.github/workflows/climate.yml downloads and checks the release copy with tools/release_cache.py, which also refuses
+an upload with fewer points than the live copy and keeps a dated copy of every upload.
 
 Normals are 1991-2020 (the WMO standard period); records run from --first-year to --last-year, so they are "the
 highest in ERA5 since 1991", not station records. ERA5 is a 0.25 deg (about 25 km) grid: a record is the grid
@@ -26,6 +32,7 @@ from datetime import date, datetime, timezone
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 import fetch  # noqa: E402
+from release_cache import CacheError  # noqa: E402
 
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 SCHEMA = "vis-climate/1"
@@ -41,7 +48,14 @@ SOURCE = {
     "url": "https://open-meteo.com/en/docs/historical-weather-api",
     "licence": "CC BY 4.0 (Open-Meteo); free API for non-commercial use",
     "attribution": "Contains modified Copernicus Climate Change Service information; weather data by Open-Meteo.com",
+    "disclaimer": "Neither the European Commission nor ECMWF is responsible for any use that may be made of the "
+                  "Copernicus information or data it contains.",
 }
+
+
+def notice(year):
+    """The attribution with the year, in the form of the Copernicus licence's clause 5.1.2."""
+    return f"Contains modified Copernicus Climate Change Service information {year}; weather data by Open-Meteo.com"
 
 # Calendar of 366 month-days (a leap year), index 0 = 01-01, 59 = 02-29.
 MD = [date(2000, 1, 1).fromordinal(date(2000, 1, 1).toordinal() + i).strftime("%m-%d") for i in range(366)]
@@ -211,15 +225,21 @@ def fetch_point(z, first_year, last_year, wait=time.sleep, opener=None, pause_s=
     return out
 
 
-def load_cache(path):
+def load_cache(path, fresh=False):
+    """The cache at `path`. A missing file gives an empty cache only when `fresh`; a missing file otherwise, or one
+    that does not parse or has another schema, raises CacheError so the run stops with the live copy untouched."""
+    if not os.path.exists(path):
+        if fresh:
+            return {"schema": SCHEMA, "source": SOURCE, "points": {}}
+        raise CacheError(f"{path}: no cache file; pass --fresh only when no cache exists yet")
     try:
         with open(path, encoding="utf-8") as f:
             doc = json.load(f)
-        if doc.get("schema") == SCHEMA:
-            return doc
-    except (OSError, ValueError):
-        pass
-    return {"schema": SCHEMA, "source": SOURCE, "points": {}}
+    except (OSError, ValueError) as e:
+        raise CacheError(f"{path}: unreadable ({e.__class__.__name__}: {e})") from e
+    if not isinstance(doc, dict) or doc.get("schema") != SCHEMA or not isinstance(doc.get("points"), dict):
+        raise CacheError(f"{path}: not a {SCHEMA} cache")
+    return doc
 
 
 def save_cache(path, doc):
@@ -243,6 +263,7 @@ def main(argv=None):
     ap.add_argument("--first-year", type=int, default=NORMAL_PERIOD[0])
     ap.add_argument("--last-year", type=int, default=datetime.now(timezone.utc).year - 1)
     ap.add_argument("--probe", action="store_true")
+    ap.add_argument("--fresh", action="store_true", help="start an empty cache when the file is missing")
     a = ap.parse_args(argv)
     import forecast  # noqa: E402 - the same point list as the forecast
     zones = forecast.expand_points(forecast.load_zones(a.points))
@@ -253,7 +274,11 @@ def main(argv=None):
         print(f"probe {z['icao']}: {n} days for {a.last_year}; first {d['time'][:1]}, "
               f"tmax {d['temperature_2m_max'][:3]}, tmin {d['temperature_2m_min'][:3]}, prcp {d['precipitation_sum'][:3]}")
         return 0 if n >= 365 else 1
-    cache = load_cache(a.cache)
+    try:
+        cache = load_cache(a.cache, fresh=a.fresh)
+    except CacheError as e:
+        print(f"::error::climate: {e}", flush=True)
+        return 1
     cache["source"] = SOURCE
     todo = [z for z in zones if needs(cache["points"].get(z["id"]), a.first_year, a.last_year)]
     print(f"climate: {len(zones) - len(todo)} of {len(zones)} points cached; building up to {a.max_points}", flush=True)
