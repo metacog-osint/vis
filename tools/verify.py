@@ -16,6 +16,9 @@ What METARs can resolve, and how (method `vis-verify/1`):
   NCD mean no ceiling (stored as gefs.NO_CEILING_M); CAVOK and NSC only say nothing below 1,500 m, so ceiling
   thresholds stay under that. A ceiling layer whose height is `///`, or a report with no cloud group, is unresolved,
   never "no ceiling".
+- The ceiling trial is scored only from forecasts that read it from RH at the lowest model levels (the forecast file's
+  `ceiling.method` is `rh-lowest-levels`, stored on each pair as `ceiling_method`). Ceiling pairs from earlier builds,
+  which read the GEFS cloud-ceiling field, stay in the store and are set aside from the scores, with their count.
 - An event is "not observed" only when at least 75% of the steps have a report and no hit sits next to a missing step.
   Otherwise the forecast is stored as unresolved, with the reason, and counted; a missing report is never filled.
 - Not resolvable from METARs and counted as such: heavy rain and heavy snow (24 h totals, which most of these stations
@@ -43,6 +46,8 @@ import metar  # noqa: E402
 METHOD = "vis-verify/1"
 SCORED = ("wind", "vis", "heat", "cold", "ceiling")
 SCORED_DEFS = {h["id"]: h for h in forecast.HAZARDS if h["id"] in SCORED}
+# The ceiling method the scores count; ceiling pairs from builds without it are set aside (see the docstring).
+CEILING_METHOD = "rh-lowest-levels"
 NOT_RESOLVABLE = {
     "rain": "24-hour rainfall: most of these stations report no precipitation amount in METARs",
     "snow": "24-hour snowfall: METARs carry no snowfall amount",
@@ -240,6 +245,7 @@ def resolve(forecast_dir, obs_base, verify_dir, now=None):
         # so the hazard's definition comes from forecast.HAZARDS; a hazard the file does list keeps the file's own.
         hazards = {**SCORED_DEFS, **{h["id"]: h for h in doc.get("hazards", [])}}
         gen = doc["generated_at"]
+        ceiling_method = (doc.get("ceiling") or {}).get("method")
         for z in doc.get("zones", []):
             for d in z.get("days", []):
                 day = d["day"]
@@ -259,7 +265,8 @@ def resolve(forecast_dir, obs_base, verify_dir, now=None):
                         p[hid] = [fc.get("p_amber"), fc.get("p_red"), fc.get("members")]
                 new_pairs.append({"forecast": name, "run": m.group(1) if m else None, "generated_at": gen,
                                   "zone": z["id"], "day": day, "start": start,
-                                  "lead_days": (_t(day + "T00:00").date() - _t(gen).date()).days, "p": p})
+                                  "lead_days": (_t(day + "T00:00").date() - _t(gen).date()).days, "p": p,
+                                  "ceiling_method": ceiling_method})
                 have_pair.add((name, z["id"], day))
     _append(vdir / "observed.jsonl", new_obs)
     _append(vdir / "pairs.jsonl", new_pairs)
@@ -280,7 +287,8 @@ def joined(verify_dir):
                              "zone": pr["zone"], "day": pr["day"], "lead_days": pr["lead_days"], "hazard": hid,
                              "level": lvl, "p": p, "outcome": ob.get("outcome") if o else None,
                              "why": ob.get("why") if o else "no observation line",
-                             "threshold": ob.get("threshold"), "unit": UNITS.get(hid)})
+                             "threshold": ob.get("threshold"), "unit": UNITS.get(hid),
+                             "ceiling_method": pr.get("ceiling_method")})
     return rows
 
 
@@ -318,6 +326,8 @@ def score(rows, now=None):
         if k not in latest or r["generated_at"] > latest[k]["generated_at"]:
             latest[k] = r
     use = list(latest.values())
+    old_ceiling = [r for r in use if r["hazard"] == "ceiling" and r.get("ceiling_method") != CEILING_METHOD]
+    use = [r for r in use if not (r["hazard"] == "ceiling" and r.get("ceiling_method") != CEILING_METHOD)]
     ok = [r for r in use if r["outcome"] in (0, 1) and isinstance(r.get("p"), (int, float))]
     unresolved = {}
     for r in use:
@@ -343,6 +353,10 @@ def score(rows, now=None):
         "first_day": days[0] if days else None, "last_day": days[-1] if days else None,
         "forecasts_counted": len(use), "resolved": len(ok), "unresolved": len(use) - len(ok),
         "unresolved_by_reason": [{"hazard": h, "why": w, "n": n} for (h, w), n in sorted(unresolved.items())],
+        "set_aside": [{"hazard": "ceiling", "n": len({(r.get("run") or r["forecast"], r["zone"], r["day"])
+                                                  for r in old_ceiling}),
+                       "why": "built from the GEFS cloud-ceiling field, before the trial read RH at the lowest "
+                              "model levels"}] if old_ceiling else [],
         "rules": {
             "one_forecast_per_model_run": True,
             "readable_when": (f"at least {READ_MIN_N} forecasts and {READ_MIN_EVENTS} observed events, at "

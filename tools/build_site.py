@@ -881,9 +881,15 @@ def verification_html(doc: dict | None) -> str:
            f'rate. A row is marked too few to read unless it has {escape(str(r.get("readable_when", "")))}. '
            f'Rain, snow, low cloud cover and icing are not scored: METARs do not measure them the way the forecast '
            f'states them. The low ceiling trial is scored against the METAR ceiling (lowest broken, overcast or '
-           f'obscured layer); it reads RH at the four lowest model levels, so a cloud base between 200 and 305 m '
-           f'counts only when the air below it is near saturation (see “Hazard thresholds” above). Thresholds are indicative; not for flight planning.</p>',
-           '<div class="table-wrap"><table class="skill"><thead><tr><th>Hazard</th><th>Threshold</th>'
+            f'obscured layer); it reads RH at the four lowest model levels, so a cloud base between 200 and 305 m '
+            f'counts only when the air below it is near saturation (see “Hazard thresholds” above). '
+            + ''.join(f'{s["n"]:,} ceiling forecast{"" if s["n"] == 1 else "s"} {escape(s["why"])} '
+                      f'{"is" if s["n"] == 1 else "are"} kept but not scored. '
+                      for s in doc.get("set_aside", []) if s.get("hazard") == "ceiling" and s.get("n"))
+            + 'Thresholds are indicative; not for flight planning.</p>',
+            # Wider than a phone: the box scrolls sideways, so it takes keyboard focus and a name (WCAG 2.1.1).
+            '<div class="table-wrap" tabindex="0" role="region" aria-label="Measured skill scores, scrolls sideways">'
+            '<table class="skill"><thead><tr><th>Hazard</th><th>Threshold</th>'
            '<th>Lead (days)</th><th>Forecasts</th><th>Observed</th><th>Points (with events)</th><th>Brier</th>'
            '<th>Skill</th><th>Read</th></tr></thead><tbody>']
     for c in doc["scores"]:

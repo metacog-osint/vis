@@ -751,6 +751,12 @@ class WxMapTests(unittest.TestCase):
                 '<span id="wx-gibs-layers">NOAA GOES-East</span>'), 1)
             self.assertFalse(wxmap.stamp_page(Path(tmp) / "missing.html", manifest))
 
+    def test_skill_table_box_takes_focus_and_a_name(self):
+        html = build_site.verification_html({"scores": [{"hazard": "wind", "level": "amber", "lead_days": "all",
+                                                         "threshold": 65.0, "unit": "km/h", "n": 1, "events": 0}],
+                                              "rules": {}})
+        self.assertIn('<div class="table-wrap" tabindex="0" role="region" aria-label="Measured skill scores', html)
+
     def test_limits_list_names_every_hazard_verify_scores(self):
         for h in verify.SCORED:
             self.assertIn(h, build_site.CHECKED_NAMES, f"{h} is scored but the limits list has no name for it")
@@ -1154,6 +1160,30 @@ class GefsCeilingTests(unittest.TestCase):
             before = (vdir / "observed.jsonl").read_bytes()
             self.assertEqual(verify.resolve(fdir, mdir, vdir, now=now), ([], []))
             self.assertEqual((vdir / "observed.jsonl").read_bytes(), before)
+
+    def test_ceiling_scores_count_only_the_rh_method_and_set_older_builds_aside(self):
+        base = {"zone": "eyvi", "day": "2026-11-28", "lead_days": 1, "hazard": "ceiling", "level": "amber",
+                "p": 0.6, "outcome": 1, "why": None, "threshold": 305.0, "unit": "m"}
+        rows = [
+            # An old build of one run, then a newer build of the same run with the RH method: the newer one counts.
+            {**base, "forecast": "a1", "run": "R1", "generated_at": "2026-11-27T01:00:00Z", "ceiling_method": None},
+            {**base, "forecast": "a2", "run": "R1", "generated_at": "2026-11-27T21:00:00Z",
+             "ceiling_method": verify.CEILING_METHOD},
+            # A run built only before the switch: set aside, not scored.
+            {**base, "forecast": "b1", "run": "R0", "generated_at": "2026-11-26T19:00:00Z", "ceiling_method": None},
+            # Other hazards are never set aside.
+            {**base, "forecast": "b1", "run": "R0", "generated_at": "2026-11-26T19:00:00Z", "ceiling_method": None,
+             "hazard": "vis", "threshold": 3000.0},
+        ]
+        doc = verify.score(rows)
+        cell = [c for c in doc["scores"] if c["hazard"] == "ceiling" and c["level"] == "amber"
+                and c["lead_days"] == "all"][0]
+        vis = [c for c in doc["scores"] if c["hazard"] == "vis" and c["level"] == "amber"
+               and c["lead_days"] == "all"][0]
+        self.assertEqual((cell["n"], vis["n"]), (1, 1))
+        self.assertEqual([(s["hazard"], s["n"]) for s in doc["set_aside"]], [("ceiling", 1)])
+        self.assertIn("1 ceiling forecast built from the GEFS cloud-ceiling field", build_site.verification_html(doc))
+        self.assertEqual(verify.score(rows[1:2])["set_aside"], [])
 
     def test_reach_marks_thresholds_the_model_ground_puts_out_of_reach(self):
         hz = next(h for h in forecast.HAZARDS if h["id"] == "ceiling")

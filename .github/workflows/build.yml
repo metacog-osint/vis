@@ -9,6 +9,10 @@ name: build
 # ensembles only change twice a day and a repeat run would spend Open-Meteo's allowance for nothing.
 # A run whose build the gate skipped still ends as "success", so the gate looks for the last run whose build job
 # itself succeeded (14 Nov 2026); counting skipped runs let each skip restart the 6-hour window.
+#
+# Private archive (the last step): every run's history/, its forecast and location files and the deployed site/
+# also go to the PRIVATE repo metacog-osint/tic-archive (tools/tic_archive.py), where nothing is replaced or deleted.
+# Needs repo secret TIC_ARCHIVE_TOKEN; without it that step fails the run after the live site is updated.
 on:
   push:
     branches: [main]
@@ -57,12 +61,15 @@ jobs:
       - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - name: Tests
-        run: python tests/test_vis.py
+        run: |
+          python tests/test_vis.py
+          python tests/test_archive_lanes.py
       - name: Kit copy is intact
         run: python doctrine/kit/tic.py kitcheck
       # The forecast step also reads the GEFS cloud ceiling from NOAA's files on AWS Open Data (tools/gefs.py, about
       # 1.7 GB of byte ranges and 1.5 min of decoding on 4 processes); a failure there leaves the ceiling out.
       - name: Forecast (Open-Meteo ensembles, NOAA GEFS ceiling)
+        id: forecast
         run: python tools/forecast.py --days 7
       # Plan step W3 (ideas#246): store METARs append-only, resolve every archived forecast whose UTC day has ended,
       # and score them; the page's "Measured skill" card reads out/verification.json. A failure here leaves the card
@@ -99,6 +106,7 @@ jobs:
       # Contract 2.1: the kit's history log gives each subject its last_change. The log is append-only and lives in
       # history/ on main; a failure here leaves the feed without last_change and never blocks the deploy.
       - name: History (history/, site/data/ended.geojson, last_change in the feed)
+        id: history
         run: |
           # Only the kit's own files: a checkout of all of history/ would undo this run's new METAR and score lines.
           git fetch -q --depth=1 origin main && git checkout -q FETCH_HEAD -- history/log history/state.json 2>/dev/null \
@@ -132,6 +140,7 @@ jobs:
         with:
           node-version: "22"
       - name: Deploy site/ to Cloudflare Pages
+        id: deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -145,6 +154,7 @@ jobs:
             if [ "$wait" != 0 ]; then echo "::warning::Cloudflare deploy failed; trying again in ${wait} s"; sleep "$wait"; fi
             if npx --yes wrangler@4.151.3 pages deploy site --project-name vis --branch main \
                  --commit-hash "$GITHUB_SHA" --commit-message "build $GITHUB_SHA" --commit-dirty=true; then
+              echo "deployed=true" >> "$GITHUB_OUTPUT"   # the private archive's site lane reads it
               exit 0
             fi
           done
@@ -180,3 +190,51 @@ jobs:
           gh release upload "$tag" "$path"
           echo "Archived $name to $tag"
           if [ -n "${extra_path:-}" ]; then gh release upload "$tag" "$extra_path"; echo "Archived $extra_name to $tag"; fi
+      # Private archive: what this public repository keeps only for a while, replaces or may stop publishing also goes
+      # to the PRIVATE repo metacog-osint/tic-archive, one lane each (tools/tic_archive.py, release vis-<lane>-YYYY-MM;
+      # a snapshot per run, only changed files uploaded, nothing replaced or deleted):
+      #   history  history/ as this run left it: the kit's history log and state.json, the METAR store and the
+      #            verification stores. Committed to main too. Only when the History step ran, so a run that stopped
+      #            earlier never archives an older checkout's history/ as the newest snapshot.
+      #   data     this build's forecast.json and locations.json, gzipped by tools/archive.py with the same command as
+      #            the step above on the same runner, so the names and bytes are those of the assets on release
+      #            vis-data-YYYY-MM. Packed again here rather than taken from that step, so a build whose deploy
+      #            failed is kept as well. Only when the forecast step wrote a forecast.
+      #   site     site/ as deployed: the page, feed.geojson, ended.geojson, forecast.json, the location files and
+      #            verification.json, each replaced by the next deploy. Only when wrangler deployed it (the deploy
+      #            step's output deployed=true), not when that step skipped the deploy for want of Cloudflare secrets.
+      # These files are all public already, so nothing is redacted and the archived bytes match the public copy.
+      # Each lane is tried even if another failed; a missing token or any failed lane turns the run red after the live
+      # site is updated. Token: TIC_ARCHIVE_TOKEN, contents:write on tic-archive only.
+      - name: Private archive (history, forecasts and site, to tic-archive)
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.TIC_ARCHIVE_TOKEN }}
+          FORECAST: ${{ steps.forecast.outcome }}
+          HISTORY: ${{ steps.history.outcome }}
+          DEPLOYED: ${{ steps.deploy.outputs.deployed }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::secret TIC_ARCHIVE_TOKEN is not set, so history/, this build's forecast and site/ did not reach the private archive"; exit 1
+          fi
+          failed=0
+          if [ "$HISTORY" = "success" ]; then
+            python tools/tic_archive.py put --program vis --lane history --src history || failed=1
+          else
+            echo "history: the History step did not run, so history/ was not archived"
+          fi
+          if [ "$FORECAST" = "success" ] && [ -f out/forecast.json ]; then
+            extra=""; [ -f out/locations.json ] && extra="--extra out/locations.json"
+            python tools/archive.py prepare out/forecast.json "$RUNNER_TEMP/vis-data" $extra \
+              && python tools/tic_archive.py put --program vis --lane data --src "$RUNNER_TEMP/vis-data" || failed=1
+          else
+            echo "data: the forecast step wrote no forecast this run, so there was nothing to archive"
+          fi
+          if [ "$DEPLOYED" = "true" ]; then
+            python tools/tic_archive.py put --program vis --lane site --src site || failed=1
+          else
+            echo "site: not deployed this run, so not archived"
+          fi
+          if [ "$failed" != 0 ]; then
+            echo "::error::a lane did not reach the private archive this run (see above)"; exit 1
+          fi
