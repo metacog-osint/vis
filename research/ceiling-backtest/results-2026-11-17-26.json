@@ -1,0 +1,4573 @@
+{
+ "n_rows": 11933,
+ "stations": 353,
+ "valid_times": 40,
+ "mismatch_stations": [
+  "BGQO",
+  "CYBG",
+  "EGPF",
+  "ETHA",
+  "HKME",
+  "HKNI",
+  "HTKJ",
+  "HUKS",
+  "LBPD",
+  "LBPG",
+  "LBSF",
+  "LFRC",
+  "LHPP",
+  "LLER",
+  "LQSA",
+  "LTAZ",
+  "LTBD",
+  "LYNI",
+  "MDST",
+  "OEMA",
+  "OJAQ",
+  "OOSA",
+  "RCMQ",
+  "RJOK",
+  "RPMD",
+  "SKAR",
+  "SKBG",
+  "SKBO",
+  "SKNV",
+  "SKPP",
+  "SKPS",
+  "VEBI",
+  "VETJ",
+  "VNKT",
+  "VVDL",
+  "ZBYN",
+  "ZGKL"
+ ],
+ "train|amber|matched|CUR (field Vis reads, above model ground)": {
+  "n": 5346,
+  "events": 314,
+  "hits": 33,
+  "misses": 281,
+  "false_alarms": 61,
+  "pod": 0.105,
+  "far": 0.649,
+  "bias": 0.3,
+  "ets": 0.074
+ },
+ "train|amber|all|CUR (field Vis reads, above model ground)": {
+  "n": 6009,
+  "events": 336,
+  "hits": 34,
+  "misses": 302,
+  "false_alarms": 80,
+  "pod": 0.101,
+  "far": 0.702,
+  "bias": 0.34,
+  "ets": 0.067
+ },
+ "train|amber|matched|CUR as Vis applies it (above station)": {
+  "n": 5346,
+  "events": 314,
+  "hits": 35,
+  "misses": 279,
+  "false_alarms": 61,
+  "pod": 0.111,
+  "far": 0.635,
+  "bias": 0.31,
+  "ets": 0.079
+ },
+ "train|amber|all|CUR as Vis applies it (above station)": {
+  "n": 6009,
+  "events": 336,
+  "hits": 37,
+  "misses": 299,
+  "false_alarms": 73,
+  "pod": 0.11,
+  "far": 0.664,
+  "bias": 0.33,
+  "ets": 0.077
+ },
+ "train|amber|matched|LCB (low-cloud cover >=50% and base)": {
+  "n": 5346,
+  "events": 314,
+  "hits": 171,
+  "misses": 143,
+  "false_alarms": 292,
+  "pod": 0.545,
+  "far": 0.631,
+  "bias": 1.47,
+  "ets": 0.248
+ },
+ "train|amber|all|LCB (low-cloud cover >=50% and base)": {
+  "n": 6009,
+  "events": 336,
+  "hits": 175,
+  "misses": 161,
+  "false_alarms": 338,
+  "pod": 0.521,
+  "far": 0.659,
+  "bias": 1.53,
+  "ets": 0.227
+ },
+ "train|amber|matched|RH90": {
+  "n": 5346,
+  "events": 314,
+  "hits": 218,
+  "misses": 96,
+  "false_alarms": 383,
+  "pod": 0.694,
+  "far": 0.637,
+  "bias": 1.91,
+  "ets": 0.276
+ },
+ "train|amber|all|RH90": {
+  "n": 6009,
+  "events": 336,
+  "hits": 227,
+  "misses": 109,
+  "false_alarms": 478,
+  "pod": 0.676,
+  "far": 0.678,
+  "bias": 2.1,
+  "ets": 0.242
+ },
+ "train|amber|matched|RH95": {
+  "n": 5346,
+  "events": 314,
+  "hits": 133,
+  "misses": 181,
+  "false_alarms": 125,
+  "pod": 0.424,
+  "far": 0.484,
+  "bias": 0.82,
+  "ets": 0.278
+ },
+ "train|amber|all|RH95": {
+  "n": 6009,
+  "events": 336,
+  "hits": 136,
+  "misses": 200,
+  "false_alarms": 155,
+  "pod": 0.405,
+  "far": 0.533,
+  "bias": 0.87,
+  "ets": 0.252
+ },
+ "train|amber|matched|RH98": {
+  "n": 5346,
+  "events": 314,
+  "hits": 51,
+  "misses": 263,
+  "false_alarms": 34,
+  "pod": 0.162,
+  "far": 0.4,
+  "bias": 0.27,
+  "ets": 0.134
+ },
+ "train|amber|all|RH98": {
+  "n": 6009,
+  "events": 336,
+  "hits": 51,
+  "misses": 285,
+  "false_alarms": 36,
+  "pod": 0.152,
+  "far": 0.414,
+  "bias": 0.26,
+  "ets": 0.126
+ },
+ "train|amber|matched|FOG (VIS < 1 km)": {
+  "n": 5346,
+  "events": 314,
+  "hits": 6,
+  "misses": 308,
+  "false_alarms": 5,
+  "pod": 0.019,
+  "far": 0.455,
+  "bias": 0.04,
+  "ets": 0.017
+ },
+ "train|amber|all|FOG (VIS < 1 km)": {
+  "n": 6009,
+  "events": 336,
+  "hits": 6,
+  "misses": 330,
+  "false_alarms": 11,
+  "pod": 0.018,
+  "far": 0.647,
+  "bias": 0.05,
+  "ets": 0.015
+ },
+ "train|amber|matched|LCB+RH90": {
+  "n": 5346,
+  "events": 314,
+  "hits": 241,
+  "misses": 73,
+  "false_alarms": 511,
+  "pod": 0.768,
+  "far": 0.68,
+  "bias": 2.39,
+  "ets": 0.252
+ },
+ "train|amber|all|LCB+RH90": {
+  "n": 6009,
+  "events": 336,
+  "hits": 251,
+  "misses": 85,
+  "false_alarms": 617,
+  "pod": 0.747,
+  "far": 0.711,
+  "bias": 2.58,
+  "ets": 0.224
+ },
+ "train|amber|matched|LCB+RH90+FOG": {
+  "n": 5346,
+  "events": 314,
+  "hits": 241,
+  "misses": 73,
+  "false_alarms": 511,
+  "pod": 0.768,
+  "far": 0.68,
+  "bias": 2.39,
+  "ets": 0.252
+ },
+ "train|amber|all|LCB+RH90+FOG": {
+  "n": 6009,
+  "events": 336,
+  "hits": 251,
+  "misses": 85,
+  "false_alarms": 619,
+  "pod": 0.747,
+  "far": 0.711,
+  "bias": 2.59,
+  "ets": 0.223
+ },
+ "train|amber|matched|LCB+RH95": {
+  "n": 5346,
+  "events": 314,
+  "hits": 197,
+  "misses": 117,
+  "false_alarms": 339,
+  "pod": 0.627,
+  "far": 0.632,
+  "bias": 1.71,
+  "ets": 0.266
+ },
+ "train|amber|all|LCB+RH95": {
+  "n": 6009,
+  "events": 336,
+  "hits": 204,
+  "misses": 132,
+  "false_alarms": 398,
+  "pod": 0.607,
+  "far": 0.661,
+  "bias": 1.79,
+  "ets": 0.243
+ },
+ "train|amber|matched|LCB+RH95+FOG": {
+  "n": 5346,
+  "events": 314,
+  "hits": 197,
+  "misses": 117,
+  "false_alarms": 341,
+  "pod": 0.627,
+  "far": 0.634,
+  "bias": 1.71,
+  "ets": 0.265
+ },
+ "train|amber|all|LCB+RH95+FOG": {
+  "n": 6009,
+  "events": 336,
+  "hits": 204,
+  "misses": 132,
+  "false_alarms": 402,
+  "pod": 0.607,
+  "far": 0.663,
+  "bias": 1.8,
+  "ets": 0.242
+ },
+ "train|amber|matched|LCB+RH98": {
+  "n": 5346,
+  "events": 314,
+  "hits": 173,
+  "misses": 141,
+  "false_alarms": 301,
+  "pod": 0.551,
+  "far": 0.635,
+  "bias": 1.51,
+  "ets": 0.247
+ },
+ "train|amber|all|LCB+RH98": {
+  "n": 6009,
+  "events": 336,
+  "hits": 177,
+  "misses": 159,
+  "false_alarms": 348,
+  "pod": 0.527,
+  "far": 0.663,
+  "bias": 1.56,
+  "ets": 0.226
+ },
+ "train|amber|matched|LCB+RH98+FOG": {
+  "n": 5346,
+  "events": 314,
+  "hits": 175,
+  "misses": 139,
+  "false_alarms": 303,
+  "pod": 0.557,
+  "far": 0.634,
+  "bias": 1.52,
+  "ets": 0.249
+ },
+ "train|amber|all|LCB+RH98+FOG": {
+  "n": 6009,
+  "events": 336,
+  "hits": 179,
+  "misses": 157,
+  "false_alarms": 353,
+  "pod": 0.533,
+  "far": 0.664,
+  "bias": 1.58,
+  "ets": 0.226
+ },
+ "train|red|matched|CUR (field Vis reads, above model ground)": {
+  "n": 5346,
+  "events": 118,
+  "hits": 3,
+  "misses": 115,
+  "false_alarms": 14,
+  "pod": 0.025,
+  "far": 0.824,
+  "bias": 0.14,
+  "ets": 0.02
+ },
+ "train|red|all|CUR (field Vis reads, above model ground)": {
+  "n": 6009,
+  "events": 134,
+  "hits": 3,
+  "misses": 131,
+  "false_alarms": 24,
+  "pod": 0.022,
+  "far": 0.889,
+  "bias": 0.2,
+  "ets": 0.015
+ },
+ "train|red|matched|CUR as Vis applies it (above station)": {
+  "n": 5346,
+  "events": 118,
+  "hits": 4,
+  "misses": 114,
+  "false_alarms": 15,
+  "pod": 0.034,
+  "far": 0.789,
+  "bias": 0.16,
+  "ets": 0.027
+ },
+ "train|red|all|CUR as Vis applies it (above station)": {
+  "n": 6009,
+  "events": 134,
+  "hits": 4,
+  "misses": 130,
+  "false_alarms": 21,
+  "pod": 0.03,
+  "far": 0.84,
+  "bias": 0.19,
+  "ets": 0.022
+ },
+ "train|red|matched|LCB (low-cloud cover >=50% and base)": {
+  "n": 5346,
+  "events": 118,
+  "hits": 46,
+  "misses": 72,
+  "false_alarms": 259,
+  "pod": 0.39,
+  "far": 0.849,
+  "bias": 2.58,
+  "ets": 0.106
+ },
+ "train|red|all|LCB (low-cloud cover >=50% and base)": {
+  "n": 6009,
+  "events": 134,
+  "hits": 49,
+  "misses": 85,
+  "false_alarms": 287,
+  "pod": 0.366,
+  "far": 0.854,
+  "bias": 2.51,
+  "ets": 0.1
+ },
+ "train|red|matched|RH90": {
+  "n": 5346,
+  "events": 118,
+  "hits": 78,
+  "misses": 40,
+  "false_alarms": 438,
+  "pod": 0.661,
+  "far": 0.849,
+  "bias": 4.37,
+  "ets": 0.122
+ },
+ "train|red|all|RH90": {
+  "n": 6009,
+  "events": 134,
+  "hits": 83,
+  "misses": 51,
+  "false_alarms": 532,
+  "pod": 0.619,
+  "far": 0.865,
+  "bias": 4.59,
+  "ets": 0.106
+ },
+ "train|red|matched|RH95": {
+  "n": 5346,
+  "events": 118,
+  "hits": 43,
+  "misses": 75,
+  "false_alarms": 140,
+  "pod": 0.364,
+  "far": 0.765,
+  "bias": 1.55,
+  "ets": 0.153
+ },
+ "train|red|all|RH95": {
+  "n": 6009,
+  "events": 134,
+  "hits": 44,
+  "misses": 90,
+  "false_alarms": 166,
+  "pod": 0.328,
+  "far": 0.79,
+  "bias": 1.57,
+  "ets": 0.133
+ },
+ "train|red|matched|RH98": {
+  "n": 5346,
+  "events": 118,
+  "hits": 14,
+  "misses": 104,
+  "false_alarms": 31,
+  "pod": 0.119,
+  "far": 0.689,
+  "bias": 0.38,
+  "ets": 0.088
+ },
+ "train|red|all|RH98": {
+  "n": 6009,
+  "events": 134,
+  "hits": 14,
+  "misses": 120,
+  "false_alarms": 32,
+  "pod": 0.104,
+  "far": 0.696,
+  "bias": 0.34,
+  "ets": 0.079
+ },
+ "train|red|matched|FOG (VIS < 1 km)": {
+  "n": 5346,
+  "events": 118,
+  "hits": 1,
+  "misses": 117,
+  "false_alarms": 10,
+  "pod": 0.008,
+  "far": 0.909,
+  "bias": 0.09,
+  "ets": 0.006
+ },
+ "train|red|all|FOG (VIS < 1 km)": {
+  "n": 6009,
+  "events": 134,
+  "hits": 1,
+  "misses": 133,
+  "false_alarms": 16,
+  "pod": 0.007,
+  "far": 0.941,
+  "bias": 0.13,
+  "ets": 0.004
+ },
+ "train|red|matched|LCB+RH90": {
+  "n": 5346,
+  "events": 118,
+  "hits": 85,
+  "misses": 33,
+  "false_alarms": 535,
+  "pod": 0.72,
+  "far": 0.863,
+  "bias": 5.25,
+  "ets": 0.112
+ },
+ "train|red|all|LCB+RH90": {
+  "n": 6009,
+  "events": 134,
+  "hits": 91,
+  "misses": 43,
+  "false_alarms": 633,
+  "pod": 0.679,
+  "far": 0.874,
+  "bias": 5.4,
+  "ets": 0.1
+ },
+ "train|red|matched|LCB+RH90+FOG": {
+  "n": 5346,
+  "events": 118,
+  "hits": 85,
+  "misses": 33,
+  "false_alarms": 536,
+  "pod": 0.72,
+  "far": 0.863,
+  "bias": 5.26,
+  "ets": 0.111
+ },
+ "train|red|all|LCB+RH90+FOG": {
+  "n": 6009,
+  "events": 134,
+  "hits": 91,
+  "misses": 43,
+  "false_alarms": 636,
+  "pod": 0.679,
+  "far": 0.875,
+  "bias": 5.43,
+  "ets": 0.099
+ },
+ "train|red|matched|LCB+RH95": {
+  "n": 5346,
+  "events": 118,
+  "hits": 61,
+  "misses": 57,
+  "false_alarms": 320,
+  "pod": 0.517,
+  "far": 0.84,
+  "bias": 3.23,
+  "ets": 0.122
+ },
+ "train|red|all|LCB+RH95": {
+  "n": 6009,
+  "events": 134,
+  "hits": 65,
+  "misses": 69,
+  "false_alarms": 359,
+  "pod": 0.485,
+  "far": 0.847,
+  "bias": 3.16,
+  "ets": 0.115
+ },
+ "train|red|matched|LCB+RH95+FOG": {
+  "n": 5346,
+  "events": 118,
+  "hits": 61,
+  "misses": 57,
+  "false_alarms": 323,
+  "pod": 0.517,
+  "far": 0.841,
+  "bias": 3.25,
+  "ets": 0.121
+ },
+ "train|red|all|LCB+RH95+FOG": {
+  "n": 6009,
+  "events": 134,
+  "hits": 65,
+  "misses": 69,
+  "false_alarms": 365,
+  "pod": 0.485,
+  "far": 0.849,
+  "bias": 3.21,
+  "ets": 0.113
+ },
+ "train|red|matched|LCB+RH98": {
+  "n": 5346,
+  "events": 118,
+  "hits": 48,
+  "misses": 70,
+  "false_alarms": 269,
+  "pod": 0.407,
+  "far": 0.849,
+  "bias": 2.69,
+  "ets": 0.108
+ },
+ "train|red|all|LCB+RH98": {
+  "n": 6009,
+  "events": 134,
+  "hits": 51,
+  "misses": 83,
+  "false_alarms": 298,
+  "pod": 0.381,
+  "far": 0.854,
+  "bias": 2.6,
+  "ets": 0.102
+ },
+ "train|red|matched|LCB+RH98+FOG": {
+  "n": 5346,
+  "events": 118,
+  "hits": 48,
+  "misses": 70,
+  "false_alarms": 275,
+  "pod": 0.407,
+  "far": 0.851,
+  "bias": 2.74,
+  "ets": 0.106
+ },
+ "train|red|all|LCB+RH98+FOG": {
+  "n": 6009,
+  "events": 134,
+  "hits": 51,
+  "misses": 83,
+  "false_alarms": 307,
+  "pod": 0.381,
+  "far": 0.858,
+  "bias": 2.67,
+  "ets": 0.099
+ },
+ "test|amber|matched|CUR (field Vis reads, above model ground)": {
+  "n": 5280,
+  "events": 268,
+  "hits": 57,
+  "misses": 211,
+  "false_alarms": 98,
+  "pod": 0.213,
+  "far": 0.632,
+  "bias": 0.58,
+  "ets": 0.137
+ },
+ "test|amber|all|CUR (field Vis reads, above model ground)": {
+  "n": 5924,
+  "events": 289,
+  "hits": 58,
+  "misses": 231,
+  "false_alarms": 114,
+  "pod": 0.201,
+  "far": 0.663,
+  "bias": 0.6,
+  "ets": 0.126
+ },
+ "test|amber|matched|CUR as Vis applies it (above station)": {
+  "n": 5280,
+  "events": 268,
+  "hits": 58,
+  "misses": 210,
+  "false_alarms": 98,
+  "pod": 0.216,
+  "far": 0.628,
+  "bias": 0.58,
+  "ets": 0.14
+ },
+ "test|amber|all|CUR as Vis applies it (above station)": {
+  "n": 5924,
+  "events": 289,
+  "hits": 59,
+  "misses": 230,
+  "false_alarms": 108,
+  "pod": 0.204,
+  "far": 0.647,
+  "bias": 0.58,
+  "ets": 0.131
+ },
+ "test|amber|matched|LCB (low-cloud cover >=50% and base)": {
+  "n": 5280,
+  "events": 268,
+  "hits": 150,
+  "misses": 118,
+  "false_alarms": 270,
+  "pod": 0.56,
+  "far": 0.643,
+  "bias": 1.57,
+  "ets": 0.249
+ },
+ "test|amber|all|LCB (low-cloud cover >=50% and base)": {
+  "n": 5924,
+  "events": 289,
+  "hits": 158,
+  "misses": 131,
+  "false_alarms": 316,
+  "pod": 0.547,
+  "far": 0.667,
+  "bias": 1.64,
+  "ets": 0.232
+ },
+ "test|amber|matched|RH90": {
+  "n": 5280,
+  "events": 268,
+  "hits": 184,
+  "misses": 84,
+  "false_alarms": 363,
+  "pod": 0.687,
+  "far": 0.664,
+  "bias": 2.04,
+  "ets": 0.259
+ },
+ "test|amber|all|RH90": {
+  "n": 5924,
+  "events": 289,
+  "hits": 197,
+  "misses": 92,
+  "false_alarms": 441,
+  "pod": 0.682,
+  "far": 0.691,
+  "bias": 2.21,
+  "ets": 0.237
+ },
+ "test|amber|matched|RH95": {
+  "n": 5280,
+  "events": 268,
+  "hits": 135,
+  "misses": 133,
+  "false_alarms": 161,
+  "pod": 0.504,
+  "far": 0.544,
+  "bias": 1.1,
+  "ets": 0.29
+ },
+ "test|amber|all|RH95": {
+  "n": 5924,
+  "events": 289,
+  "hits": 144,
+  "misses": 145,
+  "false_alarms": 191,
+  "pod": 0.498,
+  "far": 0.57,
+  "bias": 1.16,
+  "ets": 0.275
+ },
+ "test|amber|matched|RH98": {
+  "n": 5280,
+  "events": 268,
+  "hits": 49,
+  "misses": 219,
+  "false_alarms": 46,
+  "pod": 0.183,
+  "far": 0.484,
+  "bias": 0.35,
+  "ets": 0.143
+ },
+ "test|amber|all|RH98": {
+  "n": 5924,
+  "events": 289,
+  "hits": 52,
+  "misses": 237,
+  "false_alarms": 52,
+  "pod": 0.18,
+  "far": 0.5,
+  "bias": 0.36,
+  "ets": 0.14
+ },
+ "test|amber|matched|FOG (VIS < 1 km)": {
+  "n": 5280,
+  "events": 268,
+  "hits": 69,
+  "misses": 199,
+  "false_alarms": 43,
+  "pod": 0.257,
+  "far": 0.384,
+  "bias": 0.42,
+  "ets": 0.207
+ },
+ "test|amber|all|FOG (VIS < 1 km)": {
+  "n": 5924,
+  "events": 289,
+  "hits": 70,
+  "misses": 219,
+  "false_alarms": 43,
+  "pod": 0.242,
+  "far": 0.381,
+  "bias": 0.39,
+  "ets": 0.198
+ },
+ "test|amber|matched|LCB+RH90": {
+  "n": 5280,
+  "events": 268,
+  "hits": 199,
+  "misses": 69,
+  "false_alarms": 452,
+  "pod": 0.743,
+  "far": 0.694,
+  "bias": 2.43,
+  "ets": 0.242
+ },
+ "test|amber|all|LCB+RH90": {
+  "n": 5924,
+  "events": 289,
+  "hits": 213,
+  "misses": 76,
+  "false_alarms": 546,
+  "pod": 0.737,
+  "far": 0.719,
+  "bias": 2.63,
+  "ets": 0.221
+ },
+ "test|amber|matched|LCB+RH90+FOG": {
+  "n": 5280,
+  "events": 268,
+  "hits": 199,
+  "misses": 69,
+  "false_alarms": 453,
+  "pod": 0.743,
+  "far": 0.695,
+  "bias": 2.43,
+  "ets": 0.241
+ },
+ "test|amber|all|LCB+RH90+FOG": {
+  "n": 5924,
+  "events": 289,
+  "hits": 213,
+  "misses": 76,
+  "false_alarms": 547,
+  "pod": 0.737,
+  "far": 0.72,
+  "bias": 2.63,
+  "ets": 0.22
+ },
+ "test|amber|matched|LCB+RH95": {
+  "n": 5280,
+  "events": 268,
+  "hits": 172,
+  "misses": 96,
+  "false_alarms": 314,
+  "pod": 0.642,
+  "far": 0.646,
+  "bias": 1.81,
+  "ets": 0.264
+ },
+ "test|amber|all|LCB+RH95": {
+  "n": 5924,
+  "events": 289,
+  "hits": 182,
+  "misses": 107,
+  "false_alarms": 372,
+  "pod": 0.63,
+  "far": 0.671,
+  "bias": 1.92,
+  "ets": 0.244
+ },
+ "test|amber|matched|LCB+RH95+FOG": {
+  "n": 5280,
+  "events": 268,
+  "hits": 173,
+  "misses": 95,
+  "false_alarms": 315,
+  "pod": 0.646,
+  "far": 0.645,
+  "bias": 1.82,
+  "ets": 0.266
+ },
+ "test|amber|all|LCB+RH95+FOG": {
+  "n": 5924,
+  "events": 289,
+  "hits": 183,
+  "misses": 106,
+  "false_alarms": 373,
+  "pod": 0.633,
+  "far": 0.671,
+  "bias": 1.92,
+  "ets": 0.246
+ },
+ "test|amber|matched|LCB+RH98": {
+  "n": 5280,
+  "events": 268,
+  "hits": 156,
+  "misses": 112,
+  "false_alarms": 279,
+  "pod": 0.582,
+  "far": 0.641,
+  "bias": 1.62,
+  "ets": 0.255
+ },
+ "test|amber|all|LCB+RH98": {
+  "n": 5924,
+  "events": 289,
+  "hits": 164,
+  "misses": 125,
+  "false_alarms": 325,
+  "pod": 0.567,
+  "far": 0.665,
+  "bias": 1.69,
+  "ets": 0.237
+ },
+ "test|amber|matched|LCB+RH98+FOG": {
+  "n": 5280,
+  "events": 268,
+  "hits": 160,
+  "misses": 108,
+  "false_alarms": 282,
+  "pod": 0.597,
+  "far": 0.638,
+  "bias": 1.65,
+  "ets": 0.261
+ },
+ "test|amber|all|LCB+RH98+FOG": {
+  "n": 5924,
+  "events": 289,
+  "hits": 168,
+  "misses": 121,
+  "false_alarms": 328,
+  "pod": 0.581,
+  "far": 0.661,
+  "bias": 1.72,
+  "ets": 0.243
+ },
+ "test|red|matched|CUR (field Vis reads, above model ground)": {
+  "n": 5280,
+  "events": 80,
+  "hits": 9,
+  "misses": 71,
+  "false_alarms": 80,
+  "pod": 0.113,
+  "far": 0.899,
+  "bias": 1.11,
+  "ets": 0.048
+ },
+ "test|red|all|CUR (field Vis reads, above model ground)": {
+  "n": 5924,
+  "events": 86,
+  "hits": 9,
+  "misses": 77,
+  "false_alarms": 86,
+  "pod": 0.105,
+  "far": 0.905,
+  "bias": 1.1,
+  "ets": 0.045
+ },
+ "test|red|matched|CUR as Vis applies it (above station)": {
+  "n": 5280,
+  "events": 80,
+  "hits": 9,
+  "misses": 71,
+  "false_alarms": 79,
+  "pod": 0.113,
+  "far": 0.898,
+  "bias": 1.1,
+  "ets": 0.049
+ },
+ "test|red|all|CUR as Vis applies it (above station)": {
+  "n": 5924,
+  "events": 86,
+  "hits": 9,
+  "misses": 77,
+  "false_alarms": 87,
+  "pod": 0.105,
+  "far": 0.906,
+  "bias": 1.12,
+  "ets": 0.044
+ },
+ "test|red|matched|LCB (low-cloud cover >=50% and base)": {
+  "n": 5280,
+  "events": 80,
+  "hits": 34,
+  "misses": 46,
+  "false_alarms": 249,
+  "pod": 0.425,
+  "far": 0.88,
+  "bias": 3.54,
+  "ets": 0.092
+ },
+ "test|red|all|LCB (low-cloud cover >=50% and base)": {
+  "n": 5924,
+  "events": 86,
+  "hits": 36,
+  "misses": 50,
+  "false_alarms": 282,
+  "pod": 0.419,
+  "far": 0.887,
+  "bias": 3.7,
+  "ets": 0.086
+ },
+ "test|red|matched|RH90": {
+  "n": 5280,
+  "events": 80,
+  "hits": 52,
+  "misses": 28,
+  "false_alarms": 429,
+  "pod": 0.65,
+  "far": 0.892,
+  "bias": 6.01,
+  "ets": 0.089
+ },
+ "test|red|all|RH90": {
+  "n": 5924,
+  "events": 86,
+  "hits": 56,
+  "misses": 30,
+  "false_alarms": 509,
+  "pod": 0.651,
+  "far": 0.901,
+  "bias": 6.57,
+  "ets": 0.081
+ },
+ "test|red|matched|RH95": {
+  "n": 5280,
+  "events": 80,
+  "hits": 37,
+  "misses": 43,
+  "false_alarms": 196,
+  "pod": 0.463,
+  "far": 0.841,
+  "bias": 2.91,
+  "ets": 0.123
+ },
+ "test|red|all|RH95": {
+  "n": 5924,
+  "events": 86,
+  "hits": 39,
+  "misses": 47,
+  "false_alarms": 227,
+  "pod": 0.453,
+  "far": 0.853,
+  "bias": 3.09,
+  "ets": 0.114
+ },
+ "test|red|matched|RH98": {
+  "n": 5280,
+  "events": 80,
+  "hits": 14,
+  "misses": 66,
+  "false_alarms": 39,
+  "pod": 0.175,
+  "far": 0.736,
+  "bias": 0.66,
+  "ets": 0.112
+ },
+ "test|red|all|RH98": {
+  "n": 5924,
+  "events": 86,
+  "hits": 16,
+  "misses": 70,
+  "false_alarms": 43,
+  "pod": 0.186,
+  "far": 0.729,
+  "bias": 0.69,
+  "ets": 0.118
+ },
+ "test|red|matched|FOG (VIS < 1 km)": {
+  "n": 5280,
+  "events": 80,
+  "hits": 18,
+  "misses": 62,
+  "false_alarms": 94,
+  "pod": 0.225,
+  "far": 0.839,
+  "bias": 1.4,
+  "ets": 0.095
+ },
+ "test|red|all|FOG (VIS < 1 km)": {
+  "n": 5924,
+  "events": 86,
+  "hits": 19,
+  "misses": 67,
+  "false_alarms": 94,
+  "pod": 0.221,
+  "far": 0.832,
+  "bias": 1.31,
+  "ets": 0.097
+ },
+ "test|red|matched|LCB+RH90": {
+  "n": 5280,
+  "events": 80,
+  "hits": 53,
+  "misses": 27,
+  "false_alarms": 489,
+  "pod": 0.662,
+  "far": 0.902,
+  "bias": 6.78,
+  "ets": 0.08
+ },
+ "test|red|all|LCB+RH90": {
+  "n": 5924,
+  "events": 86,
+  "hits": 57,
+  "misses": 29,
+  "false_alarms": 578,
+  "pod": 0.663,
+  "far": 0.91,
+  "bias": 7.38,
+  "ets": 0.073
+ },
+ "test|red|matched|LCB+RH90+FOG": {
+  "n": 5280,
+  "events": 80,
+  "hits": 53,
+  "misses": 27,
+  "false_alarms": 491,
+  "pod": 0.662,
+  "far": 0.903,
+  "bias": 6.8,
+  "ets": 0.08
+ },
+ "test|red|all|LCB+RH90+FOG": {
+  "n": 5924,
+  "events": 86,
+  "hits": 57,
+  "misses": 29,
+  "false_alarms": 580,
+  "pod": 0.663,
+  "far": 0.911,
+  "bias": 7.41,
+  "ets": 0.073
+ },
+ "test|red|matched|LCB+RH95": {
+  "n": 5280,
+  "events": 80,
+  "hits": 42,
+  "misses": 38,
+  "false_alarms": 327,
+  "pod": 0.525,
+  "far": 0.886,
+  "bias": 4.61,
+  "ets": 0.091
+ },
+ "test|red|all|LCB+RH95": {
+  "n": 5924,
+  "events": 86,
+  "hits": 44,
+  "misses": 42,
+  "false_alarms": 375,
+  "pod": 0.512,
+  "far": 0.895,
+  "bias": 4.87,
+  "ets": 0.083
+ },
+ "test|red|matched|LCB+RH95+FOG": {
+  "n": 5280,
+  "events": 80,
+  "hits": 42,
+  "misses": 38,
+  "false_alarms": 336,
+  "pod": 0.525,
+  "far": 0.889,
+  "bias": 4.72,
+  "ets": 0.088
+ },
+ "test|red|all|LCB+RH95+FOG": {
+  "n": 5924,
+  "events": 86,
+  "hits": 44,
+  "misses": 42,
+  "false_alarms": 384,
+  "pod": 0.512,
+  "far": 0.897,
+  "bias": 4.98,
+  "ets": 0.081
+ },
+ "test|red|matched|LCB+RH98": {
+  "n": 5280,
+  "events": 80,
+  "hits": 36,
+  "misses": 44,
+  "false_alarms": 265,
+  "pod": 0.45,
+  "far": 0.88,
+  "bias": 3.76,
+  "ets": 0.092
+ },
+ "test|red|all|LCB+RH98": {
+  "n": 5924,
+  "events": 86,
+  "hits": 38,
+  "misses": 48,
+  "false_alarms": 298,
+  "pod": 0.442,
+  "far": 0.887,
+  "bias": 3.91,
+  "ets": 0.087
+ },
+ "test|red|matched|LCB+RH98+FOG": {
+  "n": 5280,
+  "events": 80,
+  "hits": 38,
+  "misses": 42,
+  "false_alarms": 286,
+  "pod": 0.475,
+  "far": 0.883,
+  "bias": 4.05,
+  "ets": 0.092
+ },
+ "test|red|all|LCB+RH98+FOG": {
+  "n": 5924,
+  "events": 86,
+  "hits": 40,
+  "misses": 46,
+  "false_alarms": 319,
+  "pod": 0.465,
+  "far": 0.889,
+  "bias": 4.17,
+  "ets": 0.087
+ },
+ "all|amber|matched|CUR (field Vis reads, above model ground)": {
+  "n": 10626,
+  "events": 582,
+  "hits": 90,
+  "misses": 492,
+  "false_alarms": 159,
+  "pod": 0.155,
+  "far": 0.639,
+  "bias": 0.43,
+  "ets": 0.105
+ },
+ "all|amber|all|CUR (field Vis reads, above model ground)": {
+  "n": 11933,
+  "events": 625,
+  "hits": 92,
+  "misses": 533,
+  "false_alarms": 194,
+  "pod": 0.147,
+  "far": 0.678,
+  "bias": 0.46,
+  "ets": 0.096
+ },
+ "all|amber|matched|CUR as Vis applies it (above station)": {
+  "n": 10626,
+  "events": 582,
+  "hits": 93,
+  "misses": 489,
+  "false_alarms": 159,
+  "pod": 0.16,
+  "far": 0.631,
+  "bias": 0.43,
+  "ets": 0.109
+ },
+ "all|amber|all|CUR as Vis applies it (above station)": {
+  "n": 11933,
+  "events": 625,
+  "hits": 96,
+  "misses": 529,
+  "false_alarms": 181,
+  "pod": 0.154,
+  "far": 0.653,
+  "bias": 0.44,
+  "ets": 0.103
+ },
+ "all|amber|matched|LCB (low-cloud cover >=50% and base)": {
+  "n": 10626,
+  "events": 582,
+  "hits": 321,
+  "misses": 261,
+  "false_alarms": 562,
+  "pod": 0.552,
+  "far": 0.636,
+  "bias": 1.52,
+  "ets": 0.249
+ },
+ "all|amber|all|LCB (low-cloud cover >=50% and base)": {
+  "n": 11933,
+  "events": 625,
+  "hits": 333,
+  "misses": 292,
+  "false_alarms": 654,
+  "pod": 0.533,
+  "far": 0.663,
+  "bias": 1.58,
+  "ets": 0.229
+ },
+ "all|amber|matched|RH90": {
+  "n": 10626,
+  "events": 582,
+  "hits": 402,
+  "misses": 180,
+  "false_alarms": 746,
+  "pod": 0.691,
+  "far": 0.65,
+  "bias": 1.97,
+  "ets": 0.268
+ },
+ "all|amber|all|RH90": {
+  "n": 11933,
+  "events": 625,
+  "hits": 424,
+  "misses": 201,
+  "false_alarms": 919,
+  "pod": 0.678,
+  "far": 0.684,
+  "bias": 2.15,
+  "ets": 0.24
+ },
+ "all|amber|matched|RH95": {
+  "n": 10626,
+  "events": 582,
+  "hits": 268,
+  "misses": 314,
+  "false_alarms": 286,
+  "pod": 0.46,
+  "far": 0.516,
+  "bias": 0.95,
+  "ets": 0.284
+ },
+ "all|amber|all|RH95": {
+  "n": 11933,
+  "events": 625,
+  "hits": 280,
+  "misses": 345,
+  "false_alarms": 346,
+  "pod": 0.448,
+  "far": 0.553,
+  "bias": 1.0,
+  "ets": 0.263
+ },
+ "all|amber|matched|RH98": {
+  "n": 10626,
+  "events": 582,
+  "hits": 100,
+  "misses": 482,
+  "false_alarms": 80,
+  "pod": 0.172,
+  "far": 0.444,
+  "bias": 0.31,
+  "ets": 0.138
+ },
+ "all|amber|all|RH98": {
+  "n": 11933,
+  "events": 625,
+  "hits": 103,
+  "misses": 522,
+  "false_alarms": 88,
+  "pod": 0.165,
+  "far": 0.461,
+  "bias": 0.31,
+  "ets": 0.132
+ },
+ "all|amber|matched|FOG (VIS < 1 km)": {
+  "n": 10626,
+  "events": 582,
+  "hits": 75,
+  "misses": 507,
+  "false_alarms": 48,
+  "pod": 0.129,
+  "far": 0.39,
+  "bias": 0.21,
+  "ets": 0.11
+ },
+ "all|amber|all|FOG (VIS < 1 km)": {
+  "n": 11933,
+  "events": 625,
+  "hits": 76,
+  "misses": 549,
+  "false_alarms": 54,
+  "pod": 0.122,
+  "far": 0.415,
+  "bias": 0.21,
+  "ets": 0.103
+ },
+ "all|amber|matched|LCB+RH90": {
+  "n": 10626,
+  "events": 582,
+  "hits": 440,
+  "misses": 142,
+  "false_alarms": 963,
+  "pod": 0.756,
+  "far": 0.686,
+  "bias": 2.41,
+  "ets": 0.247
+ },
+ "all|amber|all|LCB+RH90": {
+  "n": 11933,
+  "events": 625,
+  "hits": 464,
+  "misses": 161,
+  "false_alarms": 1163,
+  "pod": 0.742,
+  "far": 0.715,
+  "bias": 2.6,
+  "ets": 0.222
+ },
+ "all|amber|matched|LCB+RH90+FOG": {
+  "n": 10626,
+  "events": 582,
+  "hits": 440,
+  "misses": 142,
+  "false_alarms": 964,
+  "pod": 0.756,
+  "far": 0.687,
+  "bias": 2.41,
+  "ets": 0.247
+ },
+ "all|amber|all|LCB+RH90+FOG": {
+  "n": 11933,
+  "events": 625,
+  "hits": 464,
+  "misses": 161,
+  "false_alarms": 1166,
+  "pod": 0.742,
+  "far": 0.715,
+  "bias": 2.61,
+  "ets": 0.222
+ },
+ "all|amber|matched|LCB+RH95": {
+  "n": 10626,
+  "events": 582,
+  "hits": 369,
+  "misses": 213,
+  "false_alarms": 653,
+  "pod": 0.634,
+  "far": 0.639,
+  "bias": 1.76,
+  "ets": 0.265
+ },
+ "all|amber|all|LCB+RH95": {
+  "n": 11933,
+  "events": 625,
+  "hits": 386,
+  "misses": 239,
+  "false_alarms": 770,
+  "pod": 0.618,
+  "far": 0.666,
+  "bias": 1.85,
+  "ets": 0.244
+ },
+ "all|amber|matched|LCB+RH95+FOG": {
+  "n": 10626,
+  "events": 582,
+  "hits": 370,
+  "misses": 212,
+  "false_alarms": 656,
+  "pod": 0.636,
+  "far": 0.639,
+  "bias": 1.76,
+  "ets": 0.266
+ },
+ "all|amber|all|LCB+RH95+FOG": {
+  "n": 11933,
+  "events": 625,
+  "hits": 387,
+  "misses": 238,
+  "false_alarms": 775,
+  "pod": 0.619,
+  "far": 0.667,
+  "bias": 1.86,
+  "ets": 0.244
+ },
+ "all|amber|matched|LCB+RH98": {
+  "n": 10626,
+  "events": 582,
+  "hits": 329,
+  "misses": 253,
+  "false_alarms": 580,
+  "pod": 0.565,
+  "far": 0.638,
+  "bias": 1.56,
+  "ets": 0.251
+ },
+ "all|amber|all|LCB+RH98": {
+  "n": 11933,
+  "events": 625,
+  "hits": 341,
+  "misses": 284,
+  "false_alarms": 673,
+  "pod": 0.546,
+  "far": 0.664,
+  "bias": 1.62,
+  "ets": 0.231
+ },
+ "all|amber|matched|LCB+RH98+FOG": {
+  "n": 10626,
+  "events": 582,
+  "hits": 335,
+  "misses": 247,
+  "false_alarms": 585,
+  "pod": 0.576,
+  "far": 0.636,
+  "bias": 1.58,
+  "ets": 0.255
+ },
+ "all|amber|all|LCB+RH98+FOG": {
+  "n": 11933,
+  "events": 625,
+  "hits": 347,
+  "misses": 278,
+  "false_alarms": 681,
+  "pod": 0.555,
+  "far": 0.662,
+  "bias": 1.64,
+  "ets": 0.234
+ },
+ "all|red|matched|CUR (field Vis reads, above model ground)": {
+  "n": 10626,
+  "events": 198,
+  "hits": 12,
+  "misses": 186,
+  "false_alarms": 94,
+  "pod": 0.061,
+  "far": 0.887,
+  "bias": 0.54,
+  "ets": 0.035
+ },
+ "all|red|all|CUR (field Vis reads, above model ground)": {
+  "n": 11933,
+  "events": 220,
+  "hits": 12,
+  "misses": 208,
+  "false_alarms": 110,
+  "pod": 0.055,
+  "far": 0.902,
+  "bias": 0.55,
+  "ets": 0.03
+ },
+ "all|red|matched|CUR as Vis applies it (above station)": {
+  "n": 10626,
+  "events": 198,
+  "hits": 13,
+  "misses": 185,
+  "false_alarms": 94,
+  "pod": 0.066,
+  "far": 0.879,
+  "bias": 0.54,
+  "ets": 0.038
+ },
+ "all|red|all|CUR as Vis applies it (above station)": {
+  "n": 11933,
+  "events": 220,
+  "hits": 13,
+  "misses": 207,
+  "false_alarms": 108,
+  "pod": 0.059,
+  "far": 0.893,
+  "bias": 0.55,
+  "ets": 0.033
+ },
+ "all|red|matched|LCB (low-cloud cover >=50% and base)": {
+  "n": 10626,
+  "events": 198,
+  "hits": 80,
+  "misses": 118,
+  "false_alarms": 508,
+  "pod": 0.404,
+  "far": 0.864,
+  "bias": 2.97,
+  "ets": 0.099
+ },
+ "all|red|all|LCB (low-cloud cover >=50% and base)": {
+  "n": 11933,
+  "events": 220,
+  "hits": 85,
+  "misses": 135,
+  "false_alarms": 569,
+  "pod": 0.386,
+  "far": 0.87,
+  "bias": 2.97,
+  "ets": 0.094
+ },
+ "all|red|matched|RH90": {
+  "n": 10626,
+  "events": 198,
+  "hits": 130,
+  "misses": 68,
+  "false_alarms": 867,
+  "pod": 0.657,
+  "far": 0.87,
+  "bias": 5.04,
+  "ets": 0.106
+ },
+ "all|red|all|RH90": {
+  "n": 11933,
+  "events": 220,
+  "hits": 139,
+  "misses": 81,
+  "false_alarms": 1041,
+  "pod": 0.632,
+  "far": 0.882,
+  "bias": 5.36,
+  "ets": 0.095
+ },
+ "all|red|matched|RH95": {
+  "n": 10626,
+  "events": 198,
+  "hits": 80,
+  "misses": 118,
+  "false_alarms": 336,
+  "pod": 0.404,
+  "far": 0.808,
+  "bias": 2.1,
+  "ets": 0.137
+ },
+ "all|red|all|RH95": {
+  "n": 11933,
+  "events": 220,
+  "hits": 83,
+  "misses": 137,
+  "false_alarms": 393,
+  "pod": 0.377,
+  "far": 0.826,
+  "bias": 2.16,
+  "ets": 0.123
+ },
+ "all|red|matched|RH98": {
+  "n": 10626,
+  "events": 198,
+  "hits": 28,
+  "misses": 170,
+  "false_alarms": 70,
+  "pod": 0.141,
+  "far": 0.714,
+  "bias": 0.49,
+  "ets": 0.098
+ },
+ "all|red|all|RH98": {
+  "n": 11933,
+  "events": 220,
+  "hits": 30,
+  "misses": 190,
+  "false_alarms": 75,
+  "pod": 0.136,
+  "far": 0.714,
+  "bias": 0.48,
+  "ets": 0.096
+ },
+ "all|red|matched|FOG (VIS < 1 km)": {
+  "n": 10626,
+  "events": 198,
+  "hits": 19,
+  "misses": 179,
+  "false_alarms": 104,
+  "pod": 0.096,
+  "far": 0.846,
+  "bias": 0.62,
+  "ets": 0.056
+ },
+ "all|red|all|FOG (VIS < 1 km)": {
+  "n": 11933,
+  "events": 220,
+  "hits": 20,
+  "misses": 200,
+  "false_alarms": 110,
+  "pod": 0.091,
+  "far": 0.846,
+  "bias": 0.59,
+  "ets": 0.054
+ },
+ "all|red|matched|LCB+RH90": {
+  "n": 10626,
+  "events": 198,
+  "hits": 138,
+  "misses": 60,
+  "false_alarms": 1024,
+  "pod": 0.697,
+  "far": 0.881,
+  "bias": 5.87,
+  "ets": 0.097
+ },
+ "all|red|all|LCB+RH90": {
+  "n": 11933,
+  "events": 220,
+  "hits": 148,
+  "misses": 72,
+  "false_alarms": 1211,
+  "pod": 0.673,
+  "far": 0.891,
+  "bias": 6.18,
+  "ets": 0.087
+ },
+ "all|red|matched|LCB+RH90+FOG": {
+  "n": 10626,
+  "events": 198,
+  "hits": 138,
+  "misses": 60,
+  "false_alarms": 1027,
+  "pod": 0.697,
+  "far": 0.882,
+  "bias": 5.88,
+  "ets": 0.097
+ },
+ "all|red|all|LCB+RH90+FOG": {
+  "n": 11933,
+  "events": 220,
+  "hits": 148,
+  "misses": 72,
+  "false_alarms": 1216,
+  "pod": 0.673,
+  "far": 0.891,
+  "bias": 6.2,
+  "ets": 0.087
+ },
+ "all|red|matched|LCB+RH95": {
+  "n": 10626,
+  "events": 198,
+  "hits": 103,
+  "misses": 95,
+  "false_alarms": 647,
+  "pod": 0.52,
+  "far": 0.863,
+  "bias": 3.79,
+  "ets": 0.107
+ },
+ "all|red|all|LCB+RH95": {
+  "n": 11933,
+  "events": 220,
+  "hits": 109,
+  "misses": 111,
+  "false_alarms": 734,
+  "pod": 0.495,
+  "far": 0.871,
+  "bias": 3.83,
+  "ets": 0.1
+ },
+ "all|red|matched|LCB+RH95+FOG": {
+  "n": 10626,
+  "events": 198,
+  "hits": 103,
+  "misses": 95,
+  "false_alarms": 659,
+  "pod": 0.52,
+  "far": 0.865,
+  "bias": 3.85,
+  "ets": 0.105
+ },
+ "all|red|all|LCB+RH95+FOG": {
+  "n": 11933,
+  "events": 220,
+  "hits": 109,
+  "misses": 111,
+  "false_alarms": 749,
+  "pod": 0.495,
+  "far": 0.873,
+  "bias": 3.9,
+  "ets": 0.098
+ },
+ "all|red|matched|LCB+RH98": {
+  "n": 10626,
+  "events": 198,
+  "hits": 84,
+  "misses": 114,
+  "false_alarms": 534,
+  "pod": 0.424,
+  "far": 0.864,
+  "bias": 3.12,
+  "ets": 0.101
+ },
+ "all|red|all|LCB+RH98": {
+  "n": 11933,
+  "events": 220,
+  "hits": 89,
+  "misses": 131,
+  "false_alarms": 596,
+  "pod": 0.405,
+  "far": 0.87,
+  "bias": 3.11,
+  "ets": 0.095
+ },
+ "all|red|matched|LCB+RH98+FOG": {
+  "n": 10626,
+  "events": 198,
+  "hits": 86,
+  "misses": 112,
+  "false_alarms": 561,
+  "pod": 0.434,
+  "far": 0.867,
+  "bias": 3.27,
+  "ets": 0.099
+ },
+ "all|red|all|LCB+RH98+FOG": {
+  "n": 11933,
+  "events": 220,
+  "hits": 91,
+  "misses": 129,
+  "false_alarms": 626,
+  "pod": 0.414,
+  "far": 0.873,
+  "bias": 3.26,
+  "ets": 0.093
+ },
+ "by_region": {
+  "Baltics-Poland": {
+   "amber|CUR (field Vis reads, above model ground)": {
+    "n": 1000,
+    "events": 284,
+    "hits": 59,
+    "misses": 225,
+    "false_alarms": 68,
+    "pod": 0.208,
+    "far": 0.535,
+    "bias": 0.45,
+    "ets": 0.073
+   },
+   "amber|LCB (low-cloud cover >=50% and base)": {
+    "n": 1000,
+    "events": 284,
+    "hits": 180,
+    "misses": 104,
+    "false_alarms": 163,
+    "pod": 0.634,
+    "far": 0.475,
+    "bias": 1.21,
+    "ets": 0.236
+   },
+   "amber|RH95": {
+    "n": 1000,
+    "events": 284,
+    "hits": 152,
+    "misses": 132,
+    "false_alarms": 84,
+    "pod": 0.535,
+    "far": 0.356,
+    "bias": 0.83,
+    "ets": 0.282
+   },
+   "amber|LCB+RH95": {
+    "n": 1000,
+    "events": 284,
+    "hits": 202,
+    "misses": 82,
+    "false_alarms": 177,
+    "pod": 0.711,
+    "far": 0.467,
+    "bias": 1.33,
+    "ets": 0.267
+   },
+   "amber|LCB+RH95+FOG": {
+    "n": 1000,
+    "events": 284,
+    "hits": 203,
+    "misses": 81,
+    "false_alarms": 177,
+    "pod": 0.715,
+    "far": 0.466,
+    "bias": 1.34,
+    "ets": 0.269
+   },
+   "amber|LCB+RH98+FOG": {
+    "n": 1000,
+    "events": 284,
+    "hits": 191,
+    "misses": 93,
+    "false_alarms": 168,
+    "pod": 0.673,
+    "far": 0.468,
+    "bias": 1.26,
+    "ets": 0.254
+   },
+   "red|CUR (field Vis reads, above model ground)": {
+    "n": 1000,
+    "events": 76,
+    "hits": 10,
+    "misses": 66,
+    "false_alarms": 66,
+    "pod": 0.132,
+    "far": 0.868,
+    "bias": 1.0,
+    "ets": 0.031
+   },
+   "red|LCB (low-cloud cover >=50% and base)": {
+    "n": 1000,
+    "events": 76,
+    "hits": 41,
+    "misses": 35,
+    "false_alarms": 187,
+    "pod": 0.539,
+    "far": 0.82,
+    "bias": 3.0,
+    "ets": 0.096
+   },
+   "red|RH95": {
+    "n": 1000,
+    "events": 76,
+    "hits": 38,
+    "misses": 38,
+    "false_alarms": 138,
+    "pod": 0.5,
+    "far": 0.784,
+    "bias": 2.32,
+    "ets": 0.123
+   },
+   "red|LCB+RH95": {
+    "n": 1000,
+    "events": 76,
+    "hits": 51,
+    "misses": 25,
+    "false_alarms": 229,
+    "pod": 0.671,
+    "far": 0.818,
+    "bias": 3.68,
+    "ets": 0.105
+   },
+   "red|LCB+RH95+FOG": {
+    "n": 1000,
+    "events": 76,
+    "hits": 51,
+    "misses": 25,
+    "false_alarms": 234,
+    "pod": 0.671,
+    "far": 0.821,
+    "bias": 3.75,
+    "ets": 0.102
+   },
+   "red|LCB+RH98+FOG": {
+    "n": 1000,
+    "events": 76,
+    "hits": 47,
+    "misses": 29,
+    "false_alarms": 215,
+    "pod": 0.618,
+    "far": 0.821,
+    "bias": 3.45,
+    "ets": 0.1
+   }
+  },
+  "Black Sea-Balkans": {
+   "amber|CUR (field Vis reads, above model ground)": {
+    "n": 1567,
+    "events": 100,
+    "hits": 5,
+    "misses": 95,
+    "false_alarms": 15,
+    "pod": 0.05,
+    "far": 0.75,
+    "bias": 0.2,
+    "ets": 0.033
+   },
+   "amber|LCB (low-cloud cover >=50% and base)": {
+    "n": 1567,
+    "events": 100,
+    "hits": 49,
+    "misses": 51,
+    "false_alarms": 107,
+    "pod": 0.49,
+    "far": 0.686,
+    "bias": 1.56,
+    "ets": 0.198
+   },
+   "amber|RH95": {
+    "n": 1567,
+    "events": 100,
+    "hits": 43,
+    "misses": 57,
+    "false_alarms": 54,
+    "pod": 0.43,
+    "far": 0.557,
+    "bias": 0.97,
+    "ets": 0.249
+   },
+   "amber|LCB+RH95": {
+    "n": 1567,
+    "events": 100,
+    "hits": 58,
+    "misses": 42,
+    "false_alarms": 124,
+    "pod": 0.58,
+    "far": 0.681,
+    "bias": 1.82,
+    "ets": 0.218
+   },
+   "amber|LCB+RH95+FOG": {
+    "n": 1567,
+    "events": 100,
+    "hits": 58,
+    "misses": 42,
+    "false_alarms": 124,
+    "pod": 0.58,
+    "far": 0.681,
+    "bias": 1.82,
+    "ets": 0.218
+   },
+   "amber|LCB+RH98+FOG": {
+    "n": 1567,
+    "events": 100,
+    "hits": 50,
+    "misses": 50,
+    "false_alarms": 110,
+    "pod": 0.5,
+    "far": 0.688,
+    "bias": 1.6,
+    "ets": 0.199
+   },
+   "red|CUR (field Vis reads, above model ground)": {
+    "n": 1567,
+    "events": 50,
+    "hits": 0,
+    "misses": 50,
+    "false_alarms": 8,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 0.16,
+    "ets": -0.004
+   },
+   "red|LCB (low-cloud cover >=50% and base)": {
+    "n": 1567,
+    "events": 50,
+    "hits": 14,
+    "misses": 36,
+    "false_alarms": 88,
+    "pod": 0.28,
+    "far": 0.863,
+    "bias": 2.04,
+    "ets": 0.08
+   },
+   "red|RH95": {
+    "n": 1567,
+    "events": 50,
+    "hits": 19,
+    "misses": 31,
+    "false_alarms": 60,
+    "pod": 0.38,
+    "far": 0.759,
+    "bias": 1.58,
+    "ets": 0.153
+   },
+   "red|LCB+RH95": {
+    "n": 1567,
+    "events": 50,
+    "hits": 20,
+    "misses": 30,
+    "false_alarms": 111,
+    "pod": 0.4,
+    "far": 0.847,
+    "bias": 2.62,
+    "ets": 0.101
+   },
+   "red|LCB+RH95+FOG": {
+    "n": 1567,
+    "events": 50,
+    "hits": 20,
+    "misses": 30,
+    "false_alarms": 111,
+    "pod": 0.4,
+    "far": 0.847,
+    "bias": 2.62,
+    "ets": 0.101
+   },
+   "red|LCB+RH98+FOG": {
+    "n": 1567,
+    "events": 50,
+    "hits": 14,
+    "misses": 36,
+    "false_alarms": 93,
+    "pod": 0.28,
+    "far": 0.869,
+    "bias": 2.14,
+    "ets": 0.076
+   }
+  },
+  "Caribbean-N South America": {
+   "amber|CUR (field Vis reads, above model ground)": {
+    "n": 899,
+    "events": 11,
+    "hits": 0,
+    "misses": 11,
+    "false_alarms": 1,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 0.09,
+    "ets": -0.001
+   },
+   "amber|LCB (low-cloud cover >=50% and base)": {
+    "n": 899,
+    "events": 11,
+    "hits": 2,
+    "misses": 9,
+    "false_alarms": 5,
+    "pod": 0.182,
+    "far": 0.714,
+    "bias": 0.64,
+    "ets": 0.12
+   },
+   "amber|RH95": {
+    "n": 899,
+    "events": 11,
+    "hits": 1,
+    "misses": 10,
+    "false_alarms": 12,
+    "pod": 0.091,
+    "far": 0.923,
+    "bias": 1.18,
+    "ets": 0.037
+   },
+   "amber|LCB+RH95": {
+    "n": 899,
+    "events": 11,
+    "hits": 3,
+    "misses": 8,
+    "false_alarms": 16,
+    "pod": 0.273,
+    "far": 0.842,
+    "bias": 1.73,
+    "ets": 0.103
+   },
+   "amber|LCB+RH95+FOG": {
+    "n": 899,
+    "events": 11,
+    "hits": 3,
+    "misses": 8,
+    "false_alarms": 16,
+    "pod": 0.273,
+    "far": 0.842,
+    "bias": 1.73,
+    "ets": 0.103
+   },
+   "amber|LCB+RH98+FOG": {
+    "n": 899,
+    "events": 11,
+    "hits": 2,
+    "misses": 9,
+    "false_alarms": 5,
+    "pod": 0.182,
+    "far": 0.714,
+    "bias": 0.64,
+    "ets": 0.12
+   },
+   "red|CUR (field Vis reads, above model ground)": {
+    "n": 899,
+    "events": 3,
+    "hits": 0,
+    "misses": 3,
+    "false_alarms": 0,
+    "pod": 0.0,
+    "far": null,
+    "bias": 0.0,
+    "ets": 0.0
+   },
+   "red|LCB (low-cloud cover >=50% and base)": {
+    "n": 899,
+    "events": 3,
+    "hits": 0,
+    "misses": 3,
+    "false_alarms": 5,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 1.67,
+    "ets": -0.002
+   },
+   "red|RH95": {
+    "n": 899,
+    "events": 3,
+    "hits": 1,
+    "misses": 2,
+    "false_alarms": 12,
+    "pod": 0.333,
+    "far": 0.923,
+    "bias": 4.33,
+    "ets": 0.064
+   },
+   "red|LCB+RH95": {
+    "n": 899,
+    "events": 3,
+    "hits": 1,
+    "misses": 2,
+    "false_alarms": 16,
+    "pod": 0.333,
+    "far": 0.941,
+    "bias": 5.67,
+    "ets": 0.05
+   },
+   "red|LCB+RH95+FOG": {
+    "n": 899,
+    "events": 3,
+    "hits": 1,
+    "misses": 2,
+    "false_alarms": 16,
+    "pod": 0.333,
+    "far": 0.941,
+    "bias": 5.67,
+    "ets": 0.05
+   },
+   "red|LCB+RH98+FOG": {
+    "n": 899,
+    "events": 3,
+    "hits": 0,
+    "misses": 3,
+    "false_alarms": 5,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 1.67,
+    "ets": -0.002
+   }
+  },
+  "East Africa": {
+   "amber|CUR (field Vis reads, above model ground)": {
+    "n": 687,
+    "events": 2,
+    "hits": 1,
+    "misses": 1,
+    "false_alarms": 5,
+    "pod": 0.5,
+    "far": 0.833,
+    "bias": 3.0,
+    "ets": 0.141
+   },
+   "amber|LCB (low-cloud cover >=50% and base)": {
+    "n": 687,
+    "events": 2,
+    "hits": 0,
+    "misses": 2,
+    "false_alarms": 5,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 2.5,
+    "ets": -0.002
+   },
+   "amber|RH95": {
+    "n": 687,
+    "events": 2,
+    "hits": 1,
+    "misses": 1,
+    "false_alarms": 13,
+    "pod": 0.5,
+    "far": 0.929,
+    "bias": 7.0,
+    "ets": 0.064
+   },
+   "amber|LCB+RH95": {
+    "n": 687,
+    "events": 2,
+    "hits": 1,
+    "misses": 1,
+    "false_alarms": 18,
+    "pod": 0.5,
+    "far": 0.947,
+    "bias": 9.5,
+    "ets": 0.047
+   },
+   "amber|LCB+RH95+FOG": {
+    "n": 687,
+    "events": 2,
+    "hits": 1,
+    "misses": 1,
+    "false_alarms": 18,
+    "pod": 0.5,
+    "far": 0.947,
+    "bias": 9.5,
+    "ets": 0.047
+   },
+   "amber|LCB+RH98+FOG": {
+    "n": 687,
+    "events": 2,
+    "hits": 1,
+    "misses": 1,
+    "false_alarms": 8,
+    "pod": 0.5,
+    "far": 0.889,
+    "bias": 4.5,
+    "ets": 0.098
+   },
+   "red|CUR (field Vis reads, above model ground)": {
+    "n": 687,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 0,
+    "pod": 0.0,
+    "far": null,
+    "bias": 0.0,
+    "ets": 0.0
+   },
+   "red|LCB (low-cloud cover >=50% and base)": {
+    "n": 687,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 4,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 4.0,
+    "ets": -0.001
+   },
+   "red|RH95": {
+    "n": 687,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 14,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 14.0,
+    "ets": -0.001
+   },
+   "red|LCB+RH95": {
+    "n": 687,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 18,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 18.0,
+    "ets": -0.001
+   },
+   "red|LCB+RH95+FOG": {
+    "n": 687,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 18,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 18.0,
+    "ets": -0.001
+   },
+   "red|LCB+RH98+FOG": {
+    "n": 687,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 8,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 8.0,
+    "ets": -0.001
+   }
+  },
+  "East Asia": {
+   "amber|CUR (field Vis reads, above model ground)": {
+    "n": 963,
+    "events": 13,
+    "hits": 3,
+    "misses": 10,
+    "false_alarms": 14,
+    "pod": 0.231,
+    "far": 0.824,
+    "bias": 1.31,
+    "ets": 0.103
+   },
+   "amber|LCB (low-cloud cover >=50% and base)": {
+    "n": 963,
+    "events": 13,
+    "hits": 5,
+    "misses": 8,
+    "false_alarms": 42,
+    "pod": 0.385,
+    "far": 0.894,
+    "bias": 3.62,
+    "ets": 0.08
+   },
+   "amber|RH95": {
+    "n": 963,
+    "events": 13,
+    "hits": 1,
+    "misses": 12,
+    "false_alarms": 16,
+    "pod": 0.077,
+    "far": 0.941,
+    "bias": 1.31,
+    "ets": 0.027
+   },
+   "amber|LCB+RH95": {
+    "n": 963,
+    "events": 13,
+    "hits": 6,
+    "misses": 7,
+    "false_alarms": 47,
+    "pod": 0.462,
+    "far": 0.887,
+    "bias": 4.08,
+    "ets": 0.089
+   },
+   "amber|LCB+RH95+FOG": {
+    "n": 963,
+    "events": 13,
+    "hits": 6,
+    "misses": 7,
+    "false_alarms": 48,
+    "pod": 0.462,
+    "far": 0.889,
+    "bias": 4.15,
+    "ets": 0.087
+   },
+   "amber|LCB+RH98+FOG": {
+    "n": 963,
+    "events": 13,
+    "hits": 5,
+    "misses": 8,
+    "false_alarms": 44,
+    "pod": 0.385,
+    "far": 0.898,
+    "bias": 3.77,
+    "ets": 0.077
+   },
+   "red|CUR (field Vis reads, above model ground)": {
+    "n": 963,
+    "events": 3,
+    "hits": 0,
+    "misses": 3,
+    "false_alarms": 3,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 1.0,
+    "ets": -0.002
+   },
+   "red|LCB (low-cloud cover >=50% and base)": {
+    "n": 963,
+    "events": 3,
+    "hits": 0,
+    "misses": 3,
+    "false_alarms": 33,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 11.0,
+    "ets": -0.003
+   },
+   "red|RH95": {
+    "n": 963,
+    "events": 3,
+    "hits": 0,
+    "misses": 3,
+    "false_alarms": 12,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 4.0,
+    "ets": -0.002
+   },
+   "red|LCB+RH95": {
+    "n": 963,
+    "events": 3,
+    "hits": 0,
+    "misses": 3,
+    "false_alarms": 36,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 12.0,
+    "ets": -0.003
+   },
+   "red|LCB+RH95+FOG": {
+    "n": 963,
+    "events": 3,
+    "hits": 0,
+    "misses": 3,
+    "false_alarms": 37,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 12.33,
+    "ets": -0.003
+   },
+   "red|LCB+RH98+FOG": {
+    "n": 963,
+    "events": 3,
+    "hits": 0,
+    "misses": 3,
+    "false_alarms": 34,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 11.33,
+    "ets": -0.003
+   }
+  },
+  "Middle East": {
+   "amber|CUR (field Vis reads, above model ground)": {
+    "n": 1053,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 0,
+    "pod": 0.0,
+    "far": null,
+    "bias": 0.0,
+    "ets": 0.0
+   },
+   "amber|LCB (low-cloud cover >=50% and base)": {
+    "n": 1053,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 0,
+    "pod": 0.0,
+    "far": null,
+    "bias": 0.0,
+    "ets": 0.0
+   },
+   "amber|RH95": {
+    "n": 1053,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 0,
+    "pod": 0.0,
+    "far": null,
+    "bias": 0.0,
+    "ets": 0.0
+   },
+   "amber|LCB+RH95": {
+    "n": 1053,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 0,
+    "pod": 0.0,
+    "far": null,
+    "bias": 0.0,
+    "ets": 0.0
+   },
+   "amber|LCB+RH95+FOG": {
+    "n": 1053,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 0,
+    "pod": 0.0,
+    "far": null,
+    "bias": 0.0,
+    "ets": 0.0
+   },
+   "amber|LCB+RH98+FOG": {
+    "n": 1053,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 0,
+    "pod": 0.0,
+    "far": null,
+    "bias": 0.0,
+    "ets": 0.0
+   },
+   "red|CUR (field Vis reads, above model ground)": {
+    "n": 1053,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 0,
+    "pod": null,
+    "far": null,
+    "bias": null,
+    "ets": null
+   },
+   "red|LCB (low-cloud cover >=50% and base)": {
+    "n": 1053,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 0,
+    "pod": null,
+    "far": null,
+    "bias": null,
+    "ets": null
+   },
+   "red|RH95": {
+    "n": 1053,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 0,
+    "pod": null,
+    "far": null,
+    "bias": null,
+    "ets": null
+   },
+   "red|LCB+RH95": {
+    "n": 1053,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 0,
+    "pod": null,
+    "far": null,
+    "bias": null,
+    "ets": null
+   },
+   "red|LCB+RH95+FOG": {
+    "n": 1053,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 0,
+    "pod": null,
+    "far": null,
+    "bias": null,
+    "ets": null
+   },
+   "red|LCB+RH98+FOG": {
+    "n": 1053,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 0,
+    "pod": null,
+    "far": null,
+    "bias": null,
+    "ets": null
+   }
+  },
+  "North America": {
+   "amber|CUR (field Vis reads, above model ground)": {
+    "n": 326,
+    "events": 26,
+    "hits": 6,
+    "misses": 20,
+    "false_alarms": 17,
+    "pod": 0.231,
+    "far": 0.739,
+    "bias": 0.88,
+    "ets": 0.101
+   },
+   "amber|LCB (low-cloud cover >=50% and base)": {
+    "n": 326,
+    "events": 26,
+    "hits": 16,
+    "misses": 10,
+    "false_alarms": 34,
+    "pod": 0.615,
+    "far": 0.68,
+    "bias": 1.92,
+    "ets": 0.214
+   },
+   "amber|RH95": {
+    "n": 326,
+    "events": 26,
+    "hits": 10,
+    "misses": 16,
+    "false_alarms": 22,
+    "pod": 0.385,
+    "far": 0.688,
+    "bias": 1.23,
+    "ets": 0.164
+   },
+   "amber|LCB+RH95": {
+    "n": 326,
+    "events": 26,
+    "hits": 16,
+    "misses": 10,
+    "false_alarms": 39,
+    "pod": 0.615,
+    "far": 0.709,
+    "bias": 2.12,
+    "ets": 0.192
+   },
+   "amber|LCB+RH95+FOG": {
+    "n": 326,
+    "events": 26,
+    "hits": 16,
+    "misses": 10,
+    "false_alarms": 41,
+    "pod": 0.615,
+    "far": 0.719,
+    "bias": 2.19,
+    "ets": 0.183
+   },
+   "amber|LCB+RH98+FOG": {
+    "n": 326,
+    "events": 26,
+    "hits": 16,
+    "misses": 10,
+    "false_alarms": 38,
+    "pod": 0.615,
+    "far": 0.704,
+    "bias": 2.08,
+    "ets": 0.196
+   },
+   "red|CUR (field Vis reads, above model ground)": {
+    "n": 326,
+    "events": 10,
+    "hits": 1,
+    "misses": 9,
+    "false_alarms": 12,
+    "pod": 0.1,
+    "far": 0.923,
+    "bias": 1.3,
+    "ets": 0.028
+   },
+   "red|LCB (low-cloud cover >=50% and base)": {
+    "n": 326,
+    "events": 10,
+    "hits": 7,
+    "misses": 3,
+    "false_alarms": 29,
+    "pod": 0.7,
+    "far": 0.806,
+    "bias": 3.6,
+    "ets": 0.156
+   },
+   "red|RH95": {
+    "n": 326,
+    "events": 10,
+    "hits": 5,
+    "misses": 5,
+    "false_alarms": 19,
+    "pod": 0.5,
+    "far": 0.792,
+    "bias": 2.4,
+    "ets": 0.151
+   },
+   "red|LCB+RH95": {
+    "n": 326,
+    "events": 10,
+    "hits": 7,
+    "misses": 3,
+    "false_alarms": 37,
+    "pod": 0.7,
+    "far": 0.841,
+    "bias": 4.4,
+    "ets": 0.124
+   },
+   "red|LCB+RH95+FOG": {
+    "n": 326,
+    "events": 10,
+    "hits": 7,
+    "misses": 3,
+    "false_alarms": 43,
+    "pod": 0.7,
+    "far": 0.86,
+    "bias": 5.0,
+    "ets": 0.106
+   },
+   "red|LCB+RH98+FOG": {
+    "n": 326,
+    "events": 10,
+    "hits": 7,
+    "misses": 3,
+    "false_alarms": 38,
+    "pod": 0.7,
+    "far": 0.844,
+    "bias": 4.5,
+    "ets": 0.121
+   }
+  },
+  "South Asia": {
+   "amber|CUR (field Vis reads, above model ground)": {
+    "n": 590,
+    "events": 5,
+    "hits": 0,
+    "misses": 5,
+    "false_alarms": 3,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 0.6,
+    "ets": -0.003
+   },
+   "amber|LCB (low-cloud cover >=50% and base)": {
+    "n": 590,
+    "events": 5,
+    "hits": 3,
+    "misses": 2,
+    "false_alarms": 9,
+    "pod": 0.6,
+    "far": 0.75,
+    "bias": 2.4,
+    "ets": 0.209
+   },
+   "amber|RH95": {
+    "n": 590,
+    "events": 5,
+    "hits": 3,
+    "misses": 2,
+    "false_alarms": 6,
+    "pod": 0.6,
+    "far": 0.667,
+    "bias": 1.8,
+    "ets": 0.268
+   },
+   "amber|LCB+RH95": {
+    "n": 590,
+    "events": 5,
+    "hits": 3,
+    "misses": 2,
+    "false_alarms": 10,
+    "pod": 0.6,
+    "far": 0.769,
+    "bias": 2.6,
+    "ets": 0.194
+   },
+   "amber|LCB+RH95+FOG": {
+    "n": 590,
+    "events": 5,
+    "hits": 3,
+    "misses": 2,
+    "false_alarms": 10,
+    "pod": 0.6,
+    "far": 0.769,
+    "bias": 2.6,
+    "ets": 0.194
+   },
+   "amber|LCB+RH98+FOG": {
+    "n": 590,
+    "events": 5,
+    "hits": 3,
+    "misses": 2,
+    "false_alarms": 9,
+    "pod": 0.6,
+    "far": 0.75,
+    "bias": 2.4,
+    "ets": 0.209
+   },
+   "red|CUR (field Vis reads, above model ground)": {
+    "n": 590,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 0,
+    "pod": 0.0,
+    "far": null,
+    "bias": 0.0,
+    "ets": 0.0
+   },
+   "red|LCB (low-cloud cover >=50% and base)": {
+    "n": 590,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 9,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 9.0,
+    "ets": -0.002
+   },
+   "red|RH95": {
+    "n": 590,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 7,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 7.0,
+    "ets": -0.001
+   },
+   "red|LCB+RH95": {
+    "n": 590,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 12,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 12.0,
+    "ets": -0.002
+   },
+   "red|LCB+RH95+FOG": {
+    "n": 590,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 12,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 12.0,
+    "ets": -0.002
+   },
+   "red|LCB+RH98+FOG": {
+    "n": 590,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 11,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 11.0,
+    "ets": -0.002
+   }
+  },
+  "Southeast Asia": {
+   "amber|CUR (field Vis reads, above model ground)": {
+    "n": 998,
+    "events": 9,
+    "hits": 0,
+    "misses": 9,
+    "false_alarms": 11,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 1.22,
+    "ets": -0.005
+   },
+   "amber|LCB (low-cloud cover >=50% and base)": {
+    "n": 998,
+    "events": 9,
+    "hits": 1,
+    "misses": 8,
+    "false_alarms": 37,
+    "pod": 0.111,
+    "far": 0.974,
+    "bias": 4.22,
+    "ets": 0.014
+   },
+   "amber|RH95": {
+    "n": 998,
+    "events": 9,
+    "hits": 2,
+    "misses": 7,
+    "false_alarms": 19,
+    "pod": 0.222,
+    "far": 0.905,
+    "bias": 2.33,
+    "ets": 0.065
+   },
+   "amber|LCB+RH95": {
+    "n": 998,
+    "events": 9,
+    "hits": 2,
+    "misses": 7,
+    "false_alarms": 43,
+    "pod": 0.222,
+    "far": 0.956,
+    "bias": 5.0,
+    "ets": 0.031
+   },
+   "amber|LCB+RH95+FOG": {
+    "n": 998,
+    "events": 9,
+    "hits": 2,
+    "misses": 7,
+    "false_alarms": 43,
+    "pod": 0.222,
+    "far": 0.956,
+    "bias": 5.0,
+    "ets": 0.031
+   },
+   "amber|LCB+RH98+FOG": {
+    "n": 998,
+    "events": 9,
+    "hits": 1,
+    "misses": 8,
+    "false_alarms": 37,
+    "pod": 0.111,
+    "far": 0.974,
+    "bias": 4.22,
+    "ets": 0.014
+   },
+   "red|CUR (field Vis reads, above model ground)": {
+    "n": 998,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 3,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 3.0,
+    "ets": -0.001
+   },
+   "red|LCB (low-cloud cover >=50% and base)": {
+    "n": 998,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 22,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 22.0,
+    "ets": -0.001
+   },
+   "red|RH95": {
+    "n": 998,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 15,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 15.0,
+    "ets": -0.001
+   },
+   "red|LCB+RH95": {
+    "n": 998,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 29,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 29.0,
+    "ets": -0.001
+   },
+   "red|LCB+RH95+FOG": {
+    "n": 998,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 29,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 29.0,
+    "ets": -0.001
+   },
+   "red|LCB+RH98+FOG": {
+    "n": 998,
+    "events": 1,
+    "hits": 0,
+    "misses": 1,
+    "false_alarms": 23,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 23.0,
+    "ets": -0.001
+   }
+  },
+  "West Africa": {
+   "amber|CUR (field Vis reads, above model ground)": {
+    "n": 1013,
+    "events": 11,
+    "hits": 0,
+    "misses": 11,
+    "false_alarms": 1,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 0.09,
+    "ets": -0.001
+   },
+   "amber|LCB (low-cloud cover >=50% and base)": {
+    "n": 1013,
+    "events": 11,
+    "hits": 0,
+    "misses": 11,
+    "false_alarms": 3,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 0.27,
+    "ets": -0.002
+   },
+   "amber|RH95": {
+    "n": 1013,
+    "events": 11,
+    "hits": 1,
+    "misses": 10,
+    "false_alarms": 0,
+    "pod": 0.091,
+    "far": 0.0,
+    "bias": 0.09,
+    "ets": 0.09
+   },
+   "amber|LCB+RH95": {
+    "n": 1013,
+    "events": 11,
+    "hits": 1,
+    "misses": 10,
+    "false_alarms": 3,
+    "pod": 0.091,
+    "far": 0.75,
+    "bias": 0.36,
+    "ets": 0.069
+   },
+   "amber|LCB+RH95+FOG": {
+    "n": 1013,
+    "events": 11,
+    "hits": 1,
+    "misses": 10,
+    "false_alarms": 3,
+    "pod": 0.091,
+    "far": 0.75,
+    "bias": 0.36,
+    "ets": 0.069
+   },
+   "amber|LCB+RH98+FOG": {
+    "n": 1013,
+    "events": 11,
+    "hits": 0,
+    "misses": 11,
+    "false_alarms": 3,
+    "pod": 0.0,
+    "far": 1.0,
+    "bias": 0.27,
+    "ets": -0.002
+   },
+   "red|CUR (field Vis reads, above model ground)": {
+    "n": 1013,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 0,
+    "pod": null,
+    "far": null,
+    "bias": null,
+    "ets": null
+   },
+   "red|LCB (low-cloud cover >=50% and base)": {
+    "n": 1013,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 2,
+    "pod": null,
+    "far": 1.0,
+    "bias": null,
+    "ets": 0.0
+   },
+   "red|RH95": {
+    "n": 1013,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 1,
+    "pod": null,
+    "far": 1.0,
+    "bias": null,
+    "ets": 0.0
+   },
+   "red|LCB+RH95": {
+    "n": 1013,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 3,
+    "pod": null,
+    "far": 1.0,
+    "bias": null,
+    "ets": 0.0
+   },
+   "red|LCB+RH95+FOG": {
+    "n": 1013,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 3,
+    "pod": null,
+    "far": 1.0,
+    "bias": null,
+    "ets": 0.0
+   },
+   "red|LCB+RH98+FOG": {
+    "n": 1013,
+    "events": 0,
+    "hits": 0,
+    "misses": 0,
+    "false_alarms": 2,
+    "pod": null,
+    "far": 1.0,
+    "bias": null,
+    "ets": 0.0
+   }
+  },
+  "Western Europe": {
+   "amber|CUR (field Vis reads, above model ground)": {
+    "n": 1530,
+    "events": 120,
+    "hits": 16,
+    "misses": 104,
+    "false_alarms": 24,
+    "pod": 0.133,
+    "far": 0.6,
+    "bias": 0.33,
+    "ets": 0.091
+   },
+   "amber|LCB (low-cloud cover >=50% and base)": {
+    "n": 1530,
+    "events": 120,
+    "hits": 65,
+    "misses": 55,
+    "false_alarms": 157,
+    "pod": 0.542,
+    "far": 0.707,
+    "bias": 1.85,
+    "ets": 0.183
+   },
+   "amber|RH95": {
+    "n": 1530,
+    "events": 120,
+    "hits": 54,
+    "misses": 66,
+    "false_alarms": 60,
+    "pod": 0.45,
+    "far": 0.526,
+    "bias": 0.95,
+    "ets": 0.263
+   },
+   "amber|LCB+RH95": {
+    "n": 1530,
+    "events": 120,
+    "hits": 77,
+    "misses": 43,
+    "false_alarms": 176,
+    "pod": 0.642,
+    "far": 0.696,
+    "bias": 2.11,
+    "ets": 0.207
+   },
+   "amber|LCB+RH95+FOG": {
+    "n": 1530,
+    "events": 120,
+    "hits": 77,
+    "misses": 43,
+    "false_alarms": 176,
+    "pod": 0.642,
+    "far": 0.696,
+    "bias": 2.11,
+    "ets": 0.207
+   },
+   "amber|LCB+RH98+FOG": {
+    "n": 1530,
+    "events": 120,
+    "hits": 66,
+    "misses": 54,
+    "false_alarms": 163,
+    "pod": 0.55,
+    "far": 0.712,
+    "bias": 1.91,
+    "ets": 0.181
+   },
+   "red|CUR (field Vis reads, above model ground)": {
+    "n": 1530,
+    "events": 53,
+    "hits": 1,
+    "misses": 52,
+    "false_alarms": 2,
+    "pod": 0.019,
+    "far": 0.667,
+    "bias": 0.06,
+    "ets": 0.016
+   },
+   "red|LCB (low-cloud cover >=50% and base)": {
+    "n": 1530,
+    "events": 53,
+    "hits": 18,
+    "misses": 35,
+    "false_alarms": 129,
+    "pod": 0.34,
+    "far": 0.878,
+    "bias": 2.77,
+    "ets": 0.073
+   },
+   "red|RH95": {
+    "n": 1530,
+    "events": 53,
+    "hits": 17,
+    "misses": 36,
+    "false_alarms": 58,
+    "pod": 0.321,
+    "far": 0.773,
+    "bias": 1.42,
+    "ets": 0.133
+   },
+   "red|LCB+RH95": {
+    "n": 1530,
+    "events": 53,
+    "hits": 24,
+    "misses": 29,
+    "false_alarms": 156,
+    "pod": 0.453,
+    "far": 0.867,
+    "bias": 3.4,
+    "ets": 0.088
+   },
+   "red|LCB+RH95+FOG": {
+    "n": 1530,
+    "events": 53,
+    "hits": 24,
+    "misses": 29,
+    "false_alarms": 156,
+    "pod": 0.453,
+    "far": 0.867,
+    "bias": 3.4,
+    "ets": 0.088
+   },
+   "red|LCB+RH98+FOG": {
+    "n": 1530,
+    "events": 53,
+    "hits": 18,
+    "misses": 35,
+    "false_alarms": 132,
+    "pod": 0.34,
+    "far": 0.88,
+    "bias": 2.83,
+    "ets": 0.071
+   }
+  }
+ },
+ "by_obs_class": {
+  "1: <=152 m (400 ft or lower)": {
+   "CUR (field Vis reads, above model ground)": {
+    "n": 198,
+    "le305": 0.106,
+    "le152": 0.061
+   },
+   "LCB (low-cloud cover >=50% and base)": {
+    "n": 198,
+    "le305": 0.49,
+    "le152": 0.404
+   },
+   "RH95": {
+    "n": 198,
+    "le305": 0.47,
+    "le152": 0.404
+   },
+   "LCB+RH95": {
+    "n": 198,
+    "le305": 0.581,
+    "le152": 0.52
+   },
+   "LCB+RH95+FOG": {
+    "n": 198,
+    "le305": 0.581,
+    "le152": 0.52
+   },
+   "LCB+RH98+FOG": {
+    "n": 198,
+    "le305": 0.51,
+    "le152": 0.434
+   }
+  },
+  "2: 153-305 m (500-1,000 ft)": {
+   "CUR (field Vis reads, above model ground)": {
+    "n": 384,
+    "le305": 0.18,
+    "le152": 0.091
+   },
+   "LCB (low-cloud cover >=50% and base)": {
+    "n": 384,
+    "le305": 0.583,
+    "le152": 0.443
+   },
+   "RH95": {
+    "n": 384,
+    "le305": 0.456,
+    "le152": 0.32
+   },
+   "LCB+RH95": {
+    "n": 384,
+    "le305": 0.661,
+    "le152": 0.536
+   },
+   "LCB+RH95+FOG": {
+    "n": 384,
+    "le305": 0.664,
+    "le152": 0.542
+   },
+   "LCB+RH98+FOG": {
+    "n": 384,
+    "le305": 0.609,
+    "le152": 0.495
+   }
+  },
+  "3: 305-914 m (1,100-3,000 ft)": {
+   "CUR (field Vis reads, above model ground)": {
+    "n": 1151,
+    "le305": 0.086,
+    "le152": 0.037
+   },
+   "LCB (low-cloud cover >=50% and base)": {
+    "n": 1151,
+    "le305": 0.245,
+    "le152": 0.15
+   },
+   "RH95": {
+    "n": 1151,
+    "le305": 0.128,
+    "le152": 0.099
+   },
+   "LCB+RH95": {
+    "n": 1151,
+    "le305": 0.277,
+    "le152": 0.195
+   },
+   "LCB+RH95+FOG": {
+    "n": 1151,
+    "le305": 0.278,
+    "le152": 0.2
+   },
+   "LCB+RH98+FOG": {
+    "n": 1151,
+    "le305": 0.256,
+    "le152": 0.167
+   }
+  },
+  "4: above 914 m": {
+   "CUR (field Vis reads, above model ground)": {
+    "n": 1829,
+    "le305": 0.025,
+    "le152": 0.008
+   },
+   "LCB (low-cloud cover >=50% and base)": {
+    "n": 1829,
+    "le305": 0.102,
+    "le152": 0.065
+   },
+   "RH95": {
+    "n": 1829,
+    "le305": 0.057,
+    "le152": 0.04
+   },
+   "LCB+RH95": {
+    "n": 1829,
+    "le305": 0.124,
+    "le152": 0.085
+   },
+   "LCB+RH95+FOG": {
+    "n": 1829,
+    "le305": 0.125,
+    "le152": 0.087
+   },
+   "LCB+RH98+FOG": {
+    "n": 1829,
+    "le305": 0.106,
+    "le152": 0.071
+   }
+  },
+  "5: no ceiling": {
+   "CUR (field Vis reads, above model ground)": {
+    "n": 7064,
+    "le305": 0.002,
+    "le152": 0.0
+   },
+   "LCB (low-cloud cover >=50% and base)": {
+    "n": 7064,
+    "le305": 0.013,
+    "le152": 0.007
+   },
+   "RH95": {
+    "n": 7064,
+    "le305": 0.005,
+    "le152": 0.004
+   },
+   "LCB+RH95": {
+    "n": 7064,
+    "le305": 0.015,
+    "le152": 0.009
+   },
+   "LCB+RH95+FOG": {
+    "n": 7064,
+    "le305": 0.015,
+    "le152": 0.009
+   },
+   "LCB+RH98+FOG": {
+    "n": 7064,
+    "le305": 0.014,
+    "le152": 0.007
+   }
+  }
+ },
+ "amber_events_by_cape": {
+  "CAPE 0": {
+   "events": 316,
+   "CUR (field Vis reads, above model ground)": 0.0,
+   "LCB (low-cloud cover >=50% and base)": 0.491,
+   "RH95": 0.497,
+   "LCB+RH95": 0.592,
+   "LCB+RH95+FOG": 0.592,
+   "LCB+RH98+FOG": 0.519
+  },
+  "CAPE >= 1": {
+   "events": 266,
+   "CUR (field Vis reads, above model ground)": 0.338,
+   "LCB (low-cloud cover >=50% and base)": 0.624,
+   "RH95": 0.417,
+   "LCB+RH95": 0.684,
+   "LCB+RH95+FOG": 0.688,
+   "LCB+RH98+FOG": 0.643
+  }
+ },
+ "misses_sample": [
+  {
+   "sid": "EEKE",
+   "region": "Baltics-Poland",
+   "valid": "2026-11-17T03",
+   "raw": "EEKE 170250Z AUTO 18012KT 9999 OVC006/// 07/06 Q0991",
+   "lowc": 100.0,
+   "lcb": 517.0235087257965,
+   "cape": 0.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     22.2,
+     86.7
+    ],
+    [
+     66.8,
+     87.7
+    ],
+    [
+     120.7,
+     89.3
+    ],
+    [
+     182.3,
+     91.5
+    ],
+    [
+     381.7,
+     97.9
+    ],
+    [
+     646.4,
+     96.7
+    ],
+    [
+     919.9,
+     97.7
+    ]
+   ]
+  },
+  {
+   "sid": "LYBT",
+   "region": "Black Sea-Balkans",
+   "valid": "2026-11-17T03",
+   "raw": "LYBT 170300Z VRB02KT 0300 R12/0400N R30/0450N FG VV001 08/08 Q1011 NOSIG",
+   "lowc": 1.0,
+   "lcb": null,
+   "cape": 0.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     24.1,
+     92.2
+    ],
+    [
+     70.7,
+     90.9
+    ],
+    [
+     125.6,
+     89.0
+    ],
+    [
+     186.2,
+     86.0
+    ],
+    [
+     378.5,
+     66.9
+    ],
+    [
+     640.9,
+     57.7
+    ],
+    [
+     911.9,
+     59.7
+    ]
+   ]
+  },
+  {
+   "sid": "EEKA",
+   "region": "Baltics-Poland",
+   "valid": "2026-11-17T09",
+   "raw": "EEKA 170850Z AUTO 19008KT 160V220 9999 -RA OVC006/// 07/07 Q0990",
+   "lowc": 98.0,
+   "lcb": 761.0462735931056,
+   "cape": 24.0,
+   "vis": 23400.0,
+   "prof": [
+    [
+     20.9,
+     87.2
+    ],
+    [
+     68.5,
+     87.6
+    ],
+    [
+     121.9,
+     89.0
+    ],
+    [
+     183.4,
+     90.7
+    ],
+    [
+     383.8,
+     93.8
+    ],
+    [
+     650.0,
+     93.7
+    ],
+    [
+     925.1,
+     92.0
+    ]
+   ]
+  },
+  {
+   "sid": "EYVI",
+   "region": "Baltics-Poland",
+   "valid": "2026-11-18T03",
+   "raw": "EYVI 180250Z VRB02KT 0650 R01/0800N FG VV002 02/02 Q0989 NOSIG",
+   "lowc": 21.0,
+   "lcb": null,
+   "cape": 0.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     22.2,
+     94.7
+    ],
+    [
+     69.0,
+     93.6
+    ],
+    [
+     121.8,
+     92.1
+    ],
+    [
+     181.9,
+     90.2
+    ],
+    [
+     381.7,
+     87.9
+    ],
+    [
+     646.7,
+     88.2
+    ],
+    [
+     920.8,
+     93.2
+    ]
+   ]
+  },
+  {
+   "sid": "VVNB",
+   "region": "Southeast Asia",
+   "valid": "2026-11-18T03",
+   "raw": "VVNB 180300Z 04005KT 010V070 5000 -RA BR BKN009 BKN034 27/26 Q1019 NOSIG",
+   "lowc": 5.0,
+   "lcb": null,
+   "cape": 530.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     18.8,
+     71.5
+    ],
+    [
+     70.5,
+     73.5
+    ],
+    [
+     128.4,
+     75.5
+    ],
+    [
+     193.4,
+     77.9
+    ],
+    [
+     399.6,
+     83.9
+    ],
+    [
+     676.4,
+     93.2
+    ],
+    [
+     962.2,
+     96.2
+    ]
+   ]
+  },
+  {
+   "sid": "EEPU",
+   "region": "Baltics-Poland",
+   "valid": "2026-11-18T09",
+   "raw": "EEPU 180850Z AUTO 16008KT 9999 OVC008/// 04/02 Q0988",
+   "lowc": 29.0,
+   "lcb": null,
+   "cape": 14.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     22.6,
+     65.4
+    ],
+    [
+     69.8,
+     65.1
+    ],
+    [
+     121.7,
+     65.9
+    ],
+    [
+     182.1,
+     67.2
+    ],
+    [
+     382.2,
+     72.7
+    ],
+    [
+     647.4,
+     79.0
+    ],
+    [
+     921.4,
+     85.0
+    ]
+   ]
+  },
+  {
+   "sid": "CZEM",
+   "region": "North America",
+   "valid": "2026-11-18T21",
+   "raw": "CZEM 182100Z 36004KT 5SM -DZ OVC003 03/02 A3009 RMK SF8 LAST STFD OBS/NEXT 191400 UITC SLP192",
+   "lowc": 1.0,
+   "lcb": null,
+   "cape": 0.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     21.6,
+     83.5
+    ],
+    [
+     67.5,
+     84.4
+    ],
+    [
+     120.7,
+     85.4
+    ],
+    [
+     180.6,
+     86.5
+    ],
+    [
+     364.7,
+     88.0
+    ],
+    [
+     617.4,
+     83.0
+    ],
+    [
+     878.2,
+     70.0
+    ]
+   ]
+  },
+  {
+   "sid": "DGSI",
+   "region": "West Africa",
+   "valid": "2026-11-19T03",
+   "raw": "DGSI 190300Z 00000KT 9999 BKN009 26/24 Q1013 NOSIG",
+   "lowc": 10.0,
+   "lcb": null,
+   "cape": 317.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     23.1,
+     93.9
+    ],
+    [
+     73.6,
+     92.6
+    ],
+    [
+     132.6,
+     91.5
+    ],
+    [
+     196.0,
+     90.5
+    ],
+    [
+     406.5,
+     85.4
+    ],
+    [
+     688.6,
+     75.2
+    ],
+    [
+     980.2,
+     65.0
+    ]
+   ]
+  },
+  {
+   "sid": "EDXW",
+   "region": "Western Europe",
+   "valid": "2026-11-19T09",
+   "raw": "EDXW 190850Z 08012KT 9999 BKN007 03/01 Q0988",
+   "lowc": 69.0,
+   "lcb": 2206.100583564479,
+   "cape": 0.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     17.2,
+     74.8
+    ],
+    [
+     63.2,
+     76.0
+    ],
+    [
+     116.2,
+     77.5
+    ],
+    [
+     177.8,
+     78.8
+    ],
+    [
+     378.0,
+     82.0
+    ],
+    [
+     640.2,
+     71.0
+    ],
+    [
+     911.1,
+     65.0
+    ]
+   ]
+  },
+  {
+   "sid": "EGGW",
+   "region": "Western Europe",
+   "valid": "2026-11-19T21",
+   "raw": "EGGW 192050Z AUTO 26006KT 0450 R25/0400N FG OVC001 04/04 Q0992",
+   "lowc": 0.0,
+   "lcb": null,
+   "cape": 0.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     23.1,
+     92.4
+    ],
+    [
+     69.8,
+     92.7
+    ],
+    [
+     122.7,
+     92.9
+    ],
+    [
+     183.3,
+     93.0
+    ],
+    [
+     382.5,
+     93.4
+    ],
+    [
+     647.8,
+     93.2
+    ],
+    [
+     922.0,
+     93.0
+    ]
+   ]
+  },
+  {
+   "sid": "VTCT",
+   "region": "Southeast Asia",
+   "valid": "2026-11-20T03",
+   "raw": "VTCT 200300Z VRB02KT 9000 BKN008 25/23 Q1021 NOSIG",
+   "lowc": 38.0,
+   "lcb": null,
+   "cape": 296.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     16.9,
+     76.2
+    ],
+    [
+     66.8,
+     78.1
+    ],
+    [
+     123.6,
+     80.2
+    ],
+    [
+     188.4,
+     82.6
+    ],
+    [
+     419.4,
+     91.4
+    ],
+    [
+     710.6,
+     81.2
+    ],
+    [
+     1011.8,
+     81.0
+    ]
+   ]
+  },
+  {
+   "sid": "EPWR",
+   "region": "Baltics-Poland",
+   "valid": "2026-11-20T21",
+   "raw": "EPWR 202100Z 34005KT 6000 -RA BKN004 OVC020 05/04 Q1004",
+   "lowc": 91.0,
+   "lcb": 852.3098690107175,
+   "cape": 3.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     21.9,
+     83.9
+    ],
+    [
+     68.9,
+     84.8
+    ],
+    [
+     121.4,
+     85.9
+    ],
+    [
+     181.4,
+     87.6
+    ],
+    [
+     377.9,
+     90.9
+    ],
+    [
+     640.0,
+     95.0
+    ],
+    [
+     910.8,
+     96.0
+    ]
+   ]
+  },
+  {
+   "sid": "HKEM",
+   "region": "East Africa",
+   "valid": "2026-11-21T03",
+   "raw": "HKEM 210300Z 00000KT 1000 FF BKN002 BKN017 FEW020CB 19/17",
+   "lowc": 53.0,
+   "lcb": 310.71988275348684,
+   "cape": 25.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     24.1,
+     88.3
+    ],
+    [
+     72.7,
+     87.9
+    ],
+    [
+     127.7,
+     89.2
+    ],
+    [
+     190.0,
+     90.5
+    ],
+    [
+     459.6,
+     94.1
+    ],
+    [
+     780.4,
+     94.1
+    ],
+    [
+     1113.9,
+     94.0
+    ]
+   ]
+  },
+  {
+   "sid": "LHDC",
+   "region": "Black Sea-Balkans",
+   "valid": "2026-11-21T09",
+   "raw": "LHDC 210845Z AUTO 20010KT 9000 BKN002 BKN064 08/07 Q1010 BECMG SCT005 BKN040",
+   "lowc": 78.0,
+   "lcb": 813.109703563551,
+   "cape": 3.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     18.8,
+     67.4
+    ],
+    [
+     66.2,
+     67.8
+    ],
+    [
+     121.8,
+     68.7
+    ],
+    [
+     183.3,
+     70.1
+    ],
+    [
+     383.6,
+     74.2
+    ],
+    [
+     649.5,
+     82.0
+    ],
+    [
+     924.3,
+     89.0
+    ]
+   ]
+  },
+  {
+   "sid": "CYOO",
+   "region": "North America",
+   "valid": "2026-11-21T15",
+   "raw": "CYOO 211500Z AUTO VRB02KT 0SM FG VV001 05/05 A3028 RMK SLP261",
+   "lowc": 0.0,
+   "lcb": null,
+   "cape": 0.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     15.8,
+     63.8
+    ],
+    [
+     63.3,
+     64.5
+    ],
+    [
+     119.0,
+     64.6
+    ],
+    [
+     186.5,
+     62.2
+    ],
+    [
+     379.6,
+     50.0
+    ],
+    [
+     642.8,
+     35.2
+    ],
+    [
+     914.5,
+     27.1
+    ]
+   ]
+  },
+  {
+   "sid": "EPPO",
+   "region": "Baltics-Poland",
+   "valid": "2026-11-22T03",
+   "raw": "EPPO 220300Z 26009KT 9999 -SHRA BKN009CB BKN048 03/02 Q1008",
+   "lowc": 100.0,
+   "lcb": 328.43458116371664,
+   "cape": 24.0,
+   "vis": 2700.0,
+   "prof": [
+    [
+     22.9,
+     84.4
+    ],
+    [
+     68.9,
+     85.2
+    ],
+    [
+     121.9,
+     86.9
+    ],
+    [
+     182.2,
+     89.2
+    ],
+    [
+     374.9,
+     95.2
+    ],
+    [
+     634.7,
+     98.1
+    ],
+    [
+     903.2,
+     98.0
+    ]
+   ]
+  },
+  {
+   "sid": "RJSK",
+   "region": "East Asia",
+   "valid": "2026-11-22T03",
+   "raw": "RJSK 220300Z 15003KT 100V180 9999 -SHRA FEW000 BKN003 BKN030 02/01 Q1021",
+   "lowc": 97.0,
+   "lcb": 1220.4051042038457,
+   "cape": 69.0,
+   "vis": 3000.0,
+   "prof": [
+    [
+     22.2,
+     59.1
+    ],
+    [
+     68.2,
+     59.1
+    ],
+    [
+     122.2,
+     60.3
+    ],
+    [
+     182.5,
+     62.1
+    ],
+    [
+     371.5,
+     67.2
+    ],
+    [
+     628.9,
+     78.1
+    ],
+    [
+     894.7,
+     88.0
+    ]
+   ]
+  },
+  {
+   "sid": "DGTK",
+   "region": "West Africa",
+   "valid": "2026-11-22T09",
+   "raw": "DGTK 220900Z 00000KT 8000 -RA BKN009 29/27 Q1013 BECMG 9999",
+   "lowc": 0.0,
+   "lcb": null,
+   "cape": 1072.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     22.6,
+     73.9
+    ],
+    [
+     73.3,
+     75.0
+    ],
+    [
+     131.2,
+     76.6
+    ],
+    [
+     197.2,
+     78.4
+    ],
+    [
+     401.7,
+     81.3
+    ],
+    [
+     680.0,
+     78.1
+    ],
+    [
+     967.4,
+     77.4
+    ]
+   ]
+  },
+  {
+   "sid": "EYVI",
+   "region": "Baltics-Poland",
+   "valid": "2026-11-23T09",
+   "raw": "EYVI 230850Z 30007KT 9999 OVC005 00/M00 Q1003 NOSIG",
+   "lowc": 99.0,
+   "lcb": 399.3193527356109,
+   "cape": 18.0,
+   "vis": 8900.0,
+   "prof": [
+    [
+     20.2,
+     86.0
+    ],
+    [
+     66.4,
+     87.0
+    ],
+    [
+     118.3,
+     88.9
+    ],
+    [
+     177.3,
+     90.9
+    ],
+    [
+     376.7,
+     95.5
+    ],
+    [
+     638.0,
+     92.0
+    ],
+    [
+     908.1,
+     95.0
+    ]
+   ]
+  },
+  {
+   "sid": "EDDL",
+   "region": "Western Europe",
+   "valid": "2026-11-23T15",
+   "raw": "EDDL 231450Z AUTO 22005KT 2000 1400 R23L/P2000N R23R/P2000N BR OVC002 00/M00 Q1026 NOSIG",
+   "lowc": 0.0,
+   "lcb": null,
+   "cape": 0.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     25.1,
+     64.5
+    ],
+    [
+     69.8,
+     64.5
+    ],
+    [
+     121.1,
+     65.4
+    ],
+    [
+     181.3,
+     67.0
+    ],
+    [
+     364.0,
+     70.0
+    ],
+    [
+     616.1,
+     65.9
+    ],
+    [
+     876.3,
+     66.8
+    ]
+   ]
+  },
+  {
+   "sid": "VTCT",
+   "region": "Southeast Asia",
+   "valid": "2026-11-24T03",
+   "raw": "VTCT 240300Z 00000KT 5000 BR BKN005 23/22 Q1020 NOSIG",
+   "lowc": 8.0,
+   "lcb": null,
+   "cape": 249.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     16.2,
+     74.3
+    ],
+    [
+     65.9,
+     76.2
+    ],
+    [
+     122.9,
+     78.3
+    ],
+    [
+     187.9,
+     80.7
+    ],
+    [
+     420.0,
+     88.6
+    ],
+    [
+     711.5,
+     76.2
+    ],
+    [
+     1013.2,
+     71.0
+    ]
+   ]
+  },
+  {
+   "sid": "MUHG",
+   "region": "Caribbean-N South America",
+   "valid": "2026-11-24T09",
+   "raw": "MUHG 240850Z 06003KT 0500 R05///// FG BKN005 22/22 Q1012",
+   "lowc": 0.0,
+   "lcb": null,
+   "cape": 260.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     24.3,
+     88.6
+    ],
+    [
+     75.4,
+     87.7
+    ],
+    [
+     131.5,
+     87.2
+    ],
+    [
+     195.6,
+     86.8
+    ],
+    [
+     397.3,
+     85.4
+    ],
+    [
+     672.7,
+     84.1
+    ],
+    [
+     957.1,
+     82.1
+    ]
+   ]
+  },
+  {
+   "sid": "VYMD",
+   "region": "Southeast Asia",
+   "valid": "2026-11-25T03",
+   "raw": "VYMD 250230Z 36002KT 0500M FG OVC010 22/22 Q1016 NOSIG",
+   "lowc": 7.0,
+   "lcb": null,
+   "cape": 111.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     14.8,
+     73.2
+    ],
+    [
+     64.5,
+     75.0
+    ],
+    [
+     121.7,
+     76.8
+    ],
+    [
+     186.4,
+     78.9
+    ],
+    [
+     399.4,
+     81.3
+    ],
+    [
+     676.2,
+     68.0
+    ],
+    [
+     962.1,
+     69.0
+    ]
+   ]
+  },
+  {
+   "sid": "EYPA",
+   "region": "Baltics-Poland",
+   "valid": "2026-11-26T03",
+   "raw": "EYPA 260250Z VRB02KT 4500 BR OVC001 M01/M02 Q1024",
+   "lowc": 0.0,
+   "lcb": null,
+   "cape": 0.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     19.6,
+     68.0
+    ],
+    [
+     66.5,
+     68.8
+    ],
+    [
+     119.2,
+     69.7
+    ],
+    [
+     179.3,
+     71.0
+    ],
+    [
+     362.2,
+     74.9
+    ],
+    [
+     613.1,
+     80.7
+    ],
+    [
+     872.0,
+     88.6
+    ]
+   ]
+  },
+  {
+   "sid": "EVGA",
+   "region": "Baltics-Poland",
+   "valid": "2026-11-26T09",
+   "raw": "EVGA 260850Z 31004KT 9999 BKN002 BKN008 00/M00 Q1022 NOSIG",
+   "lowc": 86.0,
+   "lcb": 344.9593980211622,
+   "cape": 0.0,
+   "vis": 24100.0,
+   "prof": [
+    [
+     19.6,
+     87.7
+    ],
+    [
+     66.3,
+     89.5
+    ],
+    [
+     118.2,
+     91.4
+    ],
+    [
+     177.8,
+     93.5
+    ],
+    [
+     364.3,
+     95.3
+    ],
+    [
+     616.6,
+     92.4
+    ],
+    [
+     877.2,
+     94.1
+    ]
+   ]
+  }
+ ],
+ "misses_n": 212,
+ "false_alarm_sample": [
+  {
+   "sid": "LBGO",
+   "region": "Black Sea-Balkans",
+   "valid": "2026-11-17T03",
+   "raw": "LBGO 170300Z AUTO 27006KT 9999 FEW008/// SCT011/// BKN140/// 09/08 Q1011",
+   "lowc": 88.0,
+   "lcb": 842.8876806614185,
+   "cape": 0.0,
+   "vis": 24100.0
+  },
+  {
+   "sid": "EDAC",
+   "region": "Western Europe",
+   "valid": "2026-11-17T15",
+   "raw": "EDAC 171450Z 16004KT 100V210 3300 -RA FEW020 OVC033 09/08 Q0985",
+   "lowc": 100.0,
+   "lcb": 136.97024182167968,
+   "cape": 0.0,
+   "vis": 6600.0
+  },
+  {
+   "sid": "ZSNJ",
+   "region": "East Asia",
+   "valid": "2026-11-17T21",
+   "raw": "ZSNJ 172100Z 30002MPS 5000 BR OVC040 11/09 Q1025 NOSIG",
+   "lowc": 100.0,
+   "lcb": 9.649995028862284,
+   "cape": 6.0,
+   "vis": 24100.0
+  },
+  {
+   "sid": "EDLN",
+   "region": "Western Europe",
+   "valid": "2026-11-18T09",
+   "raw": "COR EDLN 180850Z 23010G20KT 190V290 9999 SCT021 10/07 Q0984",
+   "lowc": 83.0,
+   "lcb": 188.52873768256615,
+   "cape": 21.0,
+   "vis": 22800.0
+  },
+  {
+   "sid": "RORK",
+   "region": "East Asia",
+   "valid": "2026-11-18T21",
+   "raw": "RORK 182100Z AUTO 34018KT 9999 FEW009 SCT036 BKN050 20/19 Q1016",
+   "lowc": 100.0,
+   "lcb": 7.828396473006903,
+   "cape": 37.0,
+   "vis": 24100.0
+  },
+  {
+   "sid": "LHBP",
+   "region": "Black Sea-Balkans",
+   "valid": "2026-11-19T15",
+   "raw": "LHBP 191500Z 11007KT 4500 -RA BR SCT004 OVC051 09/09 Q0995 NOSIG",
+   "lowc": 62.0,
+   "lcb": 618.159847655655,
+   "cape": 3.0,
+   "vis": 5700.0
+  },
+  {
+   "sid": "ZGNN",
+   "region": "East Asia",
+   "valid": "2026-11-19T21",
+   "raw": "ZGNN 192100Z 35002MPS 320V020 9999 -RA SCT008 OVC033 13/12 Q1027 NOSIG",
+   "lowc": 100.0,
+   "lcb": 0.0,
+   "cape": 4.0,
+   "vis": 24100.0
+  },
+  {
+   "sid": "EHSG",
+   "region": "Western Europe",
+   "valid": "2026-11-20T15",
+   "raw": "EHSG 201455Z AUTO 04016KT 350V090 9999 // FEW046/// 09/01 Q1005 RE// W12/H12",
+   "lowc": 100.0,
+   "lcb": 71.10239979243893,
+   "cape": 1.0,
+   "vis": 24100.0
+  },
+  {
+   "sid": "VVDN",
+   "region": "Southeast Asia",
+   "valid": "2026-11-21T15",
+   "raw": "VVDN 211500Z 35003KT 9999 SCT017 BKN031 23/20 Q1021 NOSIG",
+   "lowc": 99.0,
+   "lcb": 204.55321359240074,
+   "cape": 18.0,
+   "vis": 24100.0
+  },
+  {
+   "sid": "VVPB",
+   "region": "Southeast Asia",
+   "valid": "2026-11-22T09",
+   "raw": "VVPB 220900Z 29006KT 9999 SCT013 BKN040 24/21 Q1017 NOSIG",
+   "lowc": 71.0,
+   "lcb": 249.69462085193345,
+   "cape": 21.0,
+   "vis": 24100.0
+  },
+  {
+   "sid": "EGJJ",
+   "region": "Western Europe",
+   "valid": "2026-11-22T21",
+   "raw": "EGJJ 222050Z 34009KT 300V040 6000 -SHRA FEW007 SCT009 09/08 Q1015",
+   "lowc": 100.0,
+   "lcb": 30.08947772639878,
+   "cape": 49.0,
+   "vis": 13300.0
+  },
+  {
+   "sid": "EYPA",
+   "region": "Baltics-Poland",
+   "valid": "2026-11-23T15",
+   "raw": "EYPA 231450Z 01004KT 9999 FEW032 SCT049 02/00 Q1007",
+   "lowc": 93.0,
+   "lcb": 281.3855640509932,
+   "cape": 4.0,
+   "vis": 21400.0
+  },
+  {
+   "sid": "EPSY",
+   "region": "Baltics-Poland",
+   "valid": "2026-11-24T15",
+   "raw": "EPSY 241500Z 29006KT 260V330 9999 FEW017 BKN035 04/02 Q1017",
+   "lowc": 94.0,
+   "lcb": 398.0552613153793,
+   "cape": 0.0,
+   "vis": 12400.0
+  },
+  {
+   "sid": "LFMH",
+   "region": "Western Europe",
+   "valid": "2026-11-25T09",
+   "raw": "LFMH 250900Z AUTO 20003KT 150V270 9999 BKN054 BKN140 11/07 Q1010",
+   "lowc": 92.0,
+   "lcb": 19.171540109583855,
+   "cape": 2.0,
+   "vis": 24100.0
+  },
+  {
+   "sid": "VVDN",
+   "region": "Southeast Asia",
+   "valid": "2026-11-25T21",
+   "raw": "VVDN 252100Z 34002KT 6000 -RA SCT013 BKN036 21/20 Q1016 TEMPO 4000 RA BR",
+   "lowc": 92.0,
+   "lcb": 0.0,
+   "cape": 202.0,
+   "vis": 5200.0
+  }
+ ]
+}

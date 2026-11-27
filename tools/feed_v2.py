@@ -56,13 +56,14 @@ SRC_ECMWF = {
 SRC_CEILING = {
     "id": "noaa-gefs-aws",
     "publisher": "NOAA NCEP (AWS Open Data)",
-    "title": "NOAA GEFS 0.25 deg cloud ceiling (31 members, trial)",
+    "title": "NOAA GEFS 0.5 deg relative humidity at the lowest four model levels (31 members, low ceiling trial)",
     "url": "https://registry.opendata.aws/noaa-gefs/",
     "licence": "NOAA NCEP, US public domain",
     "grade": "A2",
     "independence_group": "noaa-ncep",
     "source_type": "model",
-    "descriptor": "HGT:cloud ceiling from the GEFS pgrb2sp25 files, 3-hourly, nearest 0.25 deg cell to each point.",
+    "descriptor": ("RH and HGT at hybrid levels 1-4 and HGT:surface from the GEFS pgrb2bp5 files, 3-hourly; of the 4 "
+                   "0.5 deg cells around each point, the one whose model ground is nearest the station's height."),
 }
 SRC_ASTRO = {
     "id": "astro-meeus",
@@ -108,19 +109,15 @@ def _steps(hdef: dict, day_str: str, day_from: str | None = None) -> str:
 
 
 def ceiling_limits(forecast_doc: dict) -> str:
-    """The ceiling source's two measured limits, with the points the second one hits in this build (as on the page:
+    """How the trial's low cloud is read and its limits, with the points left out in this build (as on the page:
     tools/build_site.py ceiling_limits_html)."""
-    both, red = gefs.unreachable(forecast_doc)
-    where = []
-    if both:
-        where.append("Amber and Red cannot be reached at " + ", ".join(z.get("icao") for z in both))
-    if red:
-        where.append("Red cannot be reached at " + ", ".join(z.get("icao") for z in red))
-    return (" Trial, scored by Vis against METAR ceilings (lowest BKN, OVC or VV layer). Two known limits: GEFS v12 "
-            "sets this field only where surface-based CAPE is at least about 0.5 J/kg, so stratus and fog in stable "
-            "air read as no ceiling; and the field cannot sit lower than about 17 m above the model's own ground, so "
-            "where that ground is well above the station a threshold can be out of reach"
-            + (f" ({'; '.join(where)})." if where else "."))
+    left = (forecast_doc.get("ceiling") or {}).get("left_out") or []
+    return (" Trial, scored by Vis against METAR ceilings (lowest BKN, OVC or VV layer). Low cloud is the lowest of "
+            f"the four lowest model levels (about 22 to 190 m above the model's ground) with RH at least "
+            f"{gefs.RH_CLOUD:g}%; levels above about 200 m are not read, so a base between 200 and 305 m counts only "
+            "when the air below it is also near saturation. Heights are above the model's ground; a point whose best "
+            f"cell's ground is more than {gefs.CELL_MAX_DIFF_M:g} m from the station's height is left out"
+            + (f" ({', '.join(left)})." if left else "."))
 
 
 def _ft_rule(thr_m: float) -> str:

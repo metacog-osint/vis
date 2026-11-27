@@ -1161,6 +1161,30 @@ class GefsCeilingTests(unittest.TestCase):
             self.assertEqual(verify.resolve(fdir, mdir, vdir, now=now), ([], []))
             self.assertEqual((vdir / "observed.jsonl").read_bytes(), before)
 
+    def test_ceiling_scores_count_only_the_rh_method_and_set_older_builds_aside(self):
+        base = {"zone": "eyvi", "day": "2026-11-28", "lead_days": 1, "hazard": "ceiling", "level": "amber",
+                "p": 0.6, "outcome": 1, "why": None, "threshold": 305.0, "unit": "m"}
+        rows = [
+            # An old build of one run, then a newer build of the same run with the RH method: the newer one counts.
+            {**base, "forecast": "a1", "run": "R1", "generated_at": "2026-11-27T01:00:00Z", "ceiling_method": None},
+            {**base, "forecast": "a2", "run": "R1", "generated_at": "2026-11-27T21:00:00Z",
+             "ceiling_method": verify.CEILING_METHOD},
+            # A run built only before the switch: set aside, not scored.
+            {**base, "forecast": "b1", "run": "R0", "generated_at": "2026-11-26T19:00:00Z", "ceiling_method": None},
+            # Other hazards are never set aside.
+            {**base, "forecast": "b1", "run": "R0", "generated_at": "2026-11-26T19:00:00Z", "ceiling_method": None,
+             "hazard": "vis", "threshold": 3000.0},
+        ]
+        doc = verify.score(rows)
+        cell = [c for c in doc["scores"] if c["hazard"] == "ceiling" and c["level"] == "amber"
+                and c["lead_days"] == "all"][0]
+        vis = [c for c in doc["scores"] if c["hazard"] == "vis" and c["level"] == "amber"
+               and c["lead_days"] == "all"][0]
+        self.assertEqual((cell["n"], vis["n"]), (1, 1))
+        self.assertEqual([(s["hazard"], s["n"]) for s in doc["set_aside"]], [("ceiling", 1)])
+        self.assertIn("1 ceiling forecast built from the GEFS cloud-ceiling field", build_site.verification_html(doc))
+        self.assertEqual(verify.score(rows[1:2])["set_aside"], [])
+
     def test_reach_marks_thresholds_the_model_ground_puts_out_of_reach(self):
         hz = next(h for h in forecast.HAZARDS if h["id"] == "ceiling")
         # reach() defaults are the hazard's own thresholds.
@@ -1188,27 +1212,86 @@ class GefsCeilingTests(unittest.TestCase):
             self.assertAlmostEqual(cell[0], round(p["lat"] * 4) / 4)
             self.assertAlmostEqual(cell[1] % 360, (round(p["lon"] * 4) / 4) % 360)
 
-    def test_page_and_feed_name_the_points_out_of_reach(self):
+    def test_page_and_feed_state_the_rh_method_and_name_points_left_out(self):
         pts = forecast.expand_points(forecast.load_zones(str(ROOT / "config" / "points.json")))
-        doc = {"zones": [{"id": p["id"], "icao": p["icao"], "station": p.get("station") or p["name"]} for p in pts]}
-        both, red = gefs.unreachable(doc)        # no ceiling read: from the config file, 300 m rule applied
-        self.assertEqual([z["icao"] for z in both], ["VISR"])
-        self.assertEqual(sorted(z["icao"] for z in red), ["FZNA", "LLBG", "RCTP", "RPLB"])
+        doc = {"zones": [{"id": p["id"], "icao": p["icao"], "station": p.get("station") or p["name"]} for p in pts],
+               "ceiling": {"state": "used", "left_out": ["VISR"], "cells": []}}
         html = build_site.ceiling_limits_html(doc)
-        self.assertIn("surface-based CAPE", html)
-        self.assertIn("Amber and Red cannot be reached at Srinagar (VISR)", html)
+        self.assertIn("relative humidity at the model’s four lowest levels", html)
+        self.assertIn("Left out in this build: Srinagar (VISR).", html)
         self.assertIn("Verdict’s independent re-score of Vis covers wind, visibility, heat and cold", html)
-        # A build's own cell checks win over the file: here every point reaches both.
-        used = {**doc, "ceiling": {"state": "used", "left_out": [], "cells": [
-            {"reach": gefs.reach(10.0, 10.0, 17.0)} for _ in pts]}}
-        self.assertEqual(gefs.unreachable(used), ([], []))
-        self.assertIn("no trial point is out of reach", build_site.ceiling_limits_html(used))
-        self.assertIn("Red cannot be reached at RCTP, RPLB, LLBG, FZNA)", feed_v2.ceiling_limits(doc))
-        # add_reach puts the mark on each cell check, without touching the check itself.
+        self.assertNotIn("  ", html)
+        self.assertIn("(VISR).", feed_v2.ceiling_limits(doc))
+        self.assertNotIn("CAPE", next(h for h in forecast.HAZARDS if h["id"] == "ceiling")["why"])
+        # The old field's reach marks still work for comparison runs.
         checks = [{"station_elevation_m": 1658.0, "ok": True}]
         gefs.add_reach([{"id": "x"}], checks, {"x": 2175.5}, 17.0)
         self.assertEqual((checks[0]["ok"], checks[0]["reach"]["amber"]), (True, False))
 
+    def test_rh_base_takes_the_lowest_saturated_level(self):
+        z = [22.0, 71.0, 126.0, 190.0]
+        self.assertEqual(gefs.rh_base(z, [80, 96, 99, 99]), 71.0)
+        self.assertEqual(gefs.rh_base(z, [95, 10, 10, 10]), 22.0)
+        self.assertEqual(gefs.rh_base(z, [94.9, 90, 90, 90]), gefs.NO_CEILING_M)
+        self.assertEqual(gefs.rh_base([-3.0] + z[1:], [99, 0, 0, 0]), 0.0)
+        self.assertEqual(gefs.rh_base(z, [None, 97, 0, 0]), 71.0)
+
+    def test_best_cell_is_the_one_whose_ground_is_nearest_the_station(self):
+        g = {"ni": 4, "nj": 3, "la1": 10.0, "lo1": 0.0, "di": 0.5, "dj": 0.5, "scan": 0}
+        ground = {k: float(100 * k) for k in range(12)}     # index j*4+i
+        # A point at 9.7 N 0.7 E sits among indices 1, 2, 5, 6 (ground 100, 200, 500, 600 m).
+        c = gefs.best_cells(g, ground, [(9.7, 0.7)], [480.0])[0]
+        self.assertEqual((c["index"], c["ground_m"], c["lat"], c["lon"]), (5, 500.0, 9.5, 0.5))
+        self.assertEqual(sorted(gefs.candidate_indices(g, [(9.7, 0.7)])), [1, 2, 5, 6])
+
+    def test_rh_ceiling_series_reads_members_and_leaves_out_far_cells(self):
+        import urllib.error
+        import urllib.parse
+        NI, NJ = self.NI, self.NJ
+        names = ["HGT:surface"] + gefs.HGT_RECORDS + gefs.RH_RECORDS
+        idx = "".join(f"{k + 1}:{1000 * k}:d=x:{n}:\n" for k, n in enumerate(names)) \
+            + f"{len(names) + 1}:{1000 * len(names)}:d=x:LAND:surface:\n"
+        heights = {"HGT:1 hybrid level": 22, "HGT:2 hybrid level": 71, "HGT:3 hybrid level": 126, "HGT:4 hybrid level": 190}
+
+        def body(name, member, step):
+            if name == "HGT:surface":
+                return _grib53([0] * (NI * NJ - 1) + [900], NI, NJ)      # the last cell is a mountain
+            if name in heights:
+                return _grib53([heights[name]] * (NI * NJ - 1) + [900 + heights[name]], NI, NJ)
+            lvl = int(name.split(":")[1].split()[0])
+            wet = member == "gep01" and step in (6, 9) and lvl >= 2      # RH 99 from level 2 up: base 71 m
+            return _grib53([99 if wet else 60] * (NI * NJ), NI, NJ)
+
+        def opener(req, timeout=0):
+            url = req.full_url
+            if url.startswith(gefs.ELEVATION_URL):
+                n = len(urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)["latitude"][0].split(","))
+                return _Resp(json.dumps({"elevation": [10.0] * n}).encode())
+            self.assertIn("pgrb2bp5", url)
+            if "gefs.20261127/00/" not in url:
+                raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+            if url.endswith(".idx"):
+                return _Resp(idx.encode())
+            start = int(req.get_header("Range").split("=")[1].split("-")[0])
+            member = url.rsplit("/", 1)[1].split(".")[0]
+            return _Resp(body(names[start // 1000], member, int(url[-3:])))
+
+        now = datetime(2026, 11, 27, 4, 30, tzinfo=timezone.utc)
+        times = [f"2026-11-27T{h:02d}:00" for h in range(24)]
+        pts = [{"lat": 9.9, "lon": 0.1, "icao": "LOW"}, {"lat": 8.6, "lon": 1.9, "icao": "HIGH"}]
+        series, info = gefs.rh_ceiling_series(pts, times, now, opener=opener, procs=1, threads=4)
+        self.assertEqual((info["state"], info["method"], info["left_out"]), ("used", "rh-lowest-levels", []))
+        s = series[0]
+        self.assertEqual(s["ceiling_agl_member01"][6], 71.0)
+        self.assertEqual(s["ceiling_agl_member01"][12], gefs.NO_CEILING_M)
+        self.assertEqual(s["ceiling_agl"][6], gefs.NO_CEILING_M)
+        self.assertIsNone(s["ceiling_agl_member01"][7])
+        # HIGH's four cells include the 900 m mountain, but its best cell is at sea level, 10 m from the station.
+        self.assertEqual(info["cells"][1]["cell_elevation_m"], 0.0)
+        hourly = {"time": times}
+        hourly.update(s)
+        d = forecast.score_zone_days([{"hourly": hourly}], 1, now=now, model_ids=["ncep_gefs025"])[0]
+        self.assertEqual((d["hazards"]["ceiling"]["amber_hits"], d["hazards"]["ceiling"]["red_hits"]), (1, 1))
 
 class _Resp:
     status = 200

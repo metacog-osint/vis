@@ -628,7 +628,7 @@ function ceilingReach(doc) {
   const out = {};
   (doc.zones || []).forEach((z, i) => {
     const cell = c.cells[i];
-    if (cell) out[z.id] = { left: left.has(z.icao) || left.has(z.id), r: cell.reach || null, z };
+    if (cell) out[z.id] = { left: left.has(z.icao) || left.has(z.id), r: cell.reach || null, diff: cell.diff_m, z };
   });
   return out;
 }
@@ -641,7 +641,7 @@ function reachShort(x) {
 }
 function reachLong(x) {
   if (!x) return "";
-  if (x.left) return "The low ceiling trial is not read here: the GEFS cell is more than 300 m from the station’s height.";
+  if (x.left) return `The low ceiling trial is not read here: the best GEFS cell’s ground is ${x.diff == null ? "unknown" : `${Math.abs(Math.round(x.diff))} m ${x.diff >= 0 ? "above" : "below"} the station`}, more than 100 m off.`;
   const r = x.r;
   if (!r) return "";
   const d = r.ground_minus_station_m;
@@ -658,7 +658,7 @@ function reachLong(x) {
 // Points where the model's ground and the station differ by more than 50 m, or a threshold is out of reach or the
 // trial is not read, for the thresholds list.
 function reachCompact(x) {
-  if (x.left) return "not read (the GEFS cell is more than 300 m from the station’s height).";
+  if (x.left) return `not read: the best cell’s ground is ${x.diff == null ? "unknown" : `${Math.abs(Math.round(x.diff))} m ${x.diff >= 0 ? "above" : "below"} the station`}.`;
   const r = x.r, d = Math.round(r.ground_minus_station_m);
   if (d < 0) return `model ground ${-d} m below the station: ceilings read up to ${-d} m low, and a base in the lowest model layer reads 0 m (Red).`;
   const lim = !r.amber ? "Amber and Red not reachable"
@@ -670,7 +670,7 @@ function reachList() {
   const rows = Object.values(REACH).filter((x) => x.left || (x.r && (Math.abs(x.r.ground_minus_station_m) > 50
     || !x.r.amber || !x.r.red || x.r.lowest_layer_only.length)));
   if (!rows.length) return "";
-  return `<span class="small reach-head">Where GEFS’s own ground at the point’s cell (its 0.25° terrain, HGT:surface) differs from the station’s height by more than 50 m, or a threshold is out of reach. The ceiling field sits at least about 17 m above that ground, which bounds the lowest ceiling it can give above the station (this build’s cells):</span><ul class="reach-list">${rows
+  return `<span class="small reach-head">Each point reads the one of its four surrounding 0.5° GEFS cells whose model ground (HGT:surface) is nearest the station’s height. These points are left out, because their best cell is more than 100 m off (this build’s cells):</span><ul class="reach-list">${rows
     .map((x) => `<li><b>${esc(x.z.station)} · ${esc(x.z.icao)}</b>: ${esc(reachCompact(x))}</li>`).join("")}</ul>`;
 }
 
@@ -841,26 +841,23 @@ def _and(names: list[str]) -> str:
 
 
 def ceiling_limits_html(forecast_doc: dict) -> str:
-    """The Limits list's line on the low ceiling trial: what it is scored against, its two measured limits with the
-    points they hit, and what is scored where (Vis's own score, low cloud cover, Verdict's re-score)."""
+    """The Limits list's line on the low ceiling trial: what it reads, what it is scored against, its limits, the
+    points left out, and what is scored where (Vis's own score, low cloud cover, Verdict's re-score)."""
     from html import escape
-    both, red = ceiling_unreachable(forecast_doc)
-    where = []
-    if both:
-        where.append(f"Amber and Red cannot be reached at {_and(both)}")
-    if red:
-        where.append(f"Red cannot be reached at {_and(red)}")
-    where_txt = ", and ".join(where) if where else "no trial point is out of reach in this build"
-    return ('<li><b>Low ceiling trial.</b> Vis scores it against the METAR ceiling (the lowest broken, overcast or '
-            'obscured layer), but NOAA’s GEFS ceiling field can show only part of what a ceiling forecast should, for '
-            'two reasons measured in NOAA’s own files. First, GEFS v12 sets the field only where surface-based CAPE '
-            '(convective available potential energy, a measure of how unstable the air near the ground is) is at '
-            'least about 0.5 J/kg, so stratus and fog in stable air read as no ceiling. Second, the field cannot sit '
-            'lower than about 17 m above the model’s own ground, which at some points is well above the station: '
-            f'{escape(where_txt)}; “Hazard thresholds” under “How to read it” lists each point. Its scores therefore measure '
-            'these limits as much as ceiling skill. Low cloud cover is not scored: it is a model cloud fraction, and '
-            'a METAR gives each layer’s amount in eighths of the sky and its base, not a fraction. Verdict’s '
-            'independent re-score of Vis covers wind, visibility, heat and cold, not the ceiling trial.</li>')
+    c = forecast_doc.get("ceiling") or {}
+    zones = {z.get("icao"): z for z in forecast_doc.get("zones") or []}
+    left = [f'{zones[i].get("station")} ({i})' if i in zones else i for i in c.get("left_out") or []]
+    left_txt = (f"Left out in this build: {_and(left)}." if left else "")
+    return ('<li><b>Low ceiling trial.</b> Vis reads low cloud from GEFS relative humidity at the model’s four lowest '
+            'levels (about 22, 71, 126 and 190 m above the model’s own ground): the lowest level at or over '
+            f'{gefs.RH_CLOUD:g}% is the base. It is scored against the METAR ceiling (the lowest broken, overcast or '
+            'obscured layer). Levels above about 200 m are not read, so a base between 200 and 305 m counts only '
+            'when the air below it is also near saturation, and a cloud deck over dry air is missed. Heights are '
+            'above the model’s ground; each point reads the one of its four surrounding 0.5° cells whose ground is '
+            f'nearest the station’s height, and a point more than {gefs.CELL_MAX_DIFF_M:g} m off is left out. '
+            f'{escape(left_txt + " " if left_txt else "")}Low cloud cover is not scored: it is a model cloud fraction, and a METAR gives each '
+            'layer’s amount in eighths of the sky and its base, not a fraction. Verdict’s independent re-score of '
+            'Vis covers wind, visibility, heat and cold, not the ceiling trial.</li>')
 
 
 def _num(v, fmt="{:.3f}"):
@@ -884,12 +881,15 @@ def verification_html(doc: dict | None) -> str:
            f'rate. A row is marked too few to read unless it has {escape(str(r.get("readable_when", "")))}. '
            f'Rain, snow, low cloud cover and icing are not scored: METARs do not measure them the way the forecast '
            f'states them. The low ceiling trial is scored against the METAR ceiling (lowest broken, overcast or '
-           f'obscured layer); its rows measure the GEFS field’s two known limits (no ceiling in stable air, and '
-           f'points where the model’s ground sits well above the station; see “Hazard thresholds” above) as much '
-           f'as ceiling skill. Thresholds are indicative; not for flight planning.</p>',
-           # Wider than a phone: the box scrolls sideways, so it takes keyboard focus and a name (WCAG 2.1.1).
-           '<div class="table-wrap" tabindex="0" role="region" aria-label="Measured skill scores, scrolls sideways">'
-           '<table class="skill"><thead><tr><th>Hazard</th><th>Threshold</th>'
+            f'obscured layer); it reads RH at the four lowest model levels, so a cloud base between 200 and 305 m '
+            f'counts only when the air below it is near saturation (see “Hazard thresholds” above). '
+            + ''.join(f'{s["n"]:,} ceiling forecast{"" if s["n"] == 1 else "s"} {escape(s["why"])} '
+                      f'{"is" if s["n"] == 1 else "are"} kept but not scored. '
+                      for s in doc.get("set_aside", []) if s.get("hazard") == "ceiling" and s.get("n"))
+            + 'Thresholds are indicative; not for flight planning.</p>',
+            # Wider than a phone: the box scrolls sideways, so it takes keyboard focus and a name (WCAG 2.1.1).
+            '<div class="table-wrap" tabindex="0" role="region" aria-label="Measured skill scores, scrolls sideways">'
+            '<table class="skill"><thead><tr><th>Hazard</th><th>Threshold</th>'
            '<th>Lead (days)</th><th>Forecasts</th><th>Observed</th><th>Points (with events)</th><th>Brier</th>'
            '<th>Skill</th><th>Read</th></tr></thead><tbody>']
     for c in doc["scores"]:

@@ -67,20 +67,18 @@ HAZARDS = [
             "and VFR flying, but it is cover, not ceiling height, so it shows at most Yellow"},
     # On trial from 27 Nov 2026: NOAA's own GEFS cloud ceiling (tools/gefs.py), above the station, scored against
     # METAR ceilings in tools/verify.py. Capped at Yellow during the trial; it comes from one model, so under method 1.1
-    # it never reaches COP as a warning. The two limits in `why` are measured (tools/gefs.py docstring).
+    # it never reaches COP as a warning. Read from RH at the lowest model levels (tools/gefs.py rh_ceiling_series).
     {"id": "ceiling", "name": "Low ceiling (trial)", "var": "ceiling_agl", "agg": "min", "dir": "below", "min_steps": 2,
      "amber": 305.0, "red": 152.0, "unit": "m", "max_colour": "yellow", "trial": True,
-     "why": "GEFS cloud ceiling above the station at or below 305 m (1,000 ft or lower, so a reported 1,000 ft ceiling "
-            "counts) or 152 m (a reported 500 ft ceiling, 152.4 m, does not count) on two consecutive 3-hourly steps, "
-            "read from NOAA's own GEFS files. On trial, shown at most Yellow, and scored against METAR ceilings. "
-            "Two known limits. First, NOAA's GEFS v12 post-processing sets this ceiling only where surface-based CAPE "
-            "(convective available potential energy, a measure of how unstable the air near the ground is) is at "
-            "least about 0.5 J/kg. Stratus and fog in stable air have none, so they read as no ceiling: under full "
-            "cloud cover about 4% of model points with no CAPE carry a ceiling, against about 98% with some. Second, "
-            "the field is a height above sea level that cannot sit lower than about 17 m above the model's own "
-            "ground, and at some points that ground is well above the station, so Amber or Red cannot be reached "
-            "there (listed below). The model ceiling is the mid-point of the lowest model layer holding cloud, not "
-            "the METAR ceiling (the lowest layer covering more than half the sky)"},
+     "why": "Low cloud from GEFS relative humidity: the lowest of the model's four lowest levels (about 22, 71, 126 "
+            "and 190 m above the model's own ground) where relative humidity is at least 95%, at or below 305 m "
+            "(1,000 ft or lower, so a reported 1,000 ft ceiling counts) or 152 m (a reported 500 ft ceiling, 152.4 m, "
+            "does not count) on two consecutive 3-hourly steps, read from NOAA's own GEFS files (31 members). In "
+            "practice Amber means near-saturated air within about 200 m of the ground and Red within about 130 m; the "
+            "levels above 200 m are not read, so a cloud base between 200 and 305 m counts only when the air below it "
+            "is also near saturation. Heights are above the model's ground, and a point whose model ground is more "
+            "than 100 m from the station's height is left out. On trial, shown at most Yellow, and scored against "
+            "METAR ceilings. This is not the METAR ceiling (the lowest layer covering more than half the sky)"},
     {"id": "vis", "name": "Poor visibility", "var": "visibility", "agg": "min", "dir": "below", "min_steps": 2,
      "amber": 3000.0, "red": 1000.0, "unit": "m",
      "why": "Surface visibility < 3 km (amber) or < 1 km (red) on two consecutive 3-hourly steps (fog, mist, dust, "
@@ -409,7 +407,7 @@ def add_ceiling(zones, by_model, now, opener=None, procs=gefs.PROCS):
     if not answers or not answers[0] or not (answers[0].get("hourly") or {}).get("time"):
         return {"source": gefs.SOURCE["id"], "state": "unavailable", "why": "GEFS is not in this run", "run_time": None}
     times = answers[0]["hourly"]["time"]
-    series, info = gefs.ceiling_series(zones, times, now, opener=opener, procs=procs)
+    series, info = gefs.rh_ceiling_series(zones, times, now, opener=opener, procs=procs)
     if series:
         for a, s in zip(answers, series):
             if s and a and (a.get("hourly") or {}).get("time") == times:
