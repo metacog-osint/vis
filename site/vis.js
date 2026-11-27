@@ -109,7 +109,10 @@ async function init() {
     const runs = ms.map((m) => (m.used === false
       ? `${short(m)} left out: newest run ${m.run_time ? when(m.run_time) : "unknown"}, ${m.age_hours} h old`
       : `${short(m)} run ${m.run_time ? when(m.run_time) : "time unknown"}`)).join("; ");
-    stamp.textContent = `Generated ${when(g)} · ${n} ensemble members${runs ? ` (${runs})` : ""}`;
+    const c = doc.ceiling || {};
+    const cig = c.state === "used" ? `; ceiling trial: GEFS run ${when(c.run_time)} from NOAA's files`
+      : c.state ? "; ceiling trial: not read this run" : "";
+    stamp.textContent = `Generated ${when(g)} · ${n} ensemble members${runs ? ` (${runs}${cig})` : ""}`;
     stamp.title = g.replace("T", " ").slice(0, 16) + " UTC";
     if (used.length < ms.length) stamp.classList.add("partial");
   }

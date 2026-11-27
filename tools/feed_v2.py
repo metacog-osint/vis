@@ -49,6 +49,18 @@ SRC_ECMWF = {
     "source_type": "model",
     "descriptor": "51-member global ensemble forecast (ecmwf_ifs025) at 0.25 deg, 3-hourly steps (served hourly, interpolated) out to 7 days.",
 }
+# The low ceiling trial reads NOAA's own GEFS files (tools/gefs.py), since Open-Meteo carries no cloud base.
+SRC_CEILING = {
+    "id": "noaa-gefs-aws",
+    "publisher": "NOAA NCEP (AWS Open Data)",
+    "title": "NOAA GEFS 0.25 deg cloud ceiling (31 members, trial)",
+    "url": "https://registry.opendata.aws/noaa-gefs/",
+    "licence": "NOAA NCEP, US public domain",
+    "grade": "A2",
+    "independence_group": "noaa-ncep",
+    "source_type": "model",
+    "descriptor": "HGT:cloud ceiling from the GEFS pgrb2sp25 files, 3-hourly, nearest 0.25 deg cell to each point.",
+}
 SRC_ASTRO = {
     "id": "astro-meeus",
     "publisher": "Vis, The Intelligence Company",
@@ -86,6 +98,10 @@ def _resolution_rule(station: str, icao: str, hdef: dict, level: str, day_str: s
         layers = "overcast (OVC)" if level == "red" else "broken or overcast (BKN or OVC)"
         return (f"Yes if METARs from {icao} ({station}) report {layers} cloud below 10,000 ft for >= {min_h} hours "
                 f"on {day_str} UTC.")
+    if hdef["id"] == "ceiling":
+        return (f"Yes if METARs from {icao} ({station}) report a ceiling (lowest broken, overcast or obscured layer) at "
+                f"or below {thr:g} m ({round(thr / 0.3048 / 100) * 100:,} ft) above the aerodrome on two consecutive "
+                f"3-hourly steps on {day_str} UTC.")
     if hdef["agg"] == "sum":
         return f"Yes if ICAO station {icao} ({station}) records {hdef['name'].lower()} >= {thr} {unit} on {day_str} UTC."
     if hdef["agg"] == "joint":
@@ -126,6 +142,15 @@ def feed_health(forecast_doc: dict, generated: str) -> dict:
             "data_as_of": run,
             "detail": f"{mid}: newest run {run or 'unknown'}" + ("" if used else ", not used"),
         }
+    c = forecast_doc.get("ceiling")
+    if c:
+        ok = c.get("state") == "used"
+        out[SRC_CEILING["id"]] = {
+            "state": "fresh" if ok else "stale", "checked_at": generated, "last_ok": generated if ok else None,
+            "last_error": None if ok else (c.get("why") or "not read"), "failures": 0 if ok else 1,
+            "data_as_of": c.get("run_time"),
+            "detail": f"GEFS cloud ceiling (trial): run {c.get('run_time') or 'none'}" + ("" if ok else ", not used"),
+        }
     out[SRC_ASTRO["id"]] = {"state": "up", "checked_at": generated, "last_ok": generated, "last_error": None,
                             "failures": 0, "data_as_of": generated, "detail": "computed on this run"}
     return out
@@ -145,6 +170,11 @@ def build_feed(forecast_doc: dict) -> dict:
         run = models.get(mid, {}).get("run_time")
         if run:
             src["descriptor"] = src["descriptor"] + f" Run used: {run}."
+        sources_all.append(src)
+    ceiling = forecast_doc.get("ceiling") or {}
+    if ceiling.get("state") == "used":
+        src = {**SRC_CEILING, "accessed_at": generated}
+        src["descriptor"] = src["descriptor"] + f" Run used: {ceiling.get('run_time')}."
         sources_all.append(src)
     sources_all.append({**SRC_ASTRO, "accessed_at": generated})
     members_used = forecast_doc.get("members_used") or 82
@@ -375,6 +405,7 @@ def build_feed(forecast_doc: dict) -> dict:
             "members_used": members_used,
             "model_runs": [{k: m.get(k) for k in ("id", "run_time", "age_hours", "state", "used")}
                            for m in forecast_doc.get("models", [])],
+            "ceiling_run": {k: (forecast_doc.get("ceiling") or {}).get(k) for k in ("source", "run_time", "age_hours", "state")},
         },
         "visual": {"type": "table", "url": SITE},
         "link": SITE,

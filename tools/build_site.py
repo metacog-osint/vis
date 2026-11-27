@@ -108,8 +108,8 @@ INDEX_HTML = """<!doctype html>
         <h2>How to read the table</h2>
         <ul class="thresh-list">
           <li><b>Reference points:</b> each zone is forecast at a named airfield or port (its ICAO code is shown), not at the zone’s geographic centre, which can sit on a mountain range or in empty desert. Most zones also have an alternate airfield or port, forecast as a row of its own. The codes also let each forecast be checked against the station’s METAR reports (see “Measured skill” below).</li>
-          <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, each model weighted equally (its own share is shown beside it), given with its ICD 203 term. Most hazards use both models; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
-          <li><b>What sets a cell’s colour:</b> each hazard has an amber and a more severe red threshold, and the colour comes from the chance of reaching either one. Yellow: at least 20% for the amber threshold, or at least 5% for the red one. Amber: at least 45% for amber, or 20% for red. Red: at least 45% for red. A severe outcome therefore colours a cell at a low chance, and the line names the threshold behind the colour. Example: “Low cloud cover ≥ 95 %: Very unlikely · 6% (severe threshold)” is Yellow, because 6% is above the 5% needed for the severe threshold. The day’s colour is its worst hazard. Low cloud cover never goes above Yellow.</li>
+          <li><b>Likelihood and colour:</b> a percentage is the share of ensemble members that reach a threshold, each model weighted equally (its own share is shown beside it), given with its ICD 203 term. Most hazards use both models; visibility uses GEFS’s 31 and low cloud ECMWF’s 51, because each model publishes only one of them. The low ceiling trial uses GEFS’s 31, read from NOAA’s own files on AWS Open Data, since neither ensemble on Open-Meteo carries cloud base. Colours follow the UK Met Office likelihood-by-impact matrix.</li>
+          <li><b>What sets a cell’s colour:</b> each hazard has an amber and a more severe red threshold, and the colour comes from the chance of reaching either one. Yellow: at least 20% for the amber threshold, or at least 5% for the red one. Amber: at least 45% for amber, or 20% for red. Red: at least 45% for red. A severe outcome therefore colours a cell at a low chance, and the line names the threshold behind the colour. Example: “Low cloud cover ≥ 95 %: Very unlikely · 6% (severe threshold)” is Yellow, because 6% is above the 5% needed for the severe threshold. The day’s colour is its worst hazard. Low cloud cover, and the low ceiling while it is on trial, never go above Yellow.</li>
           <li><b>Tonight’s light:</b> sunset, civil dusk and dawn and the next sunrise, the moon’s phase and lit fraction at local midnight, and low-light dark: the time with the sun more than 12° below the horizon and the moon down or under a quarter lit. Each time shows the point’s local time, then yours.</li>
           <li><b>A point’s detail:</b> select its name to open its latest METAR and TAF, a deterministic forecast for the next 7 days beside the past 7, today against its 1991–2020 normal and the 1991–2025 records for the date, sun and moon for the week, its elevation and Köppen climate class. The detail forecast is a single best-estimate model run and can differ from the ensemble colours, which stay the product.</li>
         </ul>
@@ -540,7 +540,10 @@ async function init() {
     const runs = ms.map((m) => (m.used === false
       ? `${short(m)} left out: newest run ${m.run_time ? when(m.run_time) : "unknown"}, ${m.age_hours} h old`
       : `${short(m)} run ${m.run_time ? when(m.run_time) : "time unknown"}`)).join("; ");
-    stamp.textContent = `Generated ${when(g)} · ${n} ensemble members${runs ? ` (${runs})` : ""}`;
+    const c = doc.ceiling || {};
+    const cig = c.state === "used" ? `; ceiling trial: GEFS run ${when(c.run_time)} from NOAA's files`
+      : c.state ? "; ceiling trial: not read this run" : "";
+    stamp.textContent = `Generated ${when(g)} · ${n} ensemble members${runs ? ` (${runs}${cig})` : ""}`;
     stamp.title = g.replace("T", " ").slice(0, 16) + " UTC";
     if (used.length < ms.length) stamp.classList.add("partial");
   }
@@ -645,7 +648,8 @@ HEADERS = """/*
 """
 
 
-HAZ_NAMES = {"wind": "Strong wind (gusts)", "vis": "Poor visibility", "heat": "Extreme heat", "cold": "Extreme cold"}
+HAZ_NAMES = {"wind": "Strong wind (gusts)", "vis": "Poor visibility", "heat": "Extreme heat", "cold": "Extreme cold",
+             "ceiling": "Low ceiling (trial)"}
 
 
 def _num(v, fmt="{:.3f}"):
@@ -667,13 +671,14 @@ def verification_html(doc: dict | None) -> str:
            f'too short for the two-step rule). One forecast per model run is counted. Lower Brier is better; skill '
            f'is against the sample’s own observed frequency, so 0 means no better than always forecasting that '
            f'rate. A row is marked too few to read unless it has {escape(str(r.get("readable_when", "")))}. '
-           f'Rain, snow, low cloud and icing are not scored: METARs do not measure them the way the forecast '
-           f'states them. Thresholds are indicative; not for flight planning.</p>',
+           f'Rain, snow, low cloud cover and icing are not scored: METARs do not measure them the way the forecast '
+           f'states them. The low ceiling trial is scored against the METAR ceiling (lowest broken, overcast or '
+           f'obscured layer). Thresholds are indicative; not for flight planning.</p>',
            '<div class="table-wrap"><table class="skill"><thead><tr><th>Hazard</th><th>Threshold</th>'
            '<th>Lead (days)</th><th>Forecasts</th><th>Observed</th><th>Points (with events)</th><th>Brier</th>'
            '<th>Skill</th><th>Read</th></tr></thead><tbody>']
     for c in doc["scores"]:
-        thr = "" if c.get("threshold") is None else f'{"≤" if c["hazard"] in ("vis", "cold") else "≥"} {c["threshold"]:g} {c.get("unit") or ""}'
+        thr = "" if c.get("threshold") is None else f'{"≤" if c["hazard"] in ("vis", "cold", "ceiling") else "≥"} {c["threshold"]:g} {c.get("unit") or ""}'
         lead = "all" if c["lead_days"] == "all" else str(c["lead_days"])
         read = "yes" if c.get("readable") else "too few to read"
         cls = ' class="skill-all"' if lead == "all" else ""

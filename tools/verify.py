@@ -11,6 +11,11 @@ What METARs can resolve, and how (method `vis-verify/1`):
   UTC) inside the forecast's window for that UTC day takes the station report nearest the step, within 60 minutes;
   wind uses the larger of the mean wind and the gust. The hazard is observed when the same test the forecast used
   (`forecast.hit`) holds on `min_steps` consecutive steps, as in the forecast.
+- ceiling (the "Low ceiling" trial, from 27 Nov 2026): the report's lowest BKN, OVC or VV base, from the raw text
+  before any TEMPO, BECMG, NOSIG or RMK group, in metres above the aerodrome. FEW or SCT only, CAVOK, NSC, SKC, CLR and
+  NCD mean no ceiling (stored as gefs.NO_CEILING_M); CAVOK and NSC only say nothing below 1,500 m, so ceiling
+  thresholds stay under that. A ceiling layer whose height is `///`, or a report with no cloud group, is unresolved,
+  never "no ceiling".
 - An event is "not observed" only when at least 75% of the steps have a report and no hit sits next to a missing step.
   Otherwise the forecast is stored as unresolved, with the reason, and counted; a missing report is never filled.
 - Not resolvable from METARs and counted as such: heavy rain and heavy snow (24 h totals, which most of these stations
@@ -35,7 +40,7 @@ import forecast  # noqa: E402
 import metar  # noqa: E402
 
 METHOD = "vis-verify/1"
-SCORED = ("wind", "vis", "heat", "cold")
+SCORED = ("wind", "vis", "heat", "cold", "ceiling")
 NOT_RESOLVABLE = {
     "rain": "24-hour rainfall: most of these stations report no precipitation amount in METARs",
     "snow": "24-hour snowfall: METARs carry no snowfall amount",
@@ -56,7 +61,11 @@ BINS = [(0.0, 0.05, "Almost no chance"), (0.05, 0.20, "Very unlikely"), (0.20, 0
         (0.95, 1.0001, "Almost certain")]
 NAME_RE = re.compile(r"^(\d{8}T\d{4}Z)\.forecast\.gen-(\d{8}T\d{6}Z)\.json\.gz$")
 SM_M = 1609.344
-UNITS = {"wind": "km/h", "vis": "m", "heat": "C", "cold": "C"}
+UNITS = {"wind": "km/h", "vis": "m", "heat": "C", "cold": "C", "ceiling": "m"}
+FT_M = 0.3048
+NO_CEILING_M = 20000.0   # the same "none" value as tools/gefs.py
+CLOUD_RE = re.compile(r"^(FEW|SCT|BKN|OVC|VV)(\d{3}|///)(?:CB|TCU|///)?$")
+NO_CLOUD = {"CAVOK", "NSC", "SKC", "CLR", "NCD"}
 
 
 def _t(iso):
@@ -95,7 +104,25 @@ def visib_m(rep):
         return None
 
 
+def ceiling_m(rep):
+    """Ceiling above the aerodrome in metres from the raw METAR; NO_CEILING_M for none, None when unresolved."""
+    raw = rep.get("raw") or ""
+    body = re.split(r" (?:TEMPO|BECMG|NOSIG|RMK)\b", raw)[0].split()
+    layers = [CLOUD_RE.match(t) for t in body]
+    layers = [(m.group(1), m.group(2)) for m in layers if m]
+    cig = [(a, h) for a, h in layers if a in ("BKN", "OVC", "VV")]
+    if any(h == "///" for _, h in cig):
+        return None
+    if cig:
+        return round(min(int(h) for _, h in cig) * 100 * FT_M, 1)
+    if layers or NO_CLOUD.intersection(body):
+        return NO_CEILING_M
+    return None
+
+
 def value(hazard, rep):
+    if hazard == "ceiling":
+        return ceiling_m(rep)
     if hazard == "wind":
         w = [x for x in (rep.get("wspd_kt"), rep.get("wgst_kt")) if isinstance(x, (int, float))]
         return max(w) * 1.852 if w else None

@@ -60,7 +60,9 @@ jobs:
         run: python tests/test_vis.py
       - name: Kit copy is intact
         run: python doctrine/kit/tic.py kitcheck
-      - name: Forecast (Open-Meteo ensembles)
+      # The forecast step also reads the GEFS cloud ceiling from NOAA's files on AWS Open Data (tools/gefs.py, about
+      # 1.7 GB of byte ranges and 1.5 min of decoding on 4 processes); a failure there leaves the ceiling out.
+      - name: Forecast (Open-Meteo ensembles, NOAA GEFS ceiling)
         run: python tools/forecast.py --days 7
       # Plan step W3 (ideas#246): store METARs append-only, resolve every archived forecast whose UTC day has ended,
       # and score them; the page's "Measured skill" card reads out/verification.json. A failure here leaves the card
